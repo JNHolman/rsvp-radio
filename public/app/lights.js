@@ -33,8 +33,9 @@ async function lightsPost(path, payload = {}) {
       headers: { "Content-Type": "application/json" },
       body:    JSON.stringify(payload),
     });
-  } catch (_) {
-    // Lights service is optional — never crash the UI over it
+  } catch (err) {
+    // Lights are optional — never crash the UI, but log once for troubleshooting
+    console.warn("[lights] POST", path, "failed:", err.message);
   }
 }
 

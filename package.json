@@ -8,7 +8,9 @@
   },
   "scripts": {
     "start": "node server.js",
-    "dev":   "node --watch server.js"
+    "dev":   "node --watch server.js",
+    "lint":  "node --check server.js config.js",
+    "test":  "node test/smoke.js"
   },
   "license": "ISC",
   "dependencies": {

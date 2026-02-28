@@ -36,12 +36,12 @@ function _decode(str) {
 
 function _artUrl(state) {
   if (!state) return "";
+  // Always use relative URLs — the server proxies art through /art
+  // Never call Plex directly from the browser
   if (state.artUrl) {
-    if (state.artUrl.startsWith("http")) return state.artUrl;
-    if (state.artUrl.startsWith("/"))    return "http://127.0.0.1:3000" + state.artUrl;
+    if (state.artUrl.startsWith("/")) return state.artUrl; // relative — let browser resolve
     try { return new URL(state.artUrl, location.origin).href; } catch (_) {}
   }
-  if (state.thumb) return "http://127.0.0.1:32400" + state.thumb;
   return "";
 }
 
