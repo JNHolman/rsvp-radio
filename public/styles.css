@@ -1,0 +1,199 @@
+/* public/styles.css — RSVP Radio
+   NOTE: .bgVideo transition duration must match BG_CROSSFADE_MS in public/app/config.js */
+
+:root {
+  --hdr:       clamp(26px, 2.9vw, 42px);
+  --pill:      clamp(22px, 2.2vw, 34px);
+  --cardTitle: clamp(34px, 3.2vw, 56px);
+  --cardSub:   clamp(22px, 2.0vw, 33px);
+
+  --ui-white: rgba(255,255,255,.92);
+  --ui-dim:   rgba(255,255,255,.72);
+  --ui-faint: rgba(255,255,255,.48);
+  --glass:    rgba(0,0,0,.38);
+  --stroke:   rgba(255,255,255,.10);
+  --radius:   22px;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body {
+  height: 100%;
+  margin: 0;
+  background: #000;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial;
+}
+
+/* ── Background ── */
+.stage { position: fixed; inset: 0; overflow: hidden; background: #000; }
+
+.bgVideo {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 1200ms ease; /* keep in sync with BG_CROSSFADE_MS */
+  filter: saturate(1.05) contrast(1.03);
+}
+.bgVideo.on { opacity: 1; }
+
+.vignette {
+  position: absolute; inset: -8%;
+  pointer-events: none;
+  background: radial-gradient(ellipse at center,
+    rgba(0,0,0,0) 35%, rgba(0,0,0,.55) 78%, rgba(0,0,0,.85) 100%);
+  opacity: .85;
+}
+
+.topFade {
+  position: absolute; left: 0; right: 0; top: 0; height: 18vh;
+  pointer-events: none;
+  background: linear-gradient(to bottom, rgba(0,0,0,.78), rgba(0,0,0,.18), rgba(0,0,0,0));
+}
+
+.bottomFade {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 28vh;
+  pointer-events: none;
+  background: linear-gradient(to top, rgba(0,0,0,.86), rgba(0,0,0,.24), rgba(0,0,0,0));
+}
+
+/* ── UI layer ── */
+.ui { position: absolute; inset: 0; color: var(--ui-white); }
+
+/* ── Header ── */
+.header {
+  position: absolute; left: 46px; right: 46px; top: 30px;
+  display: flex; align-items: center; justify-content: space-between;
+  z-index: 20;
+}
+
+.brand {
+  font-size: var(--hdr); letter-spacing: .18em;
+  font-weight: 500; text-transform: uppercase;
+  user-select: none; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.brand .rsvp { font-weight: 800; }
+
+.status {
+  display: flex; align-items: center; gap: 12px;
+  font-size: var(--pill); letter-spacing: .10em;
+  text-transform: uppercase; user-select: none;
+}
+
+.dot {
+  width: 10px; height: 10px; border-radius: 50%;
+  background: rgba(255,255,255,.75);
+  box-shadow: 0 0 0 2px rgba(0,0,0,.25);
+}
+
+/* ── Now Playing card ── */
+.nowCard {
+  position: absolute; left: 46px; bottom: 90px; z-index: 18;
+  display: flex; align-items: center; gap: 18px; padding: 22px 24px;
+  border-radius: var(--radius);
+  background: var(--glass); border: 1px solid var(--stroke);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 24px 60px rgba(0,0,0,.40);
+  opacity: 0; transform: translateY(14px);
+  transition: opacity 220ms ease, transform 220ms ease;
+  pointer-events: none;
+}
+.nowCard.on { opacity: 1; transform: translateY(0); }
+
+.cover {
+  width: 195px; height: 195px; border-radius: 18px;
+  overflow: hidden; background: #000; flex: 0 0 auto;
+  border: 1px solid rgba(255,255,255,.12);
+  box-shadow: 0 18px 40px rgba(0,0,0,.40);
+  display: grid; place-items: center;
+}
+.cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+.placeholder {
+  width: 100%; height: 100%; display: grid; place-items: center;
+  color: rgba(255,255,255,.85); font-weight: 650;
+  letter-spacing: .18em; text-transform: uppercase;
+  font-size: 16px; text-align: center; padding: 14px;
+  background: linear-gradient(180deg, rgba(0,0,0,.92), rgba(0,0,0,.74));
+}
+
+.meta { min-width: 650px; max-width: 1220px; }
+
+.tTitle {
+  font-size: var(--cardTitle); font-weight: 750;
+  line-height: 1.00; letter-spacing: .02em; margin: 0;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+.tArtist {
+  font-size: var(--cardSub); font-weight: 650; color: var(--ui-dim);
+  margin: 16px 0 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+.tAlbum {
+  font-size: calc(var(--cardSub) * .92); color: var(--ui-faint);
+  margin: 10px 0 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+/* ── Light menu ── */
+.menu {
+  position: absolute; left: 46px; top: 86px; z-index: 25;
+  border-radius: 18px; background: rgba(0,0,0,.50);
+  border: 1px solid rgba(255,255,255,.12); backdrop-filter: blur(12px);
+  box-shadow: 0 24px 60px rgba(0,0,0,.42);
+  padding: 14px; display: none; min-width: 520px;
+}
+.menu.on { display: block; }
+
+.menuTop {
+  display: flex; align-items: center;
+  justify-content: space-between; margin-bottom: 12px;
+}
+
+.menuTitle {
+  font-size: 14px; letter-spacing: .16em;
+  text-transform: uppercase; color: rgba(255,255,255,.82); user-select: none;
+}
+
+.menuClose {
+  width: 34px; height: 34px; border-radius: 12px;
+  border: 1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.06);
+  color: rgba(255,255,255,.88); cursor: pointer; font-weight: 700;
+  line-height: 32px; text-align: center; user-select: none;
+}
+
+.menuGrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+
+.menuBtn {
+  border-radius: 14px; border: 1px solid rgba(255,255,255,.12);
+  background: rgba(255,255,255,.06); padding: 14px;
+  color: rgba(255,255,255,.90); cursor: pointer; user-select: none;
+  font-size: 14px; letter-spacing: .14em; text-transform: uppercase;
+  display: flex; align-items: center; justify-content: center; min-height: 54px;
+}
+.menuBtn:active { transform: translateY(1px); }
+
+/* ── Exit button ── */
+.exitBtn {
+  position: fixed; right: 46px; bottom: 46px; z-index: 40;
+  width: 52px; height: 52px; border-radius: 16px;
+  border: 1px solid rgba(255,255,255,.14); background: rgba(0,0,0,.45);
+  color: rgba(255,255,255,.90); font-size: 28px;
+  line-height: 48px; text-align: center; cursor: pointer;
+  user-select: none; -webkit-tap-highlight-color: transparent;
+  backdrop-filter: blur(10px); box-shadow: 0 18px 40px rgba(0,0,0,.42);
+  opacity: .25;
+}
+.exitBtn:hover  { opacity: .85; }
+.exitBtn:active { opacity: 1; transform: translateY(1px); }
+
+/* ── Responsive ── */
+@media (max-width: 900px) {
+  .header  { left: 22px; right: 22px; top: 18px; }
+  .nowCard { left: 22px; bottom: 100px; padding: 18px; }
+  .cover   { width: 120px; height: 120px; }
+  .meta    { min-width: 420px; }
+  .menu    { left: 22px; top: 72px; min-width: 420px; }
+  .exitBtn { right: 22px; bottom: 22px; width: 56px; height: 56px; line-height: 52px; font-size: 30px; }
+}

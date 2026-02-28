@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>RSVP Radio</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+
+  <div class="stage">
+    <video id="bgA" class="bgVideo" autoplay muted loop playsinline></video>
+    <video id="bgB" class="bgVideo" autoplay muted loop playsinline></video>
+    <div class="vignette"></div>
+    <div class="topFade"></div>
+    <div class="bottomFade"></div>
+
+    <div class="ui">
+
+      <div class="header">
+        <div id="brand" class="brand"><span class="rsvp">RSVP</span> RADIO</div>
+        <div class="status" aria-label="status">
+          <div class="dot"></div>
+          <div id="statusText">IDLE</div>
+        </div>
+      </div>
+
+      <!-- Light menu — opens on RSVP RADIO click -->
+      <div id="menu" class="menu" aria-hidden="true">
+        <div class="menuTop">
+          <div class="menuTitle">LIGHTS</div>
+          <div id="menuClose" class="menuClose">×</div>
+        </div>
+        <div class="menuGrid">
+          <button class="menuBtn" data-mode="wrap">WRAP</button>
+          <button class="menuBtn" data-mode="lofi">LOFI</button>
+          <button class="menuBtn" data-mode="rap">RAP</button>
+          <button class="menuBtn" data-mode="rnb">RNB</button>
+          <button class="menuBtn" data-action="on">ON</button>
+          <button class="menuBtn" data-action="off">OFF</button>
+        </div>
+      </div>
+
+      <!-- Now Playing card -->
+      <div id="nowCard" class="nowCard">
+        <div class="cover">
+          <div class="placeholder" id="ph">RSVP<br/>RADIO</div>
+          <img id="artImg" alt="" style="display:none" />
+        </div>
+        <div class="meta">
+          <h1  id="tTitle"  class="tTitle">—</h1>
+          <div id="tArtist" class="tArtist">—</div>
+          <div id="tAlbum"  class="tAlbum">—</div>
+        </div>
+      </div>
+
+      <button id="exitBtn" class="exitBtn" aria-label="Exit">×</button>
+
+    </div>
+  </div>
+
+  <!--
+    Load order is intentional — later scripts use globals from earlier ones.
+
+    config.js      defines: BG_DAY, BG_NIGHT, BG_CROSSFADE_MS, BG_CHECK_MS,
+                            BG_RELOAD_MS, STATE_URL, LIGHTS_URL, POLL_MS,
+                            POLL_TIMEOUT, SIGNAL_DELTA_THRESHOLD,
+                            IDLE_TRANSITION_MS, TRANSITION_MS_DEFAULT,
+                            LS_MODE, LS_ACTIVE, isDayTime(), blockModeForNow()
+
+    background.js  uses:   BG_*, isDayTime
+                   exports: bootBackground(), swapBackgroundIfNeeded(),
+                            startBackgroundTimers()
+
+    lights.js      uses:   LIGHTS_URL, LS_*, blockModeForNow,
+                            SIGNAL_DELTA_THRESHOLD, IDLE_TRANSITION_MS,
+                            TRANSITION_MS_DEFAULT
+                   exports: onPlaybackStart(), onPlaybackStop(), sendSignal(),
+                            setLightsMode(), setLightsOn(), setLightsOff(),
+                            startBoundaryTimer()
+
+    player.js      uses:   STATE_URL, POLL_MS, POLL_TIMEOUT,
+                            onPlaybackStart, onPlaybackStop, sendSignal
+                   exports: startPolling()
+
+    main.js        uses:   all of the above exports
+                   wires:  menu, exit button, boot sequence
+  -->
+  <script src="/app/constants.js"></script>
+  <script src="/app/background.js"></script>
+  <script src="/app/lights.js"></script>
+  <script src="/app/player.js"></script>
+  <script src="/app/main.js"></script>
+
+</body>
+</html>
