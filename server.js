@@ -18,6 +18,7 @@ const { URL }  = require("url");
 const cfg         = require("./config");
 const skipTracker = require("./intelligence/skip-tracker");
 const plexSync    = require("./intelligence/plex-sync");
+const session     = require("./intelligence/session");
 
 // ── XML parser ────────────────────────────────────────────────────────────────
 // Uses fast-xml-parser when available, falls back to regex shim.
@@ -228,6 +229,18 @@ async function pollSessions() {
       _prevPollTrack = { ratingKey: t.ratingKey, title: t.title, artist: t.artist, scrobbled: false };
     }
 
+    // ── Session / seed detection ──────────────────────────────────────────────
+    session.checkSession(
+      { ratingKey: t.ratingKey, title: t.title, artist: t.artist },
+      cfg.PLEX_BASE, cfg.PLEX_TOKEN, blockModeForNow
+    ).then(seedMode => {
+      if (seedMode) {
+        // New session detected — push mode change to all connected clients
+        console.log(`[session] Broadcasting mode → ${seedMode}`);
+        lastState = { ...lastState, mode: seedMode };
+      }
+    }).catch(() => {});
+
     lastState = {
       event: t.playerState === "paused" ? "media.pause" : "media.play",
       mode,
@@ -285,9 +298,14 @@ app.get("/art", async (req, res) => {
   }
 });
 
-// Kiosk exit — local Pi only, intentionally simple
+// Kiosk exit — stops Plexamp playback then kills Chromium
 app.post("/api/exit", (_req, res) => {
-  exec('pkill -f "chromium.*--kiosk" || true', () => res.json({ ok: true }));
+  const stopUrl = `${cfg.PLEX_BASE}/player/playback/stop?X-Plex-Token=${encodeURIComponent(cfg.PLEX_TOKEN)}&X-Plex-Target-Client-Identifier=5336489d-cecf-4597-b1ab-7377aa825c6a&X-Plex-Client-Identifier=rsvp-radio&commandID=1`;
+  exec(`curl -s -X GET "${stopUrl}" || true`, () => {
+    setTimeout(() => {
+      exec('pkill -f "chromium.*--kiosk" || true', () => res.json({ ok: true }));
+    }, 500);
+  });
 });
 
 // ── Plex webhook receiver ─────────────────────────────────────────────────────
