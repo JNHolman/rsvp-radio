@@ -268,6 +268,41 @@ app.post("/api/exit", (_req, res) => {
   exec('pkill -f "chromium.*--kiosk" || true', () => res.json({ ok: true }));
 });
 
+// ── Plex webhook receiver ─────────────────────────────────────────────────────
+// Plex sends multipart/form-data — the JSON payload is in a field called "payload"
+// We parse it manually since express.json() won't touch multipart.
+// Phase 1: log everything so we can see exactly what events Plex fires.
+// Nothing else in the system is affected.
+
+app.post("/plex", (req, res) => {
+  let body = "";
+  req.on("data", chunk => { body += chunk.toString(); });
+  req.on("end", () => {
+    try {
+      // Extract the JSON from the multipart payload field
+      const match = body.match(/"payload"\s*[\r\n]+([^\r\n]+[\r\n]+)*?({[\s\S]*?})\s*[-]+/);
+      const jsonStr = match ? match[2] : null;
+
+      if (!jsonStr) {
+        console.log("[plex-webhook] received but could not parse payload");
+        return res.sendStatus(200);
+      }
+
+      const payload = JSON.parse(jsonStr);
+      const event   = payload.event        || "unknown";
+      const title   = payload.Metadata?.title           || "";
+      const artist  = payload.Metadata?.grandparentTitle || "";
+      const ratingKey = payload.Metadata?.ratingKey     || "";
+
+      console.log(`[plex-webhook] ${event} | "${title}" by ${artist} | key:${ratingKey}`);
+
+    } catch (err) {
+      console.log("[plex-webhook] parse error:", err.message);
+    }
+    res.sendStatus(200);
+  });
+});
+
 // ── Boot ──────────────────────────────────────────────────────────────────────
 app.listen(cfg.PORT, () => {
   console.log(`[server] RSVP Radio on :${cfg.PORT}`);
