@@ -15,7 +15,9 @@
 const express  = require("express");
 const { exec } = require("child_process");
 const { URL }  = require("url");
-const cfg      = require("./config");
+const cfg         = require("./config");
+const skipTracker = require("./intelligence/skip-tracker");
+const plexSync    = require("./intelligence/plex-sync");
 
 // ── XML parser ────────────────────────────────────────────────────────────────
 // Uses fast-xml-parser when available, falls back to regex shim.
@@ -179,6 +181,9 @@ let lastState = {
   updatedAt: Date.now(), error: "",
 };
 
+// ── Skip detection state ──────────────────────────────────────────────────────
+let _prevPollTrack = null; // { ratingKey, title, artist, scrobbled }
+
 // ── Plex poll ─────────────────────────────────────────────────────────────────
 async function pollSessions() {
   const { bass, energy } = featuresNow();
@@ -206,6 +211,23 @@ async function pollSessions() {
     }
 
     const plexArt = buildPlexArtUrl(t.thumb);
+
+    // ── Skip detection ────────────────────────────────────────────────────────
+    if (_prevPollTrack && _prevPollTrack.ratingKey !== t.ratingKey) {
+      if (!_prevPollTrack.scrobbled) {
+        const pct = lastState.durationMs > 0
+          ? lastState.viewOffsetMs / lastState.durationMs
+          : 0;
+        skipTracker.recordSkip(_prevPollTrack, pct);
+        plexSync.syncRating(_prevPollTrack.ratingKey, cfg.PLEX_BASE, cfg.PLEX_TOKEN);
+      }
+    }
+
+    // Update prev track
+    if (!_prevPollTrack || _prevPollTrack.ratingKey !== t.ratingKey) {
+      _prevPollTrack = { ratingKey: t.ratingKey, title: t.title, artist: t.artist, scrobbled: false };
+    }
+
     lastState = {
       event: t.playerState === "paused" ? "media.pause" : "media.play",
       mode,
@@ -269,36 +291,40 @@ app.post("/api/exit", (_req, res) => {
 });
 
 // ── Plex webhook receiver ─────────────────────────────────────────────────────
-// Plex sends multipart/form-data — the JSON payload is in a field called "payload"
-// We parse it manually since express.json() won't touch multipart.
-// Phase 1: log everything so we can see exactly what events Plex fires.
-// Nothing else in the system is affected.
+// Handles media.scrobble only — marks song as played so poll skip detector
+// doesn't count it as a skip. Also syncs rating to Plex.
+
+function _parseWebhookBody(body) {
+  try {
+    const match = body.match(/name="payload"[\s\S]*?Content-Type: application\/json\s*\r?\n\r?\n({[\s\S]*?})\s*\r?\n-+/);
+    if (match) return JSON.parse(match[1]);
+    const jsonMatch = body.match(/({[\s\S]*"event"[\s\S]*})/);
+    if (jsonMatch) return JSON.parse(jsonMatch[1]);
+    return null;
+  } catch { return null; }
+}
 
 app.post("/plex", (req, res) => {
   let body = "";
   req.on("data", chunk => { body += chunk.toString(); });
   req.on("end", () => {
-    try {
-      // Extract the JSON from the multipart payload field
-      const match = body.match(/"payload"\s*[\r\n]+([^\r\n]+[\r\n]+)*?({[\s\S]*?})\s*[-]+/);
-      const jsonStr = match ? match[2] : null;
+    const payload = _parseWebhookBody(body);
+    if (!payload) return res.sendStatus(200);
 
-      if (!jsonStr) {
-        console.log("[plex-webhook] received but could not parse payload");
-        return res.sendStatus(200);
+    const event     = payload.event                      || "unknown";
+    const title     = payload.Metadata?.title            || "";
+    const artist    = payload.Metadata?.grandparentTitle || "";
+    const ratingKey = payload.Metadata?.ratingKey        || "";
+
+    if (event === "media.scrobble") {
+      console.log(`[plex-webhook] scrobble | "${title}" by ${artist}`);
+      if (_prevPollTrack && _prevPollTrack.ratingKey === ratingKey) {
+        _prevPollTrack.scrobbled = true;
       }
-
-      const payload = JSON.parse(jsonStr);
-      const event   = payload.event        || "unknown";
-      const title   = payload.Metadata?.title           || "";
-      const artist  = payload.Metadata?.grandparentTitle || "";
-      const ratingKey = payload.Metadata?.ratingKey     || "";
-
-      console.log(`[plex-webhook] ${event} | "${title}" by ${artist} | key:${ratingKey}`);
-
-    } catch (err) {
-      console.log("[plex-webhook] parse error:", err.message);
+      skipTracker.recordPlay({ ratingKey, title, artist });
+      plexSync.syncCleanPlay(ratingKey, title, cfg.PLEX_BASE, cfg.PLEX_TOKEN);
     }
+
     res.sendStatus(200);
   });
 });
@@ -308,6 +334,8 @@ app.listen(cfg.PORT, () => {
   console.log(`[server] RSVP Radio on :${cfg.PORT}`);
   console.log(`[server] Plex: ${cfg.PLEX_BASE} | token: ${cfg.PLEX_TOKEN ? "set ✓" : "NOT SET ✗"}`);
   console.log(`[server] Serving: ${cfg.PUBLIC_DIR}`);
+  // Sync all existing skip data to Plex on startup
+  plexSync.syncAll(cfg.PLEX_BASE, cfg.PLEX_TOKEN);
   pollSessions();
   setInterval(pollSessions, cfg.POLL_MS);
 });
