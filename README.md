@@ -8,6 +8,7 @@ RSVP Radio is a Pi-hosted Plex kiosk UI with music-reactive lighting and session
 - Displays now-playing metadata and proxied album art
 - Pushes bass / energy signals to the local lights service
 - Detects new listening sessions after idle time and seeds the session mode from track genre
+- Waits for seed-genre resolution on a true new session so the first light-mode command is genre-first, or falls back cleanly to the current time block if genre lookup times out or does not match
 - Pre-fades lighting at time-block boundaries without changing the override model
 - Runs locally on a Raspberry Pi kiosk with Pi-local background video assets
 
@@ -21,12 +22,14 @@ RSVP Radio is a Pi-hosted Plex kiosk UI with music-reactive lighting and session
 - `POST /api/exit`
 - `GET /runtime-config.js`
 
+There is currently **no** `/stats` route or bundled stats page in this codebase.
+
 ## Scripts
 
-- `npm run lint` → syntax-check all repo JS files
-- `npm test` → unit + integration tests
-- `npm run test:smoke` → smoke test against a running server
-- `npm run verify` → lint + full automated test suite
+- `npm run lint` -> syntax-check all repo JS files
+- `npm test` -> unit + integration tests
+- `npm run test:smoke` -> smoke test against an already-running server
+- `npm run verify` -> lint + full automated test suite
 
 ## Deployment assumptions
 
@@ -39,18 +42,20 @@ RSVP Radio is a Pi-hosted Plex kiosk UI with music-reactive lighting and session
 
 ## Single source of truth inside this repo
 
-Time blocks now come from `shared/timeblocks.js` and are injected into the browser through `GET /runtime-config.js`.
+Time blocks come from `shared/timeblocks.js` and are injected into the browser through `GET /runtime-config.js`.
+Browser-side fallback values still exist in `public/app/constants.js` as a safety net if runtime config is unavailable.
 
-- `lofi`: 04:00–12:00
-- `wrap`: 12:00–17:00
-- `rap`: 17:00–23:00
-- `rnb`: 23:00–04:00
+- `lofi`: 04:00-12:00
+- `wrap`: 12:00-17:00
+- `rap`: 17:00-23:00
+- `rnb`: 23:00-04:00
 
 Pre-fade trigger: 5 minutes before each boundary.
 Default boundary transition: 360000 ms.
 
 ## Ops notes
 
-- `/health` reports stale poll state plus missing background assets
-- `/api/exit` is local-only unless an explicit `EXIT_API_TOKEN` is set
+- `/health` reports stale poll state plus missing required background assets
+- `/api/exit` is local-only by default; token auth can be enabled with `EXIT_API_TOKEN`
+- Seed-genre lookup timeout can be tuned with `SESSION_GENRE_FETCH_TIMEOUT_MS`
 - The lights service contract is documented in `LIGHTS_SERVICE_CONTRACT.md`
