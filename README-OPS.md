@@ -51,17 +51,21 @@
 PLEX_TOKEN=your-token        # required
 PUBLIC_DIR=/home/pi/rsvp-radio/public
 PLEX_BASE=http://127.0.0.1:32400
+LIGHTS_URL=http://127.0.0.1:5005
 PORT=3000
 POLL_MS=2000
 ```
 
-## Time blocks (keep in sync across all three files)
-| Block | Hours | Files |
-|-------|-------|-------|
-| lofi  | 04:00–12:00 | server config.js, public/app/constants.js, rsvp_lights_service.py |
-| wrap  | 12:00–17:00 | same |
-| rap   | 17:00–23:00 | same |
-| rnb   | 23:00–04:00 | same |
+## Time blocks
+Inside this repo, the server and browser are fed from the shared time-block module.
+The external lights service must still mirror the same schedule.
+
+| Block | Hours | Mirror required outside this repo |
+|-------|-------|-----------------------------------|
+| lofi  | 04:00–12:00 | yes |
+| wrap  | 12:00–17:00 | yes |
+| rap   | 17:00–23:00 | yes |
+| rnb   | 23:00–04:00 | yes |
 
 ## Quick health checks
 ```bash

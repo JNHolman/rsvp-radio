@@ -60,9 +60,10 @@
   </div>
 
   <!--
-    Load order is intentional — later scripts use globals from earlier ones.
+    Load order is intentional — /runtime-config.js injects deployment values,
+    then /app/constants.js defines the browser globals that the later files use.
 
-    config.js      defines: BG_DAY, BG_NIGHT, BG_CROSSFADE_MS, BG_CHECK_MS,
+    constants.js   defines: BG_DAY, BG_NIGHT, BG_CROSSFADE_MS, BG_CHECK_MS,
                             BG_RELOAD_MS, STATE_URL, LIGHTS_URL, POLL_MS,
                             POLL_TIMEOUT, SIGNAL_DELTA_THRESHOLD,
                             IDLE_TRANSITION_MS, TRANSITION_MS_DEFAULT,
@@ -86,6 +87,7 @@
     main.js        uses:   all of the above exports
                    wires:  menu, exit button, boot sequence
   -->
+  <script src="/runtime-config.js"></script>
   <script src="/app/constants.js"></script>
   <script src="/app/background.js"></script>
   <script src="/app/lights.js"></script>

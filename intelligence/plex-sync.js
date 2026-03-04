@@ -20,7 +20,7 @@
 const fs   = require("fs");
 const path = require("path");
 
-const DATA_PATH = path.join(__dirname, "..", "data", "skip-data.json");
+const DATA_PATH = process.env.SKIP_DATA_PATH || path.join(__dirname, "..", "data", "skip-data.json");
 
 // ── Rating map ────────────────────────────────────────────────────────────────
 function starsForStrikes(strikes) {

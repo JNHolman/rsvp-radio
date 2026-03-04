@@ -1,7 +1,7 @@
 /**
  * test/smoke.js
  * Basic smoke tests — confirms server is up and returning expected shape.
- * Run with: npm test
+ * Run with: npm run test:smoke
  * Requires the server to already be running on PORT (default 3000).
  */
 
@@ -26,9 +26,12 @@ async function testHealth() {
   const r = await fetch(`${BASE}/health`);
   assert("status 200", r.status === 200, `got ${r.status}`);
   const body = await r.json();
-  assert("ok: true", body.ok === true);
+  assert("ok is boolean", typeof body.ok === "boolean");
   assert("has mode", typeof body.mode === "string");
   assert("has updatedAt", typeof body.updatedAt === "number");
+  assert("has staleMs", typeof body.staleMs === "number");
+  assert("has assetsOk", typeof body.assetsOk === "boolean");
+  assert("has assetsMissing", Array.isArray(body.assetsMissing));
 }
 
 async function testState() {

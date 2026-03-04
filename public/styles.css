@@ -1,5 +1,5 @@
 /* public/styles.css — RSVP Radio
-   NOTE: .bgVideo transition duration must match BG_CROSSFADE_MS in public/app/config.js */
+   NOTE: .bgVideo transition duration must match BG_CROSSFADE_MS in public/app/constants.js */
 
 :root {
   --hdr:       clamp(26px, 2.9vw, 42px);

@@ -12,8 +12,15 @@
 
 // ── Session persistence ───────────────────────────────────────────────────────
 
+const _VALID_MODES = new Set(["wrap", "lofi", "rap", "rnb", "idle"]);
+
+function normalizeMode(mode) {
+  const value = String(mode || "").toLowerCase();
+  return _VALID_MODES.has(value) ? value : "";
+}
+
 function getSessionActive()  { return localStorage.getItem(LS_ACTIVE) === "1"; }
-function getSessionMode()    { return localStorage.getItem(LS_MODE) || ""; }
+function getSessionMode()    { return normalizeMode(localStorage.getItem(LS_MODE) || ""); }
 
 function setSessionActive(v) {
   localStorage.setItem(LS_ACTIVE, v ? "1" : "0");
@@ -21,7 +28,8 @@ function setSessionActive(v) {
 }
 
 function setSessionMode(mode) {
-  if (mode) localStorage.setItem(LS_MODE, mode);
+  const normalized = normalizeMode(mode);
+  if (normalized && normalized !== "idle") localStorage.setItem(LS_MODE, normalized);
 }
 
 // ── Core POST ─────────────────────────────────────────────────────────────────
@@ -58,15 +66,31 @@ async function sendSignal(bass, energy) {
 
 let _idleFired = false;
 
-async function onPlaybackStart() {
+async function applyServerMode(mode) {
+  const next = normalizeMode(mode);
+  if (!next || next === "idle") return;
+
+  const current = getSessionMode();
+  setSessionMode(next);
+  setSessionActive(true);
+
+  if (current === next && getSessionActive()) return;
+  await lightsPost("/mode/" + next);
+}
+
+async function onPlaybackStart(preferredMode = "") {
   _idleFired = false;
+
+  const preferred = normalizeMode(preferredMode);
 
   if (!getSessionActive()) {
     setSessionActive(true);
-    if (!getSessionMode()) setSessionMode(blockModeForNow());
+    setSessionMode(preferred || getSessionMode() || blockModeForNow());
+  } else if (preferred && preferred !== getSessionMode()) {
+    setSessionMode(preferred);
   }
 
-  const mode = getSessionMode() || blockModeForNow();
+  const mode = preferred || getSessionMode() || blockModeForNow();
   await lightsPost("/mode/" + mode);
 }
 
@@ -82,9 +106,11 @@ async function onPlaybackStop() {
 // ── Menu controls ─────────────────────────────────────────────────────────────
 
 async function setLightsMode(mode) {
-  setSessionMode(mode);
+  const next = normalizeMode(mode);
+  if (!next || next === "idle") return;
+  setSessionMode(next);
   setSessionActive(true);
-  await lightsPost("/mode/" + mode);
+  await lightsPost("/mode/" + next);
 }
 
 async function setLightsOn()  { await lightsPost("/on");  }
@@ -92,40 +118,40 @@ async function setLightsOff() { await lightsPost("/off"); }
 
 // ── Boundary timer (30s interval, not 1s) ────────────────────────────────────
 
-const _BOUNDARIES   = [4 * 60, 12 * 60, 17 * 60, 23 * 60];
-const _PRE_FADE_MIN = 5;
+const _BOUNDARIES = TIME_BLOCKS.map((block) => block.startMin);
 let   _lastBoundaryKey = null;
 
-function _boundaryMode(b) {
-  if (b === 4  * 60) return "lofi";
-  if (b === 12 * 60) return "wrap";
-  if (b === 17 * 60) return "rap";
-  return "rnb";
+function _boundaryMode(boundaryMin) {
+  const match = TIME_BLOCKS.find((block) => block.startMin === boundaryMin);
+  return match ? match.mode : "rnb";
+}
+
+function _shouldTriggerBoundary(minute, boundaryMin) {
+  const fireAt = (boundaryMin - PRE_FADE_MIN + 24 * 60) % (24 * 60);
+  return minute >= fireAt && minute < fireAt + 1;
 }
 
 async function _checkBoundary() {
   if (!getSessionActive()) return;
 
-  const m = new Date().getHours() * 60 + new Date().getMinutes();
+  const minute = minutesOfDay(new Date());
 
-  for (const b of _BOUNDARIES) {
-    const fireAt = (b - _PRE_FADE_MIN + 24 * 60) % (24 * 60);
-    // Fire within the 1-minute window
-    if (m >= fireAt && m < fireAt + 1) {
-      const key = `${new Date().toDateString()}_${b}`;
-      if (_lastBoundaryKey === key) return;
-      _lastBoundaryKey = key;
+  for (const boundaryMin of _BOUNDARIES) {
+    if (!_shouldTriggerBoundary(minute, boundaryMin)) continue;
 
-      const from = getSessionMode() || blockModeForNow();
-      const to   = _boundaryMode(b);
-      await lightsPost("/transition", { from, to, durMs: TRANSITION_MS_DEFAULT });
-      setSessionMode(to);
-      return;
-    }
+    const key = `${new Date().toDateString()}_${boundaryMin}`;
+    if (_lastBoundaryKey === key) return;
+    _lastBoundaryKey = key;
+
+    const from = getSessionMode() || blockModeForNow();
+    const to   = _boundaryMode(boundaryMin);
+    await lightsPost("/transition", { from, to, durMs: TRANSITION_MS_DEFAULT });
+    setSessionMode(to);
+    return;
   }
 }
 
 function startBoundaryTimer() {
-  _checkBoundary(); // immediate check on boot
+  _checkBoundary();
   setInterval(_checkBoundary, 30 * 1000);
 }

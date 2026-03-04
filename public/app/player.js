@@ -20,7 +20,7 @@ const _el = {
 };
 
 // ── Change detection cache ────────────────────────────────────────────────────
-let _prev = { playing: null, title: null, artist: null, album: null, artUrl: null };
+let _prev = { playing: null, title: null, artist: null, album: null, artUrl: null, mode: null };
 
 // ── In-flight guard ───────────────────────────────────────────────────────────
 let _busy = false;
@@ -103,6 +103,7 @@ async function poll() {
 
     if (!playing) {
       _showCard(false);
+      _prev.mode = null;
       if (_prev.playing !== false) {
         _prev.playing = false;
         await onPlaybackStop();
@@ -111,9 +112,15 @@ async function poll() {
     }
 
     // ── Playing ───────────────────────────────────────────────────────────────
+    const serverMode = typeof state?.mode === "string" ? state.mode : "";
+
     if (_prev.playing !== true) {
       _prev.playing = true;
-      await onPlaybackStart();
+      _prev.mode = serverMode || null;
+      await onPlaybackStart(serverMode);
+    } else if (serverMode && serverMode !== _prev.mode) {
+      _prev.mode = serverMode;
+      await applyServerMode(serverMode);
     }
 
     _showCard(true);

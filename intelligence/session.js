@@ -19,8 +19,9 @@
 const fs   = require("fs");
 const path = require("path");
 
-const DATA_PATH    = path.join(__dirname, "..", "data", "session.json");
+const DATA_PATH    = process.env.SESSION_DATA_PATH || path.join(__dirname, "..", "data", "session.json");
 const IDLE_TIMEOUT = 45 * 60 * 1000; // 45 minutes of silence = new session
+const GENRE_FETCH_TIMEOUT_MS = Number(process.env.SESSION_GENRE_FETCH_TIMEOUT_MS) || 4000;
 
 // ── Genre → mode map ──────────────────────────────────────────────────────────
 const GENRE_MODE_MAP = [
@@ -48,14 +49,19 @@ function load() {
 }
 
 function save(data) {
-  try { fs.writeFileSync(DATA_PATH, JSON.stringify(data, null, 2)); } catch {}
+  try {
+    fs.mkdirSync(path.dirname(DATA_PATH), { recursive: true });
+    fs.writeFileSync(DATA_PATH, JSON.stringify(data, null, 2), "utf8");
+  } catch {}
 }
 
 // ── Fetch genres from Plex ────────────────────────────────────────────────────
 async function fetchGenres(ratingKey, plexBase, plexToken) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), GENRE_FETCH_TIMEOUT_MS);
   try {
     const url = `${plexBase}/library/metadata/${ratingKey}?X-Plex-Token=${encodeURIComponent(plexToken)}`;
-    const res = await fetch(url);
+    const res = await fetch(url, { signal: ctrl.signal });
     if (!res.ok) return [];
     const xml    = await res.text();
     const genres = [];
@@ -64,6 +70,7 @@ async function fetchGenres(ratingKey, plexBase, plexToken) {
     while ((m = re.exec(xml)) !== null) genres.push(m[1]);
     return genres;
   } catch { return []; }
+  finally { clearTimeout(timer); }
 }
 
 // ── Main: check if new session and handle seed ────────────────────────────────
@@ -83,7 +90,7 @@ async function checkSession(track, plexBase, plexToken, blockMode) {
   const now   = Date.now();
 
   // Update last played timestamp
-  const wasIdle    = (now - state.lastPlayedAt) > IDLE_TIMEOUT;
+  const wasIdle = (now - state.lastPlayedAt) > IDLE_TIMEOUT;
   state.lastPlayedAt = now;
 
   // Not a new session — just update timestamp and return
@@ -98,6 +105,11 @@ async function checkSession(track, plexBase, plexToken, blockMode) {
   state.seedTitle     = track.title;
   state.seedArtist    = track.artist;
   state.sessionStartedAt = now;
+  state.seedMode      = null;
+  state.seedGenres    = [];
+
+  // Persist immediately so slow Plex metadata does not trigger duplicate sessions
+  save(state);
 
   console.log(`[session] New session #${state.sessionCount} — seed: "${track.title}" by ${track.artist}`);
 
@@ -105,16 +117,22 @@ async function checkSession(track, plexBase, plexToken, blockMode) {
   const genres = await fetchGenres(track.ratingKey, plexBase, plexToken);
   console.log(`[session] Seed genres: ${genres.length ? genres.join(", ") : "none"}`);
 
+  // Reload latest state so we only enrich the same session we started above
+  const latest = load();
+  if (latest.sessionStartedAt !== now || latest.seedRatingKey !== track.ratingKey) {
+    return latest.seedMode || null;
+  }
+
   // Map genres to mode
   const detectedMode = genreToMode(genres);
   const mode         = detectedMode || blockMode();
 
-  state.seedMode    = mode;
-  state.seedGenres  = genres;
+  latest.seedMode   = mode;
+  latest.seedGenres = genres;
 
   console.log(`[session] Setting lights mode → ${mode}${detectedMode ? " (from genre)" : " (time block fallback)"}`);
 
-  save(state);
+  save(latest);
   return mode;
 }
 
@@ -125,4 +143,4 @@ function getSession() {
   return load();
 }
 
-module.exports = { checkSession, getSession };
+module.exports = { checkSession, getSession, genreToMode, fetchGenres };

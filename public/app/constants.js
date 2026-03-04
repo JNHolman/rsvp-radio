@@ -1,53 +1,69 @@
 /**
- * public/app/config.js
- * All front-end constants in one place.
- * Every other module reads from here — no magic numbers anywhere else.
- *
- * TIME BLOCKS must stay in sync with:
- *   server-side:  /home/pi/rsvp-radio/config.js → blockModeForNow()
- *   lights:       /home/pi/rsvp_lights_service.py → timeblock_mode()
+ * public/app/constants.js
+ * Repo-side runtime constants. Server injects deployment values through
+ * /runtime-config.js so schedule and endpoint changes do not drift.
  */
 
+const RUNTIME = window.RSVP_RUNTIME_CONFIG || {};
+
 // ── Video assets ──────────────────────────────────────────────────────────────
-const BG_DAY   = "/assets/bg/rsvp_day_720_optimized.mp4";
-const BG_NIGHT = "/assets/bg/rsvp_night_720.mp4";
+const BG_DAY   = RUNTIME.bgDay || "/assets/bg/rsvp_day_720_optimized.mp4";
+const BG_NIGHT = RUNTIME.bgNight || "/assets/bg/rsvp_night_720.mp4";
 
 // ── Server endpoints ──────────────────────────────────────────────────────────
 const STATE_URL  = "/state";
-const LIGHTS_URL = "http://127.0.0.1:5005";
+const LIGHTS_URL = RUNTIME.lightsUrl || "http://127.0.0.1:5005";
 
 // ── Polling ───────────────────────────────────────────────────────────────────
-const POLL_MS      = 2000;   // how often to fetch /state
-const POLL_TIMEOUT = 2000;   // per-fetch timeout
+const POLL_MS      = Number(RUNTIME.pollMs) || 2000;
+const POLL_TIMEOUT = Number(RUNTIME.pollTimeoutMs) || 2000;
 
 // ── Background video ──────────────────────────────────────────────────────────
-const BG_CHECK_MS    = 20000;          // how often to check day vs night
-const BG_RELOAD_MS   = 30 * 60 * 1000; // memory-safe reload interval
-const BG_CROSSFADE_MS = 1200;          // MUST match transition duration in styles.css
+const BG_CHECK_MS      = 20000;
+const BG_RELOAD_MS     = 30 * 60 * 1000;
+const BG_CROSSFADE_MS  = 1200;
 
 // ── Lights signal ─────────────────────────────────────────────────────────────
-// Only POST /signal when bass or energy delta exceeds this threshold
 const SIGNAL_DELTA_THRESHOLD = 0.03;
 
-// ── Lights transitions ────────────────────────────────────────────────────────
-const IDLE_TRANSITION_MS      = 90000;   // fade to idle/amber
-const TRANSITION_MS_DEFAULT   = 360000;  // block-to-block crossfade (6 min)
+// ── Time blocks / transitions ────────────────────────────────────────────────
+const TIME_BLOCKS = Array.isArray(RUNTIME.timeBlocks) && RUNTIME.timeBlocks.length
+  ? RUNTIME.timeBlocks
+  : [
+      { mode: "lofi", startMin: 240, endMin: 720 },
+      { mode: "wrap", startMin: 720, endMin: 1020 },
+      { mode: "rap",  startMin: 1020, endMin: 1380 },
+      { mode: "rnb",  startMin: 1380, endMin: 240 },
+    ];
+
+const PRE_FADE_MIN = Number(RUNTIME.preFadeMin) || 5;
+const IDLE_TRANSITION_MS    = 90000;
+const TRANSITION_MS_DEFAULT = Number(RUNTIME.transitionMsDefault) || 360000;
 
 // ── Session storage keys ──────────────────────────────────────────────────────
 const LS_MODE   = "rsvp.sessionMode.v1";
 const LS_ACTIVE = "rsvp.sessionActive.v1";
 
-// ── Time helpers ──────────────────────────────────────────────────────────────
+function minutesOfDay(date = new Date()) {
+  return date.getHours() * 60 + date.getMinutes();
+}
+
 function isDayTime() {
-  const m = new Date().getHours() * 60 + new Date().getMinutes();
+  const m = minutesOfDay(new Date());
   return m >= 8 * 60 && m < 22 * 60;
 }
 
-// LOFI 04:00–12:00 | WRAP 12:00–17:00 | RAP 17:00–23:00 | RNB 23:00–04:00
-function blockModeForNow() {
-  const m = new Date().getHours() * 60 + new Date().getMinutes();
-  if (m >= 4  * 60 && m < 12 * 60) return "lofi";
-  if (m >= 12 * 60 && m < 17 * 60) return "wrap";
-  if (m >= 17 * 60 && m < 23 * 60) return "rap";
+function blockModeForMinute(minute) {
+  for (const block of TIME_BLOCKS) {
+    if (block.startMin < block.endMin) {
+      if (minute >= block.startMin && minute < block.endMin) return block.mode;
+    } else if (minute >= block.startMin || minute < block.endMin) {
+      return block.mode;
+    }
+  }
   return "rnb";
+}
+
+function blockModeForNow() {
+  return blockModeForMinute(minutesOfDay(new Date()));
 }

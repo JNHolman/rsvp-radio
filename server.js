@@ -19,6 +19,7 @@ const cfg         = require("./config");
 const skipTracker = require("./intelligence/skip-tracker");
 const plexSync    = require("./intelligence/plex-sync");
 const session     = require("./intelligence/session");
+const timeblocks  = require("./shared/timeblocks");
 
 // ── XML parser ────────────────────────────────────────────────────────────────
 // Uses fast-xml-parser when available, falls back to regex shim.
@@ -62,18 +63,8 @@ function featuresNow() {
 }
 
 // ── Time blocks ───────────────────────────────────────────────────────────────
-// Keep in sync with public/app/config.js and rsvp_lights_service.py
-function nowMinutes() {
-  const d = new Date();
-  return d.getHours() * 60 + d.getMinutes();
-}
-
 function blockModeForNow() {
-  const m = nowMinutes();
-  if (m >= 4  * 60 && m < 12 * 60) return "lofi";
-  if (m >= 12 * 60 && m < 17 * 60) return "wrap";
-  if (m >= 17 * 60 && m < 23 * 60) return "rap";
-  return "rnb";
+  return timeblocks.blockModeForDate(new Date());
 }
 
 // ── Fetch with timeout ────────────────────────────────────────────────────────
@@ -172,6 +163,23 @@ function buildPlexArtUrl(thumb) {
   return url;
 }
 
+
+function publicAssetExists(assetPath) {
+  const relative = String(assetPath || "").replace(/^\/+/, "");
+  return require("fs").existsSync(require("path").join(cfg.PUBLIC_DIR, relative));
+}
+
+function assetHealth() {
+  const required = [cfg.BG_DAY, cfg.BG_NIGHT];
+  const missing = required.filter((asset) => !publicAssetExists(asset));
+  return { ok: missing.length === 0, required, missing };
+}
+
+function localOnlyRequest(req) {
+  const ip = String(req.ip || req.socket?.remoteAddress || "");
+  return ip === "127.0.0.1" || ip === "::1" || ip === "::ffff:127.0.0.1";
+}
+
 // ── UI state ──────────────────────────────────────────────────────────────────
 let lastState = {
   event: "idle", mode: blockModeForNow(),
@@ -184,18 +192,22 @@ let lastState = {
 
 // ── Skip detection state ──────────────────────────────────────────────────────
 let _prevPollTrack = null; // { ratingKey, title, artist, scrobbled }
+let _pollInFlight  = false;
 
 // ── Plex poll ─────────────────────────────────────────────────────────────────
 async function pollSessions() {
+  if (_pollInFlight) return;
+  _pollInFlight = true;
+
   const { bass, energy } = featuresNow();
-  const mode             = blockModeForNow();
+  const timeBlockMode    = blockModeForNow();
 
   try {
     const url = `${cfg.PLEX_BASE}/status/sessions?X-Plex-Token=${encodeURIComponent(cfg.PLEX_TOKEN)}`;
-    const r   = await fetchWithTimeout(url, 2500);
+    const r   = await fetchWithTimeout(url, cfg.POLL_TIMEOUT_MS);
 
     if (!r.ok) {
-      lastState = { ...lastState, event: "idle", mode, bass, energy, updatedAt: Date.now(), error: `plex_http_${r.status}` };
+      lastState = { ...lastState, event: "idle", mode: timeBlockMode, bass, energy, updatedAt: Date.now(), error: `plex_http_${r.status}` };
       return;
     }
 
@@ -203,7 +215,7 @@ async function pollSessions() {
 
     if (!t || (!t.title && !t.thumb && !t.artist && !t.album)) {
       lastState = {
-        ...lastState, event: "idle", mode,
+        ...lastState, event: "idle", mode: timeBlockMode,
         type: "", title: "", artist: "", album: "",
         playerState: "", viewOffsetMs: 0, durationMs: 0,
         thumb: "", artUrl: "", bass, energy, updatedAt: Date.now(), error: "",
@@ -230,20 +242,23 @@ async function pollSessions() {
     }
 
     // ── Session / seed detection ──────────────────────────────────────────────
-    session.checkSession(
-      { ratingKey: t.ratingKey, title: t.title, artist: t.artist },
-      cfg.PLEX_BASE, cfg.PLEX_TOKEN, blockModeForNow
-    ).then(seedMode => {
+    const effectiveMode = (lastState.event === "idle" ? timeBlockMode : lastState.mode) || timeBlockMode;
+    let resolvedMode = effectiveMode;
+
+    try {
+      const seedMode = await session.checkSession(
+        { ratingKey: t.ratingKey, title: t.title, artist: t.artist },
+        cfg.PLEX_BASE, cfg.PLEX_TOKEN, blockModeForNow,
+      );
       if (seedMode) {
-        // New session detected — push mode change to all connected clients
         console.log(`[session] Broadcasting mode → ${seedMode}`);
-        lastState = { ...lastState, mode: seedMode };
+        resolvedMode = seedMode;
       }
-    }).catch(() => {});
+    } catch (_) {}
 
     lastState = {
       event: t.playerState === "paused" ? "media.pause" : "media.play",
-      mode,
+      mode: resolvedMode,
       type: t.type, title: t.title, artist: t.artist, album: t.album,
       playerState: t.playerState,
       viewOffsetMs: t.viewOffsetMs, durationMs: t.durationMs,
@@ -253,18 +268,46 @@ async function pollSessions() {
     };
 
   } catch {
-    lastState = { ...lastState, event: "idle", mode, bass, energy, updatedAt: Date.now(), error: "plex_poll_failed" };
+    lastState = { ...lastState, event: "idle", mode: timeBlockMode, bass, energy, updatedAt: Date.now(), error: "plex_poll_failed" };
+  } finally {
+    _pollInFlight = false;
   }
 }
 
 // ── Routes ────────────────────────────────────────────────────────────────────
+app.get("/runtime-config.js", (_req, res) => {
+  res.type("application/javascript");
+  res.setHeader("Cache-Control", "no-store");
+  res.send(`window.RSVP_RUNTIME_CONFIG = ${JSON.stringify({
+    bgDay: cfg.BG_DAY,
+    bgNight: cfg.BG_NIGHT,
+    lightsUrl: cfg.LIGHTS_URL,
+    pollMs: cfg.POLL_MS,
+    pollTimeoutMs: Math.min(cfg.POLL_MS, cfg.POLL_TIMEOUT_MS),
+    timeBlocks: timeblocks.TIME_BLOCKS,
+    preFadeMin: timeblocks.PRE_FADE_MIN,
+    transitionMsDefault: timeblocks.TRANSITION_MS_DEFAULT,
+  })};`);
+});
+
 app.use("/", express.static(cfg.PUBLIC_DIR));
 
 app.get("/state",  (_req, res) => res.json(lastState));
 
-app.get("/health", (_req, res) =>
-  res.json({ ok: true, mode: lastState.mode, updatedAt: lastState.updatedAt })
-);
+app.get("/health", (_req, res) => {
+  const staleMs = Date.now() - (lastState.updatedAt || 0);
+  const assets = assetHealth();
+  const ok = !lastState.error && staleMs <= cfg.HEALTH_STALE_MS && assets.ok;
+  res.json({
+    ok,
+    mode: lastState.mode,
+    updatedAt: lastState.updatedAt,
+    staleMs,
+    error: lastState.error || "",
+    assetsOk: assets.ok,
+    assetsMissing: assets.missing,
+  });
+});
 
 app.post("/features", (req, res) => {
   lastFeatures = {
@@ -299,8 +342,16 @@ app.get("/art", async (req, res) => {
 });
 
 // Kiosk exit — stops Plexamp playback then kills Chromium
-app.post("/api/exit", (_req, res) => {
-  const stopUrl = `${cfg.PLEX_BASE}/player/playback/stop?X-Plex-Token=${encodeURIComponent(cfg.PLEX_TOKEN)}&X-Plex-Target-Client-Identifier=5336489d-cecf-4597-b1ab-7377aa825c6a&X-Plex-Client-Identifier=rsvp-radio&commandID=1`;
+app.post("/api/exit", (req, res) => {
+  if (!localOnlyRequest(req) && !cfg.EXIT_API_TOKEN) {
+    return res.status(403).json({ ok: false, error: "local_only" });
+  }
+  if (cfg.EXIT_API_TOKEN) {
+    const presented = req.get("x-exit-token") || "";
+    if (presented !== cfg.EXIT_API_TOKEN) return res.status(403).json({ ok: false, error: "forbidden" });
+  }
+
+  const stopUrl = `${cfg.PLEX_BASE}/player/playback/stop?X-Plex-Token=${encodeURIComponent(cfg.PLEX_TOKEN)}&X-Plex-Target-Client-Identifier=${encodeURIComponent(cfg.PLEX_TARGET_CLIENT_IDENTIFIER)}&X-Plex-Client-Identifier=rsvp-radio&commandID=1`;
   exec(`curl -s -X GET "${stopUrl}" || true`, () => {
     setTimeout(() => {
       exec('pkill -f "chromium.*--kiosk" || true', () => res.json({ ok: true }));
@@ -324,8 +375,22 @@ function _parseWebhookBody(body) {
 
 app.post("/plex", (req, res) => {
   let body = "";
-  req.on("data", chunk => { body += chunk.toString(); });
+  let tooLarge = false;
+
+  req.setEncoding("utf8");
+  req.on("data", chunk => {
+    if (tooLarge) return;
+    body += chunk;
+    if (Buffer.byteLength(body, "utf8") > cfg.PLEX_WEBHOOK_MAX_BYTES) {
+      tooLarge = true;
+      res.sendStatus(413);
+      req.destroy();
+    }
+  });
+
   req.on("end", () => {
+    if (tooLarge) return;
+
     const payload = _parseWebhookBody(body);
     if (!payload) return res.sendStatus(200);
 
@@ -352,6 +417,8 @@ app.listen(cfg.PORT, () => {
   console.log(`[server] RSVP Radio on :${cfg.PORT}`);
   console.log(`[server] Plex: ${cfg.PLEX_BASE} | token: ${cfg.PLEX_TOKEN ? "set ✓" : "NOT SET ✗"}`);
   console.log(`[server] Serving: ${cfg.PUBLIC_DIR}`);
+  const assets = assetHealth();
+  if (!assets.ok) console.warn(`[server] Missing background assets: ${assets.missing.join(", ")}`);
   // Sync all existing skip data to Plex on startup
   plexSync.syncAll(cfg.PLEX_BASE, cfg.PLEX_TOKEN);
   pollSessions();

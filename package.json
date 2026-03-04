@@ -1,20 +1,22 @@
 {
   "name": "rsvp-radio",
   "version": "1.0.0",
-  "description": "RSVP Radio — Plex kiosk UI with music-reactive lights",
+  "description": "RSVP Radio \u2014 Plex kiosk UI with music-reactive lights",
   "main": "server.js",
   "engines": {
     "node": ">=18"
   },
   "scripts": {
     "start": "node server.js",
-    "dev":   "node --watch server.js",
-    "lint":  "node --check server.js config.js",
-    "test":  "node test/smoke.js"
+    "dev": "node --watch server.js",
+    "lint": "find . -name \"*.js\" -not -path \"./node_modules/*\" -print0 | xargs -0 -n1 node --check",
+    "test": "node --test test/unit/*.test.js test/integration/*.test.js",
+    "test:smoke": "node test/smoke.js",
+    "verify": "npm run lint && npm test"
   },
   "license": "ISC",
   "dependencies": {
-    "express":         "^5.2.1",
+    "express": "^5.2.1",
     "fast-xml-parser": "^4.4.1"
   }
 }
