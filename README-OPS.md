@@ -1,126 +1,93 @@
-# RSVP Radio — Ops Notes
+# RSVP Radio — Operations
 
-## What is running
-- **rsvp-radio** — Express server on :3000 (system service)
-- **rsvp-lights** — Hue lights service on :5005 (system service)
-- **rsvp-analyzer** — Audio analyzer, posts bass/energy to `/features` (system service)
-- **rsvp-plexamp** — Plexamp headless on :32500 (user service, runs under pi session)
-- **Plex Media Server** — :32400
+Field guide for running, deploying, and fixing the system. Written for 2am.
 
-## Hard rules
-- Plexamp MUST run as a USER service only (system `rsvp-plexamp.service` is masked)
-- `rsvp-radio` runs as a SYSTEM service only
-- Any new service gets quarantined first if it causes instability
+## Services
 
-## File locations
+| Unit | What | Restart |
+|------|------|---------|
+| `rsvp-radio` (system) | Node server :3000 | `sudo systemctl restart rsvp-radio` |
+| `plexamp` (user) | Plexamp headless :32500 | `systemctl --user restart plexamp` |
+| Plex Media Server | :32400 | `sudo systemctl restart plexmediaserver` |
+| lights service | :5005 | (separate repo) |
 
-### Server
-| File | Purpose |
-|------|---------|
-| `/home/pi/rsvp-radio/server.js` | Express server — Plex polling, art proxy, `/state`, `/health`, `/features`, webhook handling |
-| `/home/pi/rsvp-radio/config.js` | Server config — env vars, ports, paths, local service URLs |
-| `/home/pi/rsvp-radio/package.json` | Node dependencies and scripts |
-| `/home/pi/rsvp-radio/shared/timeblocks.js` | Repo-side time-block source of truth |
+The Plexamp user unit MUST point at Node 20 via nvm (`/home/pi/.nvm/versions/node/v20.20.2/bin/node`), not system node (v22) — wrong node = silent crash-loop. `loginctl enable-linger pi` must be set or user services don't start on headless boots. See SYSTEM-NOTES.md for the full out-of-repo checklist (pipewire-alsa is the other critical one).
 
-### Frontend (served from `/home/pi/rsvp-radio/public/`)
-| File | Purpose |
-|------|---------|
-| `public/index.html` | HTML shell — loads runtime config first, then app scripts |
-| `public/styles.css` | All CSS |
-| `public/app/constants.js` | Browser defaults and runtime-config fallbacks — video paths, poll timing, thresholds, time blocks |
-| `public/app/background.js` | Video crossfade, day/night swap, memory reload |
-| `public/app/lights.js` | Hue lights — signal throttle, boundary timer, session state |
-| `public/app/player.js` | Plex poll loop, DOM updates, change detection |
-| `public/app/main.js` | Boot sequence, menu wiring, exit button |
+The kiosk launches by desktop icon double-click only — never on boot, by design.
 
-### Assets
-| File | Purpose |
-|------|---------|
-| `public/assets/bg/rsvp_day_720_optimized.mp4` | Day background video |
-| `public/assets/bg/rsvp_night_720.mp4` | Night background video |
-| `public/assets/rsvp-icon.png` | Desktop launcher icon |
+## Deploy ritual (non-negotiable)
 
-### System
-| File | Purpose |
-|------|---------|
-| `/etc/systemd/system/rsvp-radio.service` | Systemd unit — sets Plex token, paths, and runtime env vars |
-| `/etc/systemd/system/rsvp-lights.service` | Systemd unit — sets Hue bridge IP, user, and light IDs |
-| `~/Desktop/RSVP-Radio.desktop` | Desktop launcher icon |
+Changes ship as Python patch scripts with assert-or-abort verbatim replaces — a patch that doesn't match the file exactly writes nothing. Never paste multi-line code over SSH; scp the patch in.
 
-## Environment variables (set in systemd unit)
-```bash
-PLEX_TOKEN=your-token
-PUBLIC_DIR=/home/pi/rsvp-radio/public
-PLEX_BASE=http://127.0.0.1:32400
-LIGHTS_URL=http://127.0.0.1:5005
-PORT=3000
-POLL_MS=2000
-POLL_TIMEOUT_MS=2500
-HEALTH_STALE_MS=15000
-SESSION_GENRE_FETCH_TIMEOUT_MS=4000
-EXIT_API_TOKEN=
 ```
-
-## Time blocks
-Inside this repo, the server and browser are fed from the shared time-block module.
-The external lights service must still mirror the same schedule.
-
-| Block | Hours | Mirror required outside this repo |
-|-------|-------|-----------------------------------|
-| lofi  | 04:00-12:00 | yes |
-| wrap  | 12:00-17:00 | yes |
-| rap   | 17:00-23:00 | yes |
-| rnb   | 23:00-04:00 | yes |
-
-## Runtime behavior notes
-- There is currently **no** `/stats` route or bundled stats page in this repo
-- On a true new session, the server waits for seed-genre resolution before publishing the first play-state mode
-- If Plex genre lookup times out or returns no match, mode falls back to the current time block
-- `/health` returns unhealthy when required background assets are missing
-- `/api/exit` is local-only by default; token auth is optional and only needed if you want to call it remotely
-
-## Quick health checks
-```bash
-ss -ltnp | egrep ':3000|:32400|:32500|:5005'
-curl -sS http://127.0.0.1:3000/health
-curl -sS http://127.0.0.1:3000/state
-sudo systemctl status rsvp-radio --no-pager -l
-sudo systemctl status rsvp-lights --no-pager -l
-systemctl --user status rsvp-plexamp --no-pager -l
-```
-
-## Recovery
-```bash
-# Restart radio server
+python3 patch-<name>.py        # makes dated .baks itself, aborts on drift
+node --check server.js
+npm run verify                 # exit condition: every test green
 sudo systemctl restart rsvp-radio
-
-# Restart lights
-sudo systemctl restart rsvp-lights
-
-# Restart plexamp (user service)
-systemctl --user restart rsvp-plexamp
-
-# Check server logs
-sudo journalctl -u rsvp-radio -n 50 --no-pager
-
-# Check lights logs
-sudo journalctl -u rsvp-lights -n 50 --no-pager
 ```
 
-## Backup and rollback scripts
-These scripts belong in Git because they are part of the operating model.
+`npm run verify` is the gate — the FULL suite, not a subset. (We once shipped on a 33-test subset while 3 tests were red in the files nobody ran. Never again.)
 
-- `rsvp-radio-backup.sh` -> run from your Mac to pull a backup from the Pi
-- `rsvp-snapshot.sh` -> run on the Pi to create an app + systemd snapshot
-- `rsvp-rollback.sh` -> run on the Pi to restore a snapshot
+Config rule: `config.js` is an explicit whitelist. Any new env key goes into `config.js` AND `.env` in the same patch, or the server silently reads `undefined` and features disarm without errors.
 
-Examples:
-```bash
-# From your Mac, from the repo root or by full path
-bash ./rsvp-radio-backup.sh
-bash ./rsvp-radio-backup.sh --videos
+Frontend-only changes (public/) need no restart — static files are served `no-store`. Relaunch the kiosk via its desktop icon and check `journalctl -u rsvp-radio -f` for `[browser]` lines (the kiosk beacons its events to `/api/log`).
 
-# On the Pi
-bash /home/pi/rsvp-radio/rsvp-snapshot.sh
-bash /home/pi/rsvp-radio/rsvp-rollback.sh
+## Backups and releases (different things)
+
+- **BACKUP zip** — disaster recovery. Includes `data/` (skip/strike history is valuable). Excludes node_modules, .git, .env, *.bak*, *.py, *.tar*.
+- **RELEASE zip** — what deploy/auditors touch. Same exclusions PLUS `data/*` — a release must never be able to overwrite live history.
+- `.env` is in NEITHER. Back it up separately and privately; without it the server boots with a loud token warning and nothing works.
+
+## Routes
+
+| Route | Notes |
+|-------|-------|
+| `GET /state` | Full nested state — the kiosk and admin poll this |
+| `GET /health` | Liveness + asset check |
+| `GET /admin` | Admin console |
+| `GET /admin/skip-data`, `/admin/top-songs` | Intelligence data |
+| `POST /mode/:mode`, `/mode/clear` | Manual music override (expires at next boundary) / clear |
+| `POST /admin/force-timeblock-sync` | Snap music to the schedule now |
+| `GET /admin/video-playlists` | Video playlists + active state |
+| `POST /admin/video/play/:key` | Start a video set — a manual pick, holds until next boundary |
+| `POST /admin/video/{stop,next,prev,pause,resume}` | Transport |
+| `POST /video-failed` | Kiosk reports a clip failure; server drops the clip and advances |
+| `GET /media/:ratingKey` | Local file streaming with range support, locked inside MEDIA_DIR |
+| `GET /art` | Art proxy (never expose the Plex token to the browser) |
+| `POST /features` | Audio analyzer bass/energy |
+| `POST /api/log` | Kiosk event beacons (the `ended` beacon drives clip advance — load-bearing) |
+| `POST /api/exit` | Kills the kiosk (token-gated) |
+| `POST /plex` | Plex webhooks |
+| `POST /admin/lights/*` | Forwards to the lights service |
+
+All admin routes are LAN-open by design except `/api/exit`.
+
+## Troubleshooting — symptoms seen in the field
+
+| Symptom | Cause | Fix |
+|---------|-------|-----|
+| Videos play silent while music works (or vice versa) | `pipewire-alsa` missing — ALSA `default` maps to raw hardware, first app locks the other out | `sudo apt install pipewire-alsa`, restart plexamp. Verify: `aplay -L` shows "currently PipeWire Media Server" |
+| Music dead after reboot, plexamp unit shows `status=1/FAILURE` loops | Unit pointing at system node v22 | Point ExecStart at nvm node v20, `systemctl --user daemon-reload && restart` |
+| Video session "bounces" — clip starts, music comes back, repeats | Dead media paths (Plex playlist entries pointing at renamed folders) | Journal shows `MISSING ON DISK` drops at session start since v18. Fix in Plex: clean duplicate folders FIRST, then Scan Library, Empty Trash, re-add clips |
+| Admin says TIMEBLOCK while a manual override is active during video | Fixed in v18 — /state now reports real manual state. If seen again, that's a regression | |
+| Manual video pick gets yanked back at a clip gap | Pre-v17g behavior. Manual picks now hold until the next boundary (gold MANUAL · UNTIL line on admin) | |
+| Phantom "playing" video steals the music card | Stale-video guard (v19) demotes it after STALE_VIDEO_POLLS frozen polls. Watch for `[video] stale video` log lines | Tune STALE_VIDEO_POLLS if false demotions appear |
+| A single test fails in the full run, passes alone | Port-collision flake — the harness uses random ports in a 300 slot range, suite runs parallel | Rerun. (Hardening idea on the list: sequential or OS-assigned ports) |
+| Accented filenames 404 from /media | Was the Victoria Monét bug — numeric XML entities in paths. Fixed in the parser; tests pin it | |
+| Volume gap: clips much louder than mp3s | Plexamp loudness-normalizes, raw files don't | Trim Chromium's PipeWire stream (`wpctl` while a clip plays) or ffmpeg-loudnorm the clip library |
+
+## Reading the journal
+
 ```
+journalctl -u rsvp-radio -f
+```
+
+Prefixes that matter: `[video-mode]` (session lifecycle, boundary switches, MISSING ON DISK, advances — "no play recorded" means admin-skip or failure, not a clean play), `[steering]` (skip streaks, lane moves, model picks), `[skip-tracker]` (strikes/redemptions), `[browser]` (kiosk beacons incl. clip error codes), `[mode]` (manual overrides), `[playlist]` (commanded switches).
+
+## Standing checks before any event
+
+1. `npm run verify` green.
+2. Reboot test: power-cycle, confirm server + plexamp up, music plays.
+3. Ears test: mp3 playing → start video → CLIP HAS SOUND → stop → music resumes. (The bug class that hides from every log.)
+4. Start each video playlist once; zero `MISSING ON DISK` lines.
+5. 2+ hour video burn-in if the library changed (reshuffle-after-full-pass needs >2 clips and a real session).
