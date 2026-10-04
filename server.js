@@ -239,6 +239,8 @@ async function steerIfNeeded(mode) {
   if (!steering.shouldSteer({
     consecutiveSkips: _steeringState.consecutiveSkips,
     threshold: cfg.STEERING_SKIP_THRESHOLD,
+    lastSteeredAt: _steeringState.lastSteeredAt,
+    minDwellMs: cfg.STEERING_MIN_DWELL_MS,
   })) return false;
 
   const lane = steering.nextLane({
@@ -331,7 +333,11 @@ async function pollSessions() {
         if (pct < 0.40) {
           skipTracker.recordSkip(_prevPollTrack, pct);
           plexSync.syncRating(_prevPollTrack.ratingKey, cfg.PLEX_BASE, cfg.PLEX_TOKEN);
-          steering.noteSkip(_steeringState, { mode: lastState.mode || timeBlockMode });
+          steering.noteSkip(_steeringState, {
+            mode: lastState.mode || timeBlockMode,
+            ratingKey: _prevPollTrack.ratingKey,
+            windowMs: cfg.STEERING_SKIP_WINDOW_MS,
+          });
           await steerIfNeeded(lastState.mode || timeBlockMode);
         } else {
           // A track transition after 40% is not a steering vote against the lane.
