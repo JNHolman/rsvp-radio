@@ -401,13 +401,6 @@ async function pollSessions() {
       }
     }
 
-    // Apply a scheduled mode change only at a natural track boundary.
-    if (trackChanged && _pendingModeSwitch) {
-      const pending = _pendingModeSwitch;
-      _pendingModeSwitch = null;
-      await switchToModeAnchor(pending);
-    }
-
     // Keep progress with the track itself rather than relying on lastState.
     // lastState can legitimately go idle between Plex sessions, which used to
     // zero the offset and make a completed song look like a 0% hard skip.
@@ -425,6 +418,15 @@ async function pollSessions() {
       _prevPollTrack.durationMs = t.durationMs;
       _prevPollTrack.title = t.title;
       _prevPollTrack.artist = t.artist;
+    }
+
+    // Apply a scheduled mode change only at a natural track boundary.
+    // The just-started old-lane track is marked system-directed before it is
+    // replaced, so it cannot become a false crowd skip on the next poll.
+    if (trackChanged && _pendingModeSwitch) {
+      const pending = _pendingModeSwitch;
+      _pendingModeSwitch = null;
+      await switchToModeAnchor(pending);
     }
 
     // ── Session / seed detection ──────────────────────────────────────────────
