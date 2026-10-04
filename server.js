@@ -203,7 +203,9 @@ let _resolvedLanes = {};
 let _plexMachineIdentifier = "";
 let _steeringCommandId = 1;
 let _steeringInFlight = false;
-let _pendingModeSwitch = null;
+let _activeBlendKey = null;
+let _completedBlendKey = null;
+let _blendFinalMode = null;
 
 try {
   _laneConfig = steering.parseLaneConfig(cfg.RSVP_LANES_JSON);
@@ -271,10 +273,113 @@ async function switchToModeAnchor(mode) {
 
     steering.resetForMode(_steeringState, mode, lane.title);
     _steeringState.lastSteeredAt = Date.now();
-    console.log(`[mode] switched Plex lane → ${mode} / "${lane.title}"`);
+    console.log(`[mode] settled Plex lane → ${mode} / "${lane.title}"`);
     return true;
   } catch (err) {
-    console.warn("[mode] playlist boundary switch failed:", err.message);
+    console.warn("[mode] playlist settle failed:", err.message);
+    return false;
+  } finally {
+    _steeringInFlight = false;
+  }
+}
+
+function _shuffleTracks(tracks) {
+  const out = [...tracks];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
+function _blendKey(blend) {
+  return blend ? `${blend.boundaryMin}:${blend.outgoingMode}:${blend.incomingMode}` : null;
+}
+
+async function startBlendQueue(blend, currentTrack) {
+  if (_steeringInFlight || !blend || !currentTrack?.ratingKey) return false;
+
+  const outgoingLanes = _resolvedLanes?.[blend.outgoingMode] || [];
+  const incomingLanes = _resolvedLanes?.[blend.incomingMode] || [];
+  const outgoingLane =
+    outgoingLanes.find((lane) => lane.title === _steeringState.currentLaneTitle) ||
+    outgoingLanes[0];
+  const incomingLane = incomingLanes[0];
+
+  if (!outgoingLane?.ratingKey || !incomingLane?.ratingKey) return false;
+
+  _steeringInFlight = true;
+  try {
+    const [outgoingTracks, incomingTracks] = await Promise.all([
+      plexControl.getPlaylistItems({
+        plexBase: cfg.PLEX_BASE,
+        plexToken: cfg.PLEX_TOKEN,
+        playlistRatingKey: outgoingLane.ratingKey,
+      }),
+      plexControl.getPlaylistItems({
+        plexBase: cfg.PLEX_BASE,
+        plexToken: cfg.PLEX_TOKEN,
+        playlistRatingKey: incomingLane.ratingKey,
+      }),
+    ]);
+
+    const current = {
+      ratingKey: currentTrack.ratingKey,
+      key: currentTrack.key || "",
+      title: currentTrack.title || "",
+      artist: currentTrack.artist || "",
+    };
+
+    const mixed = plexControl.interleaveTracks(
+      _shuffleTracks(outgoingTracks),
+      _shuffleTracks(incomingTracks),
+      { currentRatingKey: current.ratingKey, maxTracks: 4 },
+    );
+
+    // Preserve the track already playing at the head of the temporary queue.
+    // If the playlist fetch did not contain it, add it explicitly.
+    if (!mixed.some((track) => track.ratingKey === current.ratingKey)) {
+      mixed.unshift(current);
+    } else {
+      const idx = mixed.findIndex((track) => track.ratingKey === current.ratingKey);
+      if (idx > 0) mixed.unshift(mixed.splice(idx, 1)[0]);
+    }
+
+    const queue = await plexControl.createTrackQueue({
+      plexBase: cfg.PLEX_BASE,
+      plexToken: cfg.PLEX_TOKEN,
+      tracks: mixed.slice(0, 4),
+    });
+
+    if (!_plexMachineIdentifier) {
+      _plexMachineIdentifier = await plexControl.serverIdentity({
+        plexBase: cfg.PLEX_BASE,
+        plexToken: cfg.PLEX_TOKEN,
+      });
+    }
+
+    if (_prevPollTrack) _prevPollTrack.scrobbled = true;
+
+    await plexControl.playQueueOnPlexamp({
+      plexampBase: cfg.PLEXAMP_BASE,
+      plexBase: cfg.PLEX_BASE,
+      plexToken: cfg.PLEX_TOKEN,
+      machineIdentifier: _plexMachineIdentifier,
+      targetClientIdentifier: cfg.PLEX_TARGET_CLIENT_IDENTIFIER,
+      queueId: queue.queueId,
+      selectedKey: queue.selectedKey,
+      commandId: _steeringCommandId++,
+      offsetMs: currentTrack.viewOffsetMs || 0,
+    });
+
+    _activeBlendKey = _blendKey(blend);
+    _blendFinalMode = blend.incomingMode;
+    console.log(
+      `[blend] ${blend.outgoingMode} + ${blend.incomingMode} → temporary mixed queue (${mixed.slice(0, 4).length} tracks)`,
+    );
+    return true;
+  } catch (err) {
+    console.warn("[blend] queue creation failed:", err.message);
     return false;
   } finally {
     _steeringInFlight = false;
@@ -349,7 +454,10 @@ async function pollSessions() {
   _pollInFlight = true;
 
   const { bass, energy } = featuresNow();
-  const timeBlockMode    = blockModeForNow();
+  const nowDate          = new Date();
+  const timeBlockMode    = timeblocks.blockModeForDate(nowDate);
+  const blendWindow      = timeblocks.blendWindowForMinute(timeblocks.minutesOfDay(nowDate));
+  const currentBlendKey  = _blendKey(blendWindow);
 
   try {
     const url = `${cfg.PLEX_BASE}/status/sessions?X-Plex-Token=${encodeURIComponent(cfg.PLEX_TOKEN)}`;
@@ -420,25 +528,43 @@ async function pollSessions() {
       _prevPollTrack.artist = t.artist;
     }
 
-    // Apply a scheduled mode change only at a natural track boundary.
-    // The just-started old-lane track is marked system-directed before it is
-    // replaced, so it cannot become a false crowd skip on the next poll.
-    if (trackChanged && _pendingModeSwitch) {
-      const pending = _pendingModeSwitch;
-      _pendingModeSwitch = null;
-      await switchToModeAnchor(pending);
-    }
-
-    // ── Session / seed detection ──────────────────────────────────────────────
+    // ── Time-block blend + session / seed detection ─────────────────────────
     const boundaryChanged = timeBlockMode !== _lastTimeBlockMode;
     if (boundaryChanged) _lastTimeBlockMode = timeBlockMode;
 
     const effectiveMode = (lastState.event === "idle" ? timeBlockMode : lastState.mode) || timeBlockMode;
-    let resolvedMode = boundaryChanged ? timeBlockMode : effectiveMode;
+    let resolvedMode = effectiveMode;
 
-    if (boundaryChanged) {
-      _pendingModeSwitch = timeBlockMode;
-      console.log(`[mode] time block boundary queued → ${timeBlockMode}`);
+    // During the ten-minute blend window, start one temporary mixed queue at
+    // the first natural track boundary. That queue contains songs from both
+    // the outgoing and incoming Plex lanes.
+    if (
+      trackChanged &&
+      blendWindow &&
+      currentBlendKey !== _activeBlendKey &&
+      currentBlendKey !== _completedBlendKey
+    ) {
+      await startBlendQueue(blendWindow, t);
+    }
+
+    // Once the blend window is over, settle into the incoming mode on the next
+    // natural track boundary. Do not cut the song that is currently playing.
+    if (trackChanged && !blendWindow && _activeBlendKey && _blendFinalMode) {
+      const finishedBlendKey = _activeBlendKey;
+      const finalMode = _blendFinalMode;
+      _activeBlendKey = null;
+      _blendFinalMode = null;
+      const settled = await switchToModeAnchor(finalMode);
+      if (settled) _completedBlendKey = finishedBlendKey;
+      resolvedMode = finalMode;
+    } else if (blendWindow) {
+      // Before the clock boundary the outgoing mode remains dominant; after
+      // it, the incoming mode becomes dominant while the mixed queue finishes.
+      resolvedMode = blendWindow.phase === "pre"
+        ? blendWindow.outgoingMode
+        : blendWindow.incomingMode;
+    } else if (boundaryChanged) {
+      resolvedMode = timeBlockMode;
     }
 
     try {
