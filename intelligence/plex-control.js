@@ -89,6 +89,7 @@ function interleaveTracks(outgoing, incoming, {
   maxTracks = 12,
   targetDurationMs = 10 * 60 * 1000,
   currentOffsetMs = 0,
+  incomingWeight = 0.5,
 } = {}) {
   const seen = new Set();
   const out = [];
@@ -115,13 +116,23 @@ function interleaveTracks(outgoing, incoming, {
 
   let oi = 0;
   let ii = 0;
-  let takeIncoming = false;
+  let outgoingTaken = 0;
+  let incomingTaken = 0;
+  const weight = Math.max(0.2, Math.min(0.8, Number(incomingWeight) || 0.5));
 
   while (
     out.length < maxTracks &&
     estimatedDurationMs < targetDurationMs &&
     (oi < outgoing.length || ii < incoming.length)
   ) {
+    // Choose the pool whose observed share is furthest below the target share.
+    const totalChosen = outgoingTaken + incomingTaken;
+    const currentIncomingShare = totalChosen ? incomingTaken / totalChosen : 0;
+    let takeIncoming = currentIncomingShare < weight;
+
+    if (ii >= incoming.length) takeIncoming = false;
+    if (oi >= outgoing.length) takeIncoming = true;
+
     const source = takeIncoming ? incoming : outgoing;
     let idx = takeIncoming ? ii : oi;
 
@@ -129,12 +140,14 @@ function interleaveTracks(outgoing, incoming, {
       idx++;
     }
 
-    if (idx < source.length) add(source[idx]);
+    if (idx < source.length) {
+      add(source[idx]);
+      if (takeIncoming) incomingTaken++;
+      else outgoingTaken++;
+    }
 
     if (takeIncoming) ii = idx + 1;
     else oi = idx + 1;
-
-    takeIncoming = !takeIncoming;
 
     if (oi >= outgoing.length && ii >= incoming.length) break;
   }
