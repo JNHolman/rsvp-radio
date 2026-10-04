@@ -22,6 +22,9 @@ const cfg = {
 
   PLEX_TOKEN: process.env.PLEX_TOKEN || "",
   PLEX_BASE:  process.env.PLEX_BASE  || "http://127.0.0.1:32400",
+  PLEXAMP_BASE: process.env.PLEXAMP_BASE || "http://127.0.0.1:32500",
+  RSVP_LANES_JSON: process.env.RSVP_LANES_JSON || "",
+  STEERING_SKIP_THRESHOLD: Number(process.env.STEERING_SKIP_THRESHOLD) || 2,
 
   FEATURES_STALE_MS: Number(process.env.FEATURES_STALE_MS) || 5000,
   FEATURES_DECAY_MS: Number(process.env.FEATURES_DECAY_MS) || 12000,
