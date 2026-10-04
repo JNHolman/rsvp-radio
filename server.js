@@ -203,6 +203,7 @@ let _resolvedLanes = {};
 let _plexMachineIdentifier = "";
 let _steeringCommandId = 1;
 let _steeringInFlight = false;
+let _pendingModeSwitch = null;
 
 try {
   _laneConfig = steering.parseLaneConfig(cfg.RSVP_LANES_JSON);
@@ -231,6 +232,52 @@ async function refreshSteeringLanes() {
   } catch (err) {
     console.warn("[steering] playlist discovery failed:", err.message);
     _resolvedLanes = {};
+  }
+}
+
+async function switchToModeAnchor(mode) {
+  if (_steeringInFlight) return false;
+  const lanes = _resolvedLanes?.[mode] || [];
+  const lane = lanes[0];
+  if (!lane?.ratingKey) return false;
+
+  _steeringInFlight = true;
+  try {
+    if (!_plexMachineIdentifier) {
+      _plexMachineIdentifier = await plexControl.serverIdentity({
+        plexBase: cfg.PLEX_BASE,
+        plexToken: cfg.PLEX_TOKEN,
+      });
+    }
+
+    const queue = await plexControl.createPlaylistQueue({
+      plexBase: cfg.PLEX_BASE,
+      plexToken: cfg.PLEX_TOKEN,
+      playlistRatingKey: lane.ratingKey,
+    });
+
+    if (_prevPollTrack) _prevPollTrack.scrobbled = true;
+
+    await plexControl.playQueueOnPlexamp({
+      plexampBase: cfg.PLEXAMP_BASE,
+      plexBase: cfg.PLEX_BASE,
+      plexToken: cfg.PLEX_TOKEN,
+      machineIdentifier: _plexMachineIdentifier,
+      targetClientIdentifier: cfg.PLEX_TARGET_CLIENT_IDENTIFIER,
+      queueId: queue.queueId,
+      selectedKey: queue.selectedKey,
+      commandId: _steeringCommandId++,
+    });
+
+    steering.resetForMode(_steeringState, mode, lane.title);
+    _steeringState.lastSteeredAt = Date.now();
+    console.log(`[mode] switched Plex lane → ${mode} / "${lane.title}"`);
+    return true;
+  } catch (err) {
+    console.warn("[mode] playlist boundary switch failed:", err.message);
+    return false;
+  } finally {
+    _steeringInFlight = false;
   }
 }
 
@@ -328,7 +375,9 @@ async function pollSessions() {
     const plexArt = buildPlexArtUrl(t.thumb);
 
     // ── Skip detection ────────────────────────────────────────────────────────
-    if (_prevPollTrack && _prevPollTrack.ratingKey !== t.ratingKey) {
+    const trackChanged = Boolean(_prevPollTrack && _prevPollTrack.ratingKey !== t.ratingKey);
+
+    if (_prevPollTrack && trackChanged) {
       if (!_prevPollTrack.scrobbled) {
         const pct = _prevPollTrack.durationMs > 0
           ? _prevPollTrack.viewOffsetMs / _prevPollTrack.durationMs
@@ -350,6 +399,13 @@ async function pollSessions() {
           steering.markLaneResult(_steeringState, _steeringState.currentLaneTitle, "play");
         }
       }
+    }
+
+    // Apply a scheduled mode change only at a natural track boundary.
+    if (trackChanged && _pendingModeSwitch) {
+      const pending = _pendingModeSwitch;
+      _pendingModeSwitch = null;
+      await switchToModeAnchor(pending);
     }
 
     // Keep progress with the track itself rather than relying on lastState.
@@ -379,8 +435,8 @@ async function pollSessions() {
     let resolvedMode = boundaryChanged ? timeBlockMode : effectiveMode;
 
     if (boundaryChanged) {
-      steering.resetForMode(_steeringState, timeBlockMode);
-      console.log(`[mode] time block boundary → ${timeBlockMode}`);
+      _pendingModeSwitch = timeBlockMode;
+      console.log(`[mode] time block boundary queued → ${timeBlockMode}`);
     }
 
     try {
