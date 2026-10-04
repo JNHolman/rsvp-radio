@@ -102,7 +102,19 @@ function recordSkip(track, pct) {
     strikeWeight = 0.5;
     skipType     = "soft";
   } else {
-    // 40%+ counts as a play, not a skip
+    // 40%+ counts as a listen, not a skip. It should also clear any
+    // accumulated soft-skip debt without fully redeeming prior hard strikes.
+    if (entry.softStrikes > 0) {
+      entry.softStrikes = 0;
+      entry.history.push({
+        type: "listen",
+        pct: Math.round(pct * 100),
+        ts: now(),
+        strikes: entry.strikes,
+      });
+      if (entry.history.length > 20) entry.history = entry.history.slice(-20);
+      save(data);
+    }
     console.log(`[skip-tracker] "${title}" played ${Math.round(pct * 100)}% — counts as a listen, no strike`);
     return;
   }
