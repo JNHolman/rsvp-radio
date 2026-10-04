@@ -26,6 +26,7 @@ const ACTIVE_PERSIST_INTERVAL_MS =
   Number(process.env.SESSION_PERSIST_INTERVAL_MS) || 60 * 1000;
 
 let _cachedState = null;
+let _cachedMtimeMs = 0;
 let _lastPersistAt = 0;
 
 // ── Genre → mode map ──────────────────────────────────────────────────────────
@@ -51,14 +52,17 @@ function freshState() {
 }
 
 function load() {
-  if (_cachedState) return _cachedState;
   try {
     if (fs.existsSync(DATA_PATH)) {
-      _cachedState = JSON.parse(fs.readFileSync(DATA_PATH, "utf8"));
+      const stat = fs.statSync(DATA_PATH);
+      if (!_cachedState || stat.mtimeMs > _cachedMtimeMs) {
+        _cachedState = JSON.parse(fs.readFileSync(DATA_PATH, "utf8"));
+        _cachedMtimeMs = stat.mtimeMs;
+      }
       return _cachedState;
     }
   } catch {}
-  _cachedState = freshState();
+  if (!_cachedState) _cachedState = freshState();
   return _cachedState;
 }
 
@@ -71,6 +75,7 @@ function save(data, force = false) {
   try {
     fs.mkdirSync(path.dirname(DATA_PATH), { recursive: true });
     fs.writeFileSync(DATA_PATH, JSON.stringify(data, null, 2), "utf8");
+    _cachedMtimeMs = fs.statSync(DATA_PATH).mtimeMs;
     _lastPersistAt = now;
   } catch {}
 }
