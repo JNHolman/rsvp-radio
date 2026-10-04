@@ -191,7 +191,7 @@ let lastState = {
 };
 
 // ── Skip detection state ──────────────────────────────────────────────────────
-let _prevPollTrack = null; // { ratingKey, title, artist, scrobbled }
+let _prevPollTrack = null; // { ratingKey, title, artist, scrobbled, viewOffsetMs, durationMs }
 let _pollInFlight  = false;
 
 // ── Plex poll ─────────────────────────────────────────────────────────────────
@@ -228,17 +228,31 @@ async function pollSessions() {
     // ── Skip detection ────────────────────────────────────────────────────────
     if (_prevPollTrack && _prevPollTrack.ratingKey !== t.ratingKey) {
       if (!_prevPollTrack.scrobbled) {
-        const pct = lastState.durationMs > 0
-          ? lastState.viewOffsetMs / lastState.durationMs
+        const pct = _prevPollTrack.durationMs > 0
+          ? _prevPollTrack.viewOffsetMs / _prevPollTrack.durationMs
           : 0;
         skipTracker.recordSkip(_prevPollTrack, pct);
         plexSync.syncRating(_prevPollTrack.ratingKey, cfg.PLEX_BASE, cfg.PLEX_TOKEN);
       }
     }
 
-    // Update prev track
+    // Keep progress with the track itself rather than relying on lastState.
+    // lastState can legitimately go idle between Plex sessions, which used to
+    // zero the offset and make a completed song look like a 0% hard skip.
     if (!_prevPollTrack || _prevPollTrack.ratingKey !== t.ratingKey) {
-      _prevPollTrack = { ratingKey: t.ratingKey, title: t.title, artist: t.artist, scrobbled: false };
+      _prevPollTrack = {
+        ratingKey: t.ratingKey,
+        title: t.title,
+        artist: t.artist,
+        scrobbled: false,
+        viewOffsetMs: t.viewOffsetMs,
+        durationMs: t.durationMs,
+      };
+    } else {
+      _prevPollTrack.viewOffsetMs = t.viewOffsetMs;
+      _prevPollTrack.durationMs = t.durationMs;
+      _prevPollTrack.title = t.title;
+      _prevPollTrack.artist = t.artist;
     }
 
     // ── Session / seed detection ──────────────────────────────────────────────
