@@ -104,3 +104,41 @@ test("minimum dwell prevents lane ping-pong after a recent steer", () => {
     minDwellMs: 900000,
   }), true);
 });
+
+
+test("failed lanes are skipped when choosing the next curated lane", () => {
+  const lanes = steering.normalizeLanes({
+    rap: ["A", "B", "C"],
+  });
+  const state = steering.createState();
+  state.currentLaneTitle = "A";
+  steering.markLaneResult(state, "B", "failed");
+
+  const next = steering.nextLane({
+    mode: "rap",
+    currentTitle: "A",
+    lanes,
+    laneStats: state.laneStats,
+  });
+
+  assert.equal(next.title, "C");
+});
+
+test("successful lane can recover from a prior failed mark", () => {
+  const state = steering.createState();
+  steering.markLaneResult(state, "B", "failed");
+  steering.markLaneResult(state, "B", "play");
+  steering.markLaneResult(state, "B", "play");
+
+  assert.equal(state.laneStats.B.failedThisSession, false);
+  assert.equal(state.laneStats.B.successfulRuns, 1);
+});
+
+test("new listening session clears temporary lane failures", () => {
+  const state = steering.createState();
+  steering.markLaneResult(state, "B", "failed");
+  assert.equal(state.laneStats.B.failedThisSession, true);
+
+  steering.resetLaneStatsForSession(state);
+  assert.deepEqual(state.laneStats, {});
+});
