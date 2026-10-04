@@ -344,6 +344,7 @@ async function startBlendQueue(blend, currentTrack, blendKey) {
         currentOffsetMs: currentTrack.viewOffsetMs || 0,
         targetDurationMs: 10 * 60 * 1000,
         maxTracks: 12,
+        incomingWeight: blend.incomingWeight,
       },
     );
 
