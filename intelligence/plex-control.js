@@ -59,6 +59,106 @@ async function resolveConfiguredLanes(opts, laneConfig) {
   return { playlists, lanes: resolved };
 }
 
+async function getPlaylistItems({
+  fetchImpl = fetch,
+  plexBase,
+  plexToken,
+  playlistRatingKey,
+  timeoutMs = 4000,
+}) {
+  const url = new URL(`/playlists/${playlistRatingKey}/items`, plexBase);
+  url.searchParams.set("X-Plex-Token", plexToken);
+
+  const res = await timeoutFetch(fetchImpl, url, timeoutMs);
+  if (!res.ok) throw new Error(`playlist_items_http_${res.status}`);
+
+  const doc = parser.parse(await res.text());
+  return asArray(doc?.MediaContainer?.Track)
+    .map((track) => ({
+      ratingKey: String(track?.["@_ratingKey"] || ""),
+      key: String(track?.["@_key"] || ""),
+      title: String(track?.["@_title"] || ""),
+      artist: String(track?.["@_grandparentTitle"] || ""),
+    }))
+    .filter((track) => track.ratingKey);
+}
+
+function interleaveTracks(outgoing, incoming, {
+  currentRatingKey = "",
+  maxTracks = 6,
+} = {}) {
+  const seen = new Set();
+  const out = [];
+
+  function add(track) {
+    if (!track?.ratingKey || seen.has(track.ratingKey)) return;
+    seen.add(track.ratingKey);
+    out.push(track);
+  }
+
+  if (currentRatingKey) {
+    const current =
+      outgoing.find((t) => t.ratingKey === currentRatingKey) ||
+      incoming.find((t) => t.ratingKey === currentRatingKey);
+    if (current) add(current);
+  }
+
+  let oi = 0;
+  let ii = 0;
+  let takeIncoming = false;
+
+  while (out.length < maxTracks && (oi < outgoing.length || ii < incoming.length)) {
+    const source = takeIncoming ? incoming : outgoing;
+    let idx = takeIncoming ? ii : oi;
+
+    while (idx < source.length && (seen.has(source[idx].ratingKey) || source[idx].ratingKey === currentRatingKey)) {
+      idx++;
+    }
+
+    if (idx < source.length) add(source[idx]);
+
+    if (takeIncoming) ii = idx + 1;
+    else oi = idx + 1;
+
+    takeIncoming = !takeIncoming;
+
+    if (oi >= outgoing.length && ii >= incoming.length) break;
+  }
+
+  return out;
+}
+
+async function createTrackQueue({
+  fetchImpl = fetch,
+  plexBase,
+  plexToken,
+  tracks,
+  timeoutMs = 4000,
+}) {
+  const keys = (tracks || []).map((t) => t.ratingKey).filter(Boolean);
+  if (!keys.length) throw new Error("playqueue_create_no_tracks");
+
+  const url = new URL("/playQueues", plexBase);
+  url.searchParams.set("type", "audio");
+  url.searchParams.set("shuffle", "0");
+  url.searchParams.set("repeat", "0");
+  url.searchParams.set("continuous", "0");
+  url.searchParams.set("uri", `library:///directory/${encodeURIComponent(`/library/metadata/${keys.join(",")}`)}`);
+  url.searchParams.set("X-Plex-Token", plexToken);
+
+  const res = await timeoutFetch(fetchImpl, url, timeoutMs, { method: "POST" });
+  if (!res.ok) throw new Error(`playqueue_create_http_${res.status}`);
+
+  const doc = parser.parse(await res.text());
+  const mc = doc?.MediaContainer || {};
+  const queueId = String(mc?.["@_playQueueID"] || "");
+  const selected = asArray(mc?.Track)[0] || {};
+  const selectedKey = String(selected?.["@_key"] || "");
+
+  if (!queueId || !selectedKey) throw new Error("playqueue_create_invalid_response");
+  return { queueId, selectedKey };
+}
+
 async function serverIdentity({ fetchImpl = fetch, plexBase, plexToken, timeoutMs = 4000 }) {
   const url = new URL("/identity", plexBase);
   url.searchParams.set("X-Plex-Token", plexToken);
@@ -137,6 +237,9 @@ async function playQueueOnPlexamp({
 module.exports = {
   listAudioPlaylists,
   resolveConfiguredLanes,
+  getPlaylistItems,
+  interleaveTracks,
+  createTrackQueue,
   serverIdentity,
   createPlaylistQueue,
   playQueueOnPlexamp,
