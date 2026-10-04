@@ -247,6 +247,7 @@ async function steerIfNeeded(mode) {
     mode,
     currentTitle: _steeringState.currentLaneTitle,
     lanes: _resolvedLanes,
+    laneStats: _steeringState.laneStats,
   });
   if (!lane?.ratingKey) return false;
 
@@ -279,6 +280,9 @@ async function steerIfNeeded(mode) {
       commandId: _steeringCommandId++,
     });
 
+    if (_steeringState.currentLaneTitle) {
+      steering.markLaneResult(_steeringState, _steeringState.currentLaneTitle, "failed");
+    }
     _steeringState.currentLaneTitle = lane.title;
     _steeringState.consecutiveSkips = 0;
     _steeringState.lastSteeredAt = Date.now();
@@ -338,10 +342,12 @@ async function pollSessions() {
             ratingKey: _prevPollTrack.ratingKey,
             windowMs: cfg.STEERING_SKIP_WINDOW_MS,
           });
+          steering.markLaneResult(_steeringState, _steeringState.currentLaneTitle, "skip");
           await steerIfNeeded(lastState.mode || timeBlockMode);
         } else {
           // A track transition after 40% is not a steering vote against the lane.
           steering.notePlay(_steeringState, { mode: lastState.mode || timeBlockMode });
+          steering.markLaneResult(_steeringState, _steeringState.currentLaneTitle, "play");
         }
       }
     }
@@ -384,6 +390,8 @@ async function pollSessions() {
       );
       if (seedMode) {
         console.log(`[session] Broadcasting mode → ${seedMode}`);
+        steering.resetLaneStatsForSession(_steeringState);
+        steering.resetForMode(_steeringState, seedMode);
         resolvedMode = seedMode;
       }
     } catch (_) {}
@@ -538,6 +546,7 @@ app.post("/plex", (req, res) => {
       }
       skipTracker.recordPlay({ ratingKey, title, artist });
       steering.notePlay(_steeringState, { mode: lastState.mode || blockModeForNow() });
+      steering.markLaneResult(_steeringState, _steeringState.currentLaneTitle, "play");
       plexSync.syncCleanPlay(ratingKey, title, cfg.PLEX_BASE, cfg.PLEX_TOKEN);
     }
 
