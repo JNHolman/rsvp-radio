@@ -3,3 +3,6 @@ node_modules
 *.mp4
 !public/assets/bg/rsvp_day_720_optimized.mp4
 !public/assets/bg/rsvp_night_720.mp4
+.env
+data/
+config/lanes.json
