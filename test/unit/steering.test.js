@@ -142,3 +142,17 @@ test("new listening session clears temporary lane failures", () => {
   steering.resetLaneStatsForSession(state);
   assert.deepEqual(state.laneStats, {});
 });
+
+
+test("mode reset keeps the curated anchor and clears pressure", () => {
+  const state = steering.createState();
+  steering.noteSkip(state, { mode: "rap", ratingKey: "1", now: 1000 });
+  steering.markLaneResult(state, "RSVP RAP - Main", "failed");
+
+  steering.resetForMode(state, "rnb", "RSVP RNB - Main");
+
+  assert.equal(state.mode, "rnb");
+  assert.equal(state.currentLaneTitle, "RSVP RNB - Main");
+  assert.equal(state.consecutiveSkips, 0);
+  assert.equal(state.lastSkipRatingKey, null);
+});
