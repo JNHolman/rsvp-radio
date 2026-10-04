@@ -40,17 +40,26 @@ function parseLaneConfig(raw) {
   }
 }
 
-function nextLane({ mode, currentTitle, lanes, direction = 1 }) {
+function nextLane({ mode, currentTitle, lanes, laneStats = {}, direction = 1 }) {
   if (!MODES.has(mode)) return null;
   const list = lanes?.[mode] || [];
   if (list.length < 2) return null;
 
   const currentIndex = list.findIndex((lane) => lane.title === currentTitle);
-  if (currentIndex < 0) return list[0];
-
   const step = direction < 0 ? -1 : 1;
-  const nextIndex = (currentIndex + step + list.length) % list.length;
-  return list[nextIndex];
+  const start = currentIndex < 0 ? -1 : currentIndex;
+
+  // Prefer the next curated lane that has not already failed this session.
+  for (let offset = 1; offset <= list.length; offset++) {
+    const idx = (start + (step * offset) + list.length) % list.length;
+    const lane = list[idx];
+    const stats = laneStats[lane.title] || {};
+    if (!stats.failedThisSession) return lane;
+  }
+
+  // If every lane has failed, fall back to the normal curated rotation.
+  const fallbackIndex = (start + step + list.length) % list.length;
+  return list[fallbackIndex];
 }
 
 function shouldSteer({
@@ -73,6 +82,7 @@ function createState() {
     lastSkipRatingKey: null,
     lastSkipAt: 0,
     lastSteeredAt: 0,
+    laneStats: {},
   };
 }
 
@@ -120,6 +130,36 @@ function noteSkip(state, {
   return state;
 }
 
+function markLaneResult(state, laneTitle, result) {
+  if (!laneTitle) return state;
+  const stats = state.laneStats[laneTitle] || {
+    plays: 0,
+    skips: 0,
+    successfulRuns: 0,
+    failedThisSession: false,
+  };
+
+  if (result === "play") {
+    stats.plays += 1;
+    if (stats.plays >= 2 && stats.skips === 0) {
+      stats.successfulRuns += 1;
+      stats.failedThisSession = false;
+    }
+  } else if (result === "skip") {
+    stats.skips += 1;
+  } else if (result === "failed") {
+    stats.failedThisSession = true;
+  }
+
+  state.laneStats[laneTitle] = stats;
+  return state;
+}
+
+function resetLaneStatsForSession(state) {
+  state.laneStats = {};
+  return state;
+}
+
 function resetForMode(state, mode, laneTitle = null) {
   state.mode = mode || null;
   state.currentLaneTitle = laneTitle;
@@ -138,5 +178,7 @@ module.exports = {
   createState,
   notePlay,
   noteSkip,
+  markLaneResult,
+  resetLaneStatsForSession,
   resetForMode,
 };
