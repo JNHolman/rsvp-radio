@@ -292,11 +292,17 @@ function _shuffleTracks(tracks) {
   return out;
 }
 
-function _blendKey(blend) {
-  return blend ? `${blend.boundaryMin}:${blend.outgoingMode}:${blend.incomingMode}` : null;
+function _blendKey(blend, date = new Date()) {
+  if (!blend) return null;
+  const day = [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, "0"),
+    String(date.getDate()).padStart(2, "0"),
+  ].join("-");
+  return `${day}:${blend.boundaryMin}:${blend.outgoingMode}:${blend.incomingMode}`;
 }
 
-async function startBlendQueue(blend, currentTrack) {
+async function startBlendQueue(blend, currentTrack, blendKey) {
   if (_steeringInFlight || !blend || !currentTrack?.ratingKey) return false;
 
   const outgoingLanes = _resolvedLanes?.[blend.outgoingMode] || [];
@@ -333,7 +339,12 @@ async function startBlendQueue(blend, currentTrack) {
     const mixed = plexControl.interleaveTracks(
       _shuffleTracks(outgoingTracks),
       _shuffleTracks(incomingTracks),
-      { currentRatingKey: current.ratingKey, maxTracks: 4 },
+      {
+        currentRatingKey: current.ratingKey,
+        currentOffsetMs: currentTrack.viewOffsetMs || 0,
+        targetDurationMs: 10 * 60 * 1000,
+        maxTracks: 12,
+      },
     );
 
     // Preserve the track already playing at the head of the temporary queue.
@@ -348,7 +359,7 @@ async function startBlendQueue(blend, currentTrack) {
     const queue = await plexControl.createTrackQueue({
       plexBase: cfg.PLEX_BASE,
       plexToken: cfg.PLEX_TOKEN,
-      tracks: mixed.slice(0, 4),
+      tracks: mixed,
     });
 
     if (!_plexMachineIdentifier) {
@@ -372,10 +383,10 @@ async function startBlendQueue(blend, currentTrack) {
       offsetMs: currentTrack.viewOffsetMs || 0,
     });
 
-    _activeBlendKey = _blendKey(blend);
+    _activeBlendKey = blendKey || _blendKey(blend);
     _blendFinalMode = blend.incomingMode;
     console.log(
-      `[blend] ${blend.outgoingMode} + ${blend.incomingMode} → temporary mixed queue (${mixed.slice(0, 4).length} tracks)`,
+      `[blend] ${blend.outgoingMode} + ${blend.incomingMode} → temporary mixed queue (${mixed.length} tracks)`,
     );
     return true;
   } catch (err) {
@@ -457,7 +468,7 @@ async function pollSessions() {
   const nowDate          = new Date();
   const timeBlockMode    = timeblocks.blockModeForDate(nowDate);
   const blendWindow      = timeblocks.blendWindowForMinute(timeblocks.minutesOfDay(nowDate));
-  const currentBlendKey  = _blendKey(blendWindow);
+  const currentBlendKey  = _blendKey(blendWindow, nowDate);
 
   try {
     const url = `${cfg.PLEX_BASE}/status/sessions?X-Plex-Token=${encodeURIComponent(cfg.PLEX_TOKEN)}`;
@@ -544,7 +555,7 @@ async function pollSessions() {
       currentBlendKey !== _activeBlendKey &&
       currentBlendKey !== _completedBlendKey
     ) {
-      await startBlendQueue(blendWindow, t);
+      await startBlendQueue(blendWindow, t, currentBlendKey);
     }
 
     // Once the blend window is over, settle into the incoming mode on the next
