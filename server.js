@@ -19,6 +19,8 @@ const cfg         = require("./config");
 const skipTracker = require("./intelligence/skip-tracker");
 const plexSync    = require("./intelligence/plex-sync");
 const session     = require("./intelligence/session");
+const steering    = require("./intelligence/steering");
+const plexControl = require("./intelligence/plex-control");
 const timeblocks  = require("./shared/timeblocks");
 
 // ── XML parser ────────────────────────────────────────────────────────────────
@@ -193,6 +195,100 @@ let lastState = {
 // ── Skip detection state ──────────────────────────────────────────────────────
 let _prevPollTrack = null; // { ratingKey, title, artist, scrobbled, viewOffsetMs, durationMs }
 let _pollInFlight  = false;
+let _lastTimeBlockMode = blockModeForNow();
+
+const _steeringState = steering.createState();
+let _laneConfig = {};
+let _resolvedLanes = {};
+let _plexMachineIdentifier = "";
+let _steeringCommandId = 1;
+let _steeringInFlight = false;
+
+try {
+  _laneConfig = steering.parseLaneConfig(cfg.RSVP_LANES_JSON);
+} catch (err) {
+  console.warn("[steering]", err.message);
+}
+
+async function refreshSteeringLanes() {
+  if (!Object.values(_laneConfig).some((lanes) => lanes.length)) {
+    _resolvedLanes = _laneConfig;
+    return;
+  }
+
+  try {
+    const resolved = await plexControl.resolveConfiguredLanes({
+      plexBase: cfg.PLEX_BASE,
+      plexToken: cfg.PLEX_TOKEN,
+    }, _laneConfig);
+    _resolvedLanes = resolved.lanes;
+
+    for (const [mode, configured] of Object.entries(_laneConfig)) {
+      const found = new Set((_resolvedLanes[mode] || []).map((lane) => lane.title));
+      const missing = configured.filter((lane) => !found.has(lane.title)).map((lane) => lane.title);
+      if (missing.length) console.warn(`[steering] missing ${mode} playlists: ${missing.join(", ")}`);
+    }
+  } catch (err) {
+    console.warn("[steering] playlist discovery failed:", err.message);
+    _resolvedLanes = {};
+  }
+}
+
+async function steerIfNeeded(mode) {
+  if (_steeringInFlight) return false;
+  if (!steering.shouldSteer({
+    consecutiveSkips: _steeringState.consecutiveSkips,
+    threshold: cfg.STEERING_SKIP_THRESHOLD,
+  })) return false;
+
+  const lane = steering.nextLane({
+    mode,
+    currentTitle: _steeringState.currentLaneTitle,
+    lanes: _resolvedLanes,
+  });
+  if (!lane?.ratingKey) return false;
+
+  _steeringInFlight = true;
+  try {
+    if (!_plexMachineIdentifier) {
+      _plexMachineIdentifier = await plexControl.serverIdentity({
+        plexBase: cfg.PLEX_BASE,
+        plexToken: cfg.PLEX_TOKEN,
+      });
+    }
+
+    const queue = await plexControl.createPlaylistQueue({
+      plexBase: cfg.PLEX_BASE,
+      plexToken: cfg.PLEX_TOKEN,
+      playlistRatingKey: lane.ratingKey,
+    });
+
+    // This upcoming playback change is system-directed, not a crowd skip.
+    if (_prevPollTrack) _prevPollTrack.scrobbled = true;
+
+    await plexControl.playQueueOnPlexamp({
+      plexampBase: cfg.PLEXAMP_BASE,
+      plexBase: cfg.PLEX_BASE,
+      plexToken: cfg.PLEX_TOKEN,
+      machineIdentifier: _plexMachineIdentifier,
+      targetClientIdentifier: cfg.PLEX_TARGET_CLIENT_IDENTIFIER,
+      queueId: queue.queueId,
+      selectedKey: queue.selectedKey,
+      commandId: _steeringCommandId++,
+    });
+
+    _steeringState.currentLaneTitle = lane.title;
+    _steeringState.consecutiveSkips = 0;
+    _steeringState.lastSteeredAt = Date.now();
+    console.log(`[steering] ${mode} → "${lane.title}"`);
+    return true;
+  } catch (err) {
+    console.warn("[steering] lane switch failed:", err.message);
+    return false;
+  } finally {
+    _steeringInFlight = false;
+  }
+}
 
 // ── Plex poll ─────────────────────────────────────────────────────────────────
 async function pollSessions() {
@@ -231,8 +327,16 @@ async function pollSessions() {
         const pct = _prevPollTrack.durationMs > 0
           ? _prevPollTrack.viewOffsetMs / _prevPollTrack.durationMs
           : 0;
-        skipTracker.recordSkip(_prevPollTrack, pct);
-        plexSync.syncRating(_prevPollTrack.ratingKey, cfg.PLEX_BASE, cfg.PLEX_TOKEN);
+
+        if (pct < 0.40) {
+          skipTracker.recordSkip(_prevPollTrack, pct);
+          plexSync.syncRating(_prevPollTrack.ratingKey, cfg.PLEX_BASE, cfg.PLEX_TOKEN);
+          steering.noteSkip(_steeringState, { mode: lastState.mode || timeBlockMode });
+          await steerIfNeeded(lastState.mode || timeBlockMode);
+        } else {
+          // A track transition after 40% is not a steering vote against the lane.
+          steering.notePlay(_steeringState, { mode: lastState.mode || timeBlockMode });
+        }
       }
     }
 
@@ -256,8 +360,16 @@ async function pollSessions() {
     }
 
     // ── Session / seed detection ──────────────────────────────────────────────
+    const boundaryChanged = timeBlockMode !== _lastTimeBlockMode;
+    if (boundaryChanged) _lastTimeBlockMode = timeBlockMode;
+
     const effectiveMode = (lastState.event === "idle" ? timeBlockMode : lastState.mode) || timeBlockMode;
-    let resolvedMode = effectiveMode;
+    let resolvedMode = boundaryChanged ? timeBlockMode : effectiveMode;
+
+    if (boundaryChanged) {
+      steering.resetForMode(_steeringState, timeBlockMode);
+      console.log(`[mode] time block boundary → ${timeBlockMode}`);
+    }
 
     try {
       const seedMode = await session.checkSession(
@@ -419,6 +531,7 @@ app.post("/plex", (req, res) => {
         _prevPollTrack.scrobbled = true;
       }
       skipTracker.recordPlay({ ratingKey, title, artist });
+      steering.notePlay(_steeringState, { mode: lastState.mode || blockModeForNow() });
       plexSync.syncCleanPlay(ratingKey, title, cfg.PLEX_BASE, cfg.PLEX_TOKEN);
     }
 
@@ -433,8 +546,9 @@ app.listen(cfg.PORT, () => {
   console.log(`[server] Serving: ${cfg.PUBLIC_DIR}`);
   const assets = assetHealth();
   if (!assets.ok) console.warn(`[server] Missing background assets: ${assets.missing.join(", ")}`);
-  // Sync all existing skip data to Plex on startup
+  // Sync all existing skip data to Plex and resolve curated steering lanes.
   plexSync.syncAll(cfg.PLEX_BASE, cfg.PLEX_TOKEN);
+  refreshSteeringLanes();
   pollSessions();
   setInterval(pollSessions, cfg.POLL_MS);
 });
