@@ -7,6 +7,19 @@ const DEFAULT_PI_PUBLIC_DIR = "/home/pi/rsvp-radio/public";
 const LOCAL_PUBLIC_DIR = path.join(__dirname, "public");
 const BG_DAY = "/assets/bg/rsvp_day_720_optimized.mp4";
 const BG_NIGHT = "/assets/bg/rsvp_night_720.mp4";
+const DEFAULT_LANES_PATH = path.join(__dirname, "config", "lanes.json");
+
+function laneConfigRaw() {
+  if (process.env.RSVP_LANES_JSON) return process.env.RSVP_LANES_JSON;
+
+  const lanesPath = process.env.RSVP_LANES_PATH || DEFAULT_LANES_PATH;
+  try {
+    if (fs.existsSync(lanesPath)) return fs.readFileSync(lanesPath, "utf8");
+  } catch (err) {
+    console.warn("[config] Could not read lane config:", err.message);
+  }
+  return "";
+}
 
 function existingDir(...candidates) {
   for (const dir of candidates) {
@@ -23,7 +36,8 @@ const cfg = {
   PLEX_TOKEN: process.env.PLEX_TOKEN || "",
   PLEX_BASE:  process.env.PLEX_BASE  || "http://127.0.0.1:32400",
   PLEXAMP_BASE: process.env.PLEXAMP_BASE || "http://127.0.0.1:32500",
-  RSVP_LANES_JSON: process.env.RSVP_LANES_JSON || "",
+  RSVP_LANES_JSON: laneConfigRaw(),
+  RSVP_LANES_PATH: process.env.RSVP_LANES_PATH || DEFAULT_LANES_PATH,
   STEERING_SKIP_THRESHOLD: Number(process.env.STEERING_SKIP_THRESHOLD) || 2,
 
   FEATURES_STALE_MS: Number(process.env.FEATURES_STALE_MS) || 5000,
