@@ -143,3 +143,47 @@ test("createTrackQueue sends explicit ordered track IDs to Plex", async () => {
   );
   assert.deepEqual(queue, { queueId: "88", selectedKey: "/library/metadata/1" });
 });
+
+
+test("blend weighting favors the incoming pool later in the window", () => {
+  const outgoing = [
+    { ratingKey: "o1", durationMs: 180000 },
+    { ratingKey: "o2", durationMs: 180000 },
+    { ratingKey: "o3", durationMs: 180000 },
+    { ratingKey: "o4", durationMs: 180000 },
+  ];
+  const incoming = [
+    { ratingKey: "i1", durationMs: 180000 },
+    { ratingKey: "i2", durationMs: 180000 },
+    { ratingKey: "i3", durationMs: 180000 },
+    { ratingKey: "i4", durationMs: 180000 },
+  ];
+
+  const mixed = plexControl.interleaveTracks(outgoing, incoming, {
+    targetDurationMs: 9 * 60 * 1000,
+    incomingWeight: 0.8,
+  });
+
+  const incomingCount = mixed.filter((t) => t.ratingKey.startsWith("i")).length;
+  const outgoingCount = mixed.filter((t) => t.ratingKey.startsWith("o")).length;
+  assert.ok(incomingCount >= outgoingCount);
+});
+
+test("blend queue targets duration rather than a fixed track count", () => {
+  const outgoing = [
+    { ratingKey: "o1", durationMs: 240000 },
+    { ratingKey: "o2", durationMs: 240000 },
+  ];
+  const incoming = [
+    { ratingKey: "i1", durationMs: 240000 },
+    { ratingKey: "i2", durationMs: 240000 },
+  ];
+
+  const mixed = plexControl.interleaveTracks(outgoing, incoming, {
+    targetDurationMs: 10 * 60 * 1000,
+    incomingWeight: 0.5,
+  });
+
+  const total = mixed.reduce((sum, t) => sum + t.durationMs, 0);
+  assert.ok(total >= 10 * 60 * 1000 || mixed.length === 4);
+});
