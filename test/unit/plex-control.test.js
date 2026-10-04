@@ -88,3 +88,58 @@ test("playQueueOnPlexamp targets the local companion endpoint", async () => {
   assert.equal(u.searchParams.get("X-Plex-Target-Client-Identifier"), "plexamp-id");
   assert.equal(u.searchParams.get("commandID"), "7");
 });
+
+
+test("interleaveTracks keeps current track first and mixes both lane pools", () => {
+  const outgoing = [
+    { ratingKey: "1", title: "Current" },
+    { ratingKey: "2", title: "Out 2" },
+    { ratingKey: "3", title: "Out 3" },
+  ];
+  const incoming = [
+    { ratingKey: "4", title: "In 1" },
+    { ratingKey: "5", title: "In 2" },
+  ];
+
+  const mixed = plexControl.interleaveTracks(outgoing, incoming, {
+    currentRatingKey: "1",
+    maxTracks: 4,
+  });
+
+  assert.equal(mixed[0].ratingKey, "1");
+  assert.ok(mixed.some((t) => t.ratingKey === "2"));
+  assert.ok(mixed.some((t) => t.ratingKey === "4"));
+  assert.equal(new Set(mixed.map((t) => t.ratingKey)).size, mixed.length);
+});
+
+test("createTrackQueue sends explicit ordered track IDs to Plex", async () => {
+  let seenUrl = "";
+  const fakeFetch = async (url, opts = {}) => {
+    seenUrl = String(url);
+    assert.equal(opts.method, "POST");
+    return response(
+      '<MediaContainer playQueueID="88"><Track key="/library/metadata/1" /></MediaContainer>'
+    );
+  };
+
+  const queue = await plexControl.createTrackQueue({
+    fetchImpl: fakeFetch,
+    plexBase: "http://127.0.0.1:32400",
+    plexToken: "token",
+    tracks: [
+      { ratingKey: "1" },
+      { ratingKey: "4" },
+      { ratingKey: "2" },
+    ],
+  });
+
+  const u = new URL(seenUrl);
+  assert.equal(u.pathname, "/playQueues");
+  assert.equal(u.searchParams.get("shuffle"), "0");
+  assert.equal(u.searchParams.get("continuous"), "0");
+  assert.equal(
+    decodeURIComponent(u.searchParams.get("uri")),
+    "library:///directory//library/metadata/1,4,2",
+  );
+  assert.deepEqual(queue, { queueId: "88", selectedKey: "/library/metadata/1" });
+});
