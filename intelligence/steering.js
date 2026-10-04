@@ -53,8 +53,16 @@ function nextLane({ mode, currentTitle, lanes, direction = 1 }) {
   return list[nextIndex];
 }
 
-function shouldSteer({ consecutiveSkips, threshold = 2 }) {
-  return Number(consecutiveSkips) >= Number(threshold);
+function shouldSteer({
+  consecutiveSkips,
+  threshold = 2,
+  lastSteeredAt = 0,
+  now = Date.now(),
+  minDwellMs = 0,
+}) {
+  if (Number(consecutiveSkips) < Number(threshold)) return false;
+  if (lastSteeredAt && (now - lastSteeredAt) < Number(minDwellMs || 0)) return false;
+  return true;
 }
 
 function createState() {
@@ -62,6 +70,8 @@ function createState() {
     mode: null,
     currentLaneTitle: null,
     consecutiveSkips: 0,
+    lastSkipRatingKey: null,
+    lastSkipAt: 0,
     lastSteeredAt: 0,
   };
 }
@@ -74,18 +84,39 @@ function notePlay(state, { mode, laneTitle } = {}) {
     state.currentLaneTitle = laneTitle;
   }
   state.consecutiveSkips = 0;
+  state.lastSkipRatingKey = null;
+  state.lastSkipAt = 0;
   return state;
 }
 
-function noteSkip(state, { mode, laneTitle } = {}) {
+function noteSkip(state, {
+  mode,
+  laneTitle,
+  ratingKey,
+  now = Date.now(),
+  windowMs = 10 * 60 * 1000,
+} = {}) {
   if (mode && state.mode !== mode) {
     state.mode = mode;
     state.currentLaneTitle = laneTitle || null;
     state.consecutiveSkips = 0;
+    state.lastSkipRatingKey = null;
+    state.lastSkipAt = 0;
   } else if (laneTitle) {
     state.currentLaneTitle = laneTitle;
   }
-  state.consecutiveSkips += 1;
+
+  const outsideWindow = state.lastSkipAt && (now - state.lastSkipAt) > Number(windowMs || 0);
+  if (outsideWindow) state.consecutiveSkips = 0;
+
+  // Repeated skips of the same track remain song-level feedback. They should
+  // not be allowed to vote multiple times for abandoning an entire lane.
+  if (!ratingKey || ratingKey !== state.lastSkipRatingKey) {
+    state.consecutiveSkips += 1;
+  }
+
+  state.lastSkipRatingKey = ratingKey || null;
+  state.lastSkipAt = now;
   return state;
 }
 
@@ -93,6 +124,8 @@ function resetForMode(state, mode, laneTitle = null) {
   state.mode = mode || null;
   state.currentLaneTitle = laneTitle;
   state.consecutiveSkips = 0;
+  state.lastSkipRatingKey = null;
+  state.lastSkipAt = 0;
   return state;
 }
 
