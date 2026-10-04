@@ -22,6 +22,11 @@ const path = require("path");
 const DATA_PATH    = process.env.SESSION_DATA_PATH || path.join(__dirname, "..", "data", "session.json");
 const IDLE_TIMEOUT = 45 * 60 * 1000; // 45 minutes of silence = new session
 const GENRE_FETCH_TIMEOUT_MS = Number(process.env.SESSION_GENRE_FETCH_TIMEOUT_MS) || 4000;
+const ACTIVE_PERSIST_INTERVAL_MS =
+  Number(process.env.SESSION_PERSIST_INTERVAL_MS) || 60 * 1000;
+
+let _cachedState = null;
+let _lastPersistAt = 0;
 
 // ── Genre → mode map ──────────────────────────────────────────────────────────
 const GENRE_MODE_MAP = [
@@ -41,17 +46,32 @@ function genreToMode(genres) {
 }
 
 // ── Persistence ───────────────────────────────────────────────────────────────
-function load() {
-  try {
-    if (fs.existsSync(DATA_PATH)) return JSON.parse(fs.readFileSync(DATA_PATH, "utf8"));
-  } catch {}
+function freshState() {
   return { lastPlayedAt: 0, seedRatingKey: null, seedTitle: "", seedArtist: "", seedMode: null, sessionCount: 0 };
 }
 
-function save(data) {
+function load() {
+  if (_cachedState) return _cachedState;
+  try {
+    if (fs.existsSync(DATA_PATH)) {
+      _cachedState = JSON.parse(fs.readFileSync(DATA_PATH, "utf8"));
+      return _cachedState;
+    }
+  } catch {}
+  _cachedState = freshState();
+  return _cachedState;
+}
+
+function save(data, force = false) {
+  const now = Date.now();
+  _cachedState = data;
+
+  if (!force && (now - _lastPersistAt) < ACTIVE_PERSIST_INTERVAL_MS) return;
+
   try {
     fs.mkdirSync(path.dirname(DATA_PATH), { recursive: true });
     fs.writeFileSync(DATA_PATH, JSON.stringify(data, null, 2), "utf8");
+    _lastPersistAt = now;
   } catch {}
 }
 
@@ -109,7 +129,7 @@ async function checkSession(track, plexBase, plexToken, blockMode) {
   state.seedGenres    = [];
 
   // Persist immediately so slow Plex metadata does not trigger duplicate sessions
-  save(state);
+  save(state, true);
 
   console.log(`[session] New session #${state.sessionCount} — seed: "${track.title}" by ${track.artist}`);
 
@@ -132,7 +152,7 @@ async function checkSession(track, plexBase, plexToken, blockMode) {
 
   console.log(`[session] Setting lights mode → ${mode}${detectedMode ? " (from genre)" : " (time block fallback)"}`);
 
-  save(latest);
+  save(latest, true);
   return mode;
 }
 
