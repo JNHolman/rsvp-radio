@@ -58,3 +58,23 @@ Note: redemption is tied to Plex's `media.scrobble` event, not a hardcoded 50% t
 | 3 | 180 days |
 | 4 | 1 year |
 | 5 | Permanent exile |
+
+
+---
+
+## Curated lanes
+
+Plex still decides which songs qualify for each Smart Playlist. RSVP Radio only decides which already-curated playlist to hand to Plexamp when the room rejects the current lane.
+
+Example local config: `config/lanes.json` (copy from `config/lanes.example.json`).
+
+Rules:
+- every lane is a real Plex **audio playlist** matched by exact title
+- steering never crosses the active `lofi`, `wrap`, `rap`, or `rnb` mode
+- two consecutive sub-40% skips trigger a lateral lane change by default
+- a clean play resets skip pressure
+- RSVP-triggered lane changes do not count as crowd skips
+- missing playlists are skipped safely; they do not stop playback
+- Plex rating/play/skip Smart Playlist rules remain authoritative underneath the lane layer
+
+The lane file is local runtime configuration because playlist names can differ between Plex libraries. It is intentionally ignored by Git; only the example is committed.
