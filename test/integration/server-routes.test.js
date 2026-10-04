@@ -72,3 +72,30 @@ test("/api/exit requires token when EXIT_API_TOKEN is set", async () => {
     await server.stop();
   }
 });
+
+
+test("/automation stop and start expose explicit runtime ownership state", async () => {
+  const server = await startServer({
+    PUBLIC_DIR: makePublicDir({ withAssets: true }),
+  });
+  try {
+    const stoppedRes = await fetch(`${server.baseUrl}/automation/stop`, { method: "POST" });
+    const stopped = await stoppedRes.json();
+    assert.equal(stoppedRes.status, 200);
+    assert.equal(stopped.automation.enabled, false);
+    assert.equal(stopped.automation.manualStop, true);
+
+    const stateRes = await fetch(`${server.baseUrl}/state`);
+    const state = await stateRes.json();
+    assert.equal(state.automation.enabled, false);
+
+    const startedRes = await fetch(`${server.baseUrl}/automation/start`, { method: "POST" });
+    const started = await startedRes.json();
+    assert.equal(startedRes.status, 200);
+    assert.equal(started.automation.enabled, true);
+    assert.equal(started.automation.manualStop, false);
+    assert.equal(started.automation.resumeReason, "manual");
+  } finally {
+    await server.stop();
+  }
+});
