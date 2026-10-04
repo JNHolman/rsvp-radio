@@ -79,35 +79,49 @@ async function getPlaylistItems({
       key: String(track?.["@_key"] || ""),
       title: String(track?.["@_title"] || ""),
       artist: String(track?.["@_grandparentTitle"] || ""),
+      durationMs: Number(track?.["@_duration"]) || 0,
     }))
     .filter((track) => track.ratingKey);
 }
 
 function interleaveTracks(outgoing, incoming, {
   currentRatingKey = "",
-  maxTracks = 6,
+  maxTracks = 12,
+  targetDurationMs = 10 * 60 * 1000,
+  currentOffsetMs = 0,
 } = {}) {
   const seen = new Set();
   const out = [];
 
-  function add(track) {
+  let estimatedDurationMs = 0;
+
+  function add(track, isCurrent = false) {
     if (!track?.ratingKey || seen.has(track.ratingKey)) return;
     seen.add(track.ratingKey);
     out.push(track);
+
+    const duration = Math.max(0, Number(track.durationMs) || 0);
+    estimatedDurationMs += isCurrent
+      ? Math.max(0, duration - Math.max(0, Number(currentOffsetMs) || 0))
+      : duration;
   }
 
   if (currentRatingKey) {
     const current =
       outgoing.find((t) => t.ratingKey === currentRatingKey) ||
       incoming.find((t) => t.ratingKey === currentRatingKey);
-    if (current) add(current);
+    if (current) add(current, true);
   }
 
   let oi = 0;
   let ii = 0;
   let takeIncoming = false;
 
-  while (out.length < maxTracks && (oi < outgoing.length || ii < incoming.length)) {
+  while (
+    out.length < maxTracks &&
+    estimatedDurationMs < targetDurationMs &&
+    (oi < outgoing.length || ii < incoming.length)
+  ) {
     const source = takeIncoming ? incoming : outgoing;
     let idx = takeIncoming ? ii : oi;
 
