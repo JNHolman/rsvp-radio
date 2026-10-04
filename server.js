@@ -21,6 +21,7 @@ const plexSync    = require("./intelligence/plex-sync");
 const session     = require("./intelligence/session");
 const steering    = require("./intelligence/steering");
 const plexControl = require("./intelligence/plex-control");
+const automation  = require("./intelligence/automation-state");
 const timeblocks  = require("./shared/timeblocks");
 
 // ── XML parser ────────────────────────────────────────────────────────────────
@@ -198,6 +199,7 @@ let _pollInFlight  = false;
 let _lastTimeBlockMode = blockModeForNow();
 
 const _steeringState = steering.createState();
+const _automationState = automation.createAutomationState();
 let _laneConfig = {};
 let _resolvedLanes = {};
 let _plexMachineIdentifier = "";
@@ -399,6 +401,7 @@ async function startBlendQueue(blend, currentTrack, blendKey) {
 }
 
 async function steerIfNeeded(mode) {
+  if (!_automationState.enabled) return false;
   if (_steeringInFlight) return false;
   if (!steering.shouldSteer({
     consecutiveSkips: _steeringState.consecutiveSkips,
@@ -470,6 +473,15 @@ async function pollSessions() {
   const timeBlockMode    = timeblocks.blockModeForDate(nowDate);
   const blendWindow      = timeblocks.blendWindowForMinute(timeblocks.minutesOfDay(nowDate));
   const currentBlendKey  = _blendKey(blendWindow, nowDate);
+
+  // A manual automation stop only lasts through the current block.
+  // The scheduled blend is the handoff point where automation owns playback again.
+  if (blendWindow && automation.resumeForBlend(_automationState, blendWindow)) {
+    steering.resetForMode(_steeringState, blendWindow.outgoingMode, _steeringState.currentLaneTitle);
+    console.log(
+      `[automation] resumed for scheduled blend ${blendWindow.outgoingMode} → ${blendWindow.incomingMode}`,
+    );
+  }
 
   try {
     const url = `${cfg.PLEX_BASE}/status/sessions?X-Plex-Token=${encodeURIComponent(cfg.PLEX_TOKEN)}`;
@@ -628,7 +640,10 @@ app.get("/runtime-config.js", (_req, res) => {
 
 app.use("/", express.static(cfg.PUBLIC_DIR));
 
-app.get("/state",  (_req, res) => res.json(lastState));
+app.get("/state",  (_req, res) => res.json({
+  ...lastState,
+  automation: automation.snapshot(_automationState),
+}));
 
 app.get("/health", (_req, res) => {
   const staleMs = Date.now() - (lastState.updatedAt || 0);
@@ -643,6 +658,22 @@ app.get("/health", (_req, res) => {
     assetsOk: assets.ok,
     assetsMissing: assets.missing,
   });
+});
+
+app.get("/automation", (_req, res) => {
+  res.json(automation.snapshot(_automationState));
+});
+
+app.post("/automation/stop", (_req, res) => {
+  automation.stopAutomation(_automationState, lastState.mode || blockModeForNow());
+  console.log(`[automation] manually stopped for current block (${_automationState.stoppedMode || "unknown"})`);
+  res.json({ ok: true, automation: automation.snapshot(_automationState) });
+});
+
+app.post("/automation/start", (_req, res) => {
+  automation.startAutomation(_automationState, "manual");
+  console.log("[automation] manually resumed");
+  res.json({ ok: true, automation: automation.snapshot(_automationState) });
 });
 
 app.post("/features", (req, res) => {
