@@ -50,6 +50,8 @@ async function startServer(envOverrides = {}) {
     PLEX_WEBHOOK_MAX_BYTES: envOverrides.PLEX_WEBHOOK_MAX_BYTES || "256",
     SESSION_DATA_PATH: envOverrides.SESSION_DATA_PATH || "",
     SESSION_GENRE_FETCH_TIMEOUT_MS: envOverrides.SESSION_GENRE_FETCH_TIMEOUT_MS || "",
+    SESSION_PERSIST_INTERVAL_MS: envOverrides.SESSION_PERSIST_INTERVAL_MS || "",
+    SKIP_DATA_PATH: envOverrides.SKIP_DATA_PATH || "",
   };
 
   const child = spawn(process.execPath, ["server.js"], {
