@@ -208,6 +208,7 @@ async function playQueueOnPlexamp({
   queueId,
   selectedKey,
   commandId,
+  offsetMs = 0,
   timeoutMs = 4000,
 }) {
   const serverUrl = new URL(plexBase);
@@ -218,7 +219,7 @@ async function playQueueOnPlexamp({
   url.searchParams.set("protocol", serverUrl.protocol.replace(":", ""));
   url.searchParams.set("address", serverUrl.hostname);
   url.searchParams.set("port", serverUrl.port || (serverUrl.protocol === "https:" ? "443" : "80"));
-  url.searchParams.set("offset", "0");
+  url.searchParams.set("offset", String(Math.max(0, Number(offsetMs) || 0)));
   url.searchParams.set("key", selectedKey);
   url.searchParams.set("type", "music");
   url.searchParams.set("containerKey", `/playQueues/${queueId}?window=100&own=1`);
