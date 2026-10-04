@@ -1,0 +1,22 @@
+{
+  "lofi": [
+    "RSVP LOFI - Main",
+    "RSVP LOFI - Soulful",
+    "RSVP LOFI - Instrumental"
+  ],
+  "wrap": [
+    "RSVP WRAP - Main",
+    "RSVP WRAP - Throwbacks",
+    "RSVP WRAP - Dance"
+  ],
+  "rap": [
+    "RSVP RAP - Main",
+    "RSVP RAP - Melodic",
+    "RSVP RAP - Throwbacks"
+  ],
+  "rnb": [
+    "RSVP RNB - Main",
+    "RSVP RNB - Slow Jams",
+    "RSVP RNB - Throwbacks"
+  ]
+}
