@@ -51,3 +51,56 @@ test("clean play resets skip pressure and mode change resets lane", () => {
   assert.equal(state.currentLaneTitle, null);
   assert.equal(state.consecutiveSkips, 0);
 });
+
+
+test("same song cannot cast multiple lane-change votes", () => {
+  const state = steering.createState();
+
+  steering.noteSkip(state, { mode: "rap", ratingKey: "1", now: 1000, windowMs: 600000 });
+  steering.noteSkip(state, { mode: "rap", ratingKey: "1", now: 2000, windowMs: 600000 });
+
+  assert.equal(state.consecutiveSkips, 1);
+});
+
+test("two different songs inside the vote window trigger steering pressure", () => {
+  const state = steering.createState();
+
+  steering.noteSkip(state, { mode: "rap", ratingKey: "1", now: 1000, windowMs: 600000 });
+  steering.noteSkip(state, { mode: "rap", ratingKey: "2", now: 2000, windowMs: 600000 });
+
+  assert.equal(state.consecutiveSkips, 2);
+  assert.equal(steering.shouldSteer({
+    consecutiveSkips: state.consecutiveSkips,
+    threshold: 2,
+    lastSteeredAt: 0,
+    now: 2000,
+    minDwellMs: 900000,
+  }), true);
+});
+
+test("old skip pressure expires outside the vote window", () => {
+  const state = steering.createState();
+
+  steering.noteSkip(state, { mode: "rnb", ratingKey: "1", now: 1000, windowMs: 600000 });
+  steering.noteSkip(state, { mode: "rnb", ratingKey: "2", now: 700001, windowMs: 600000 });
+
+  assert.equal(state.consecutiveSkips, 1);
+});
+
+test("minimum dwell prevents lane ping-pong after a recent steer", () => {
+  assert.equal(steering.shouldSteer({
+    consecutiveSkips: 2,
+    threshold: 2,
+    lastSteeredAt: 1000,
+    now: 2000,
+    minDwellMs: 900000,
+  }), false);
+
+  assert.equal(steering.shouldSteer({
+    consecutiveSkips: 2,
+    threshold: 2,
+    lastSteeredAt: 1000,
+    now: 901001,
+    minDwellMs: 900000,
+  }), true);
+});
