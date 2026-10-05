@@ -8,7 +8,7 @@ const DEFAULT_PATH = process.env.RUNTIME_STATE_PATH || path.join(__dirname, ".."
 const MODES = new Set(["lofi", "lounge", "rap", "rnb"]);
 
 const DEFAULT_STATE = Object.freeze({
-  version: 5,
+  version: 6,
   plexampPausedByRsvp: false,
   wasVideoMode: false,
   lightsEnabled: true,
@@ -43,6 +43,9 @@ function normalize(raw) {
         mode: normalizeMode(src.videoMode.mode),
         startedAt: Number.isFinite(Number(src.videoMode.startedAt)) ? Number(src.videoMode.startedAt) : 0,
         paused: !!src.videoMode.paused,
+        manualUntil: Number.isFinite(Number(src.videoMode.manualUntil))
+          ? Math.max(0, Number(src.videoMode.manualUntil))
+          : 0,
       }
     : null;
 
@@ -83,7 +86,7 @@ function normalize(raw) {
     : { enabled: true, manualStop: false, stoppedMode: null, stoppedAt: 0 };
 
   return {
-    version: 5,
+    version: 6,
     plexampPausedByRsvp: !!src.plexampPausedByRsvp,
     wasVideoMode: !!src.wasVideoMode || !!vm,
     lightsEnabled: src.lightsEnabled !== false,

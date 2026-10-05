@@ -725,8 +725,24 @@ let _videoMode = _savedVideoMode ? {
   mode:          "",
   startedAt:     0,
   paused:        false,
+  manualUntil:   0,
 };
 if (_videoMode.active) _wasVideoMode = true;
+
+// Radio may reclaim the room only after TV takeover has observed Plexamp in a
+// definite non-playing state. A persisted TV session starts disarmed so a stale
+// "playing" timeline after reboot cannot instantly kill TV.
+let _radioTakeoverArmed = !_videoMode.active;
+
+function _isManualVideoActive() {
+  const until = Number(_videoMode.manualUntil) || 0;
+  if (!_videoMode.active || !until) return false;
+  if (Date.now() < until) return true;
+  console.log(`[video-mode] manual TV override expired (was ${_videoMode.mode})`);
+  _videoMode.manualUntil = 0;
+  _persistRuntimeState();
+  return false;
+}
 
 // Internal weighted handoffs may move back and forth between old/new video
 // genres during the 20-minute blend. Preserve the next clip position per
@@ -834,24 +850,42 @@ async function fetchVideoPlaylistItems(playlistKey) {
   }
 }
 
-async function _plexampPlayingDirect() {
-  if (!PLEXAMP_PI_ID) return false;
+async function _plexampStateDirect() {
+  if (!PLEXAMP_PI_ID) return "unknown";
   try {
     const url = `${PLEXAMP_BASE}/player/timeline/poll?wait=0&commandID=${Date.now()}`
       + `&X-Plex-Client-Identifier=rsvp-radio`
       + `&X-Plex-Target-Client-Identifier=${encodeURIComponent(PLEXAMP_PI_ID)}`;
     const r = await fetchWithTimeout(url, 2000);
-    if (!r.ok) return false;
+    if (!r.ok) return "unknown";
     const xml = await r.text();
     const tl = xml.match(/<Timeline\b[^>]*\btype="music"[^>]*>/i);
-    if (!tl) return false;
+    if (!tl) return "stopped";
     const stateM = /\bstate="([^"]+)"/i.exec(tl[0]);
-    return !!stateM && stateM[1] === "playing";
-  } catch { return false; }
+    return stateM ? String(stateM[1]).toLowerCase() : "stopped";
+  } catch {
+    return "unknown";
+  }
+}
+
+async function _waitForPlexampNotPlaying({ timeoutMs = 4000, pollMs = 100 } = {}) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() <= deadline) {
+    const state = await _plexampStateDirect();
+    if (state !== "unknown" && state !== "playing") return true;
+    if (Date.now() >= deadline) break;
+    await new Promise((resolve) => setTimeout(resolve, pollMs));
+  }
+  return false;
 }
 
 async function _plexampPauseDirect({ preserveExistingPause = false } = {}) {
-  const wasPlaying = await _checkPlexampPlaying();
+  const directState = await _plexampStateDirect();
+  if (directState === "unknown") {
+    console.warn("[video-mode] cannot confirm Plexamp state before TV takeover");
+    return false;
+  }
+  const wasPlaying = directState === "playing";
   if (!wasPlaying) {
     // Switching from one RSVP TV lane/genre to another must not erase the fact
     // that RSVP already paused Plexamp. That flag is needed for video-failure
@@ -879,6 +913,7 @@ async function enterVideoMode(playlistKey, {
   allowBlendMode = false,
   preservePosition = false,
   atClipBoundary = false,
+  manualOverride = false,
 } = {}) {
   const clips = await fetchVideoPlaylistItems(playlistKey);
   if (!clips.length) return { ok: false, reason: "empty_or_unreadable_playlist" };
@@ -897,7 +932,7 @@ async function enterVideoMode(playlistKey, {
     : null;
   const blendAllows = !!(allowBlendMode && activeBlend &&
     (playlistMode === activeBlend.fromMode || playlistMode === activeBlend.toMode));
-  if (playlistMode !== roomMode && !blendAllows) {
+  if (!manualOverride && playlistMode !== roomMode && !blendAllows) {
     return { ok: false, reason: `playlist_outside_current_block:${playlistMode}:${roomMode}` };
   }
 
@@ -912,9 +947,28 @@ async function enterVideoMode(playlistKey, {
 
   // Handoff is atomic from the system's perspective: silence Radio first, then
   // publish TV ownership. Preserve the pause flag when TV already owns playback.
+  //
+  // On a fresh Radio -> TV handoff, do not publish TV until the direct Plexamp
+  // receiver has actually reported a non-playing state. This prevents the
+  // previous "bounce" where a stale playing timeline was mistaken for a human
+  // Radio override immediately after RSVP itself sent Pause.
+  const freshTakeover = !previous.active;
+  if (freshTakeover) _radioTakeoverArmed = false;
   if (!await _plexampPauseDirect({ preserveExistingPause: previous.active })) {
     return { ok: false, reason: "plexamp_pause_failed" };
   }
+  if (freshTakeover && !await _waitForPlexampNotPlaying()) {
+    console.warn("[video-mode] Plexamp pause did not settle; keeping Radio ownership");
+    // This was never a completed TV handoff, so do NOT use the normal
+    // resume-after-video path (it intentionally skipNexts). If Plexamp is still
+    // playing, the pause never took and there is nothing to recover. If the
+    // receiver is unreachable, keep the paused-by-RSVP flag so the ordinary
+    // recovery loop can repair a pause that may have landed.
+    const failedState = await _plexampStateDirect();
+    if (failedState === "playing") _setPlexampPausedByRsvp(false);
+    return { ok: false, reason: "plexamp_pause_unconfirmed" };
+  }
+  if (freshTakeover) _radioTakeoverArmed = true;
 
   // TV owns playback now. Any queued/active Radio blend decision was calculated
   // for a medium that is no longer playing and must never fire later as stale work.
@@ -923,6 +977,9 @@ async function enterVideoMode(playlistKey, {
 
   const savedIndex = preservePosition ? _videoPlaylistResumeIndex.get(String(playlistKey)) : undefined;
   const startIndex = Number.isInteger(savedIndex) && savedIndex >= 0 && savedIndex < clips.length ? savedIndex : 0;
+  const manualUntil = manualOverride
+    ? timeblocks.getNextBoundaryMs(new Date())
+    : (previous.active && Number(previous.manualUntil) > Date.now() ? Number(previous.manualUntil) : 0);
 
   _videoMode = {
     active:        true,
@@ -933,6 +990,7 @@ async function enterVideoMode(playlistKey, {
     mode:          playlistMode,
     startedAt:     Date.now(),
     paused:        false,
+    manualUntil,
   };
   _roomOwner = "tv";
   _wasVideoMode = true;
@@ -940,8 +998,8 @@ async function enterVideoMode(playlistKey, {
   _videoMeta = null;
   _bumpVideoHandoffToken();
   _persistRuntimeState();
-  console.log(`[video-mode] ON -> "${title}" (${clips.length} clips), lights=${_videoMode.mode}`);
-  return { ok: true, clips: clips.length, title, mode: _videoMode.mode };
+  console.log(`[video-mode] ON -> "${title}" (${clips.length} clips), lights=${_videoMode.mode}${manualUntil ? `, manual-until=${new Date(manualUntil).toISOString()}` : ""}`);
+  return { ok: true, clips: clips.length, title, mode: _videoMode.mode, manualUntil };
 }
 
 async function _switchVideoToMode(mode, options = {}) {
@@ -995,11 +1053,15 @@ async function advanceVideoMode({ skipped = false } = {}) {
       else videoSkipTracker.recordPlay(item);
     } catch (_) {}
 
+    const manualVideoActive = _isManualVideoActive();
+
     // Two skips steer laterally inside the CURRENT video genre/lane family.
-    if (skipped && _automation.enabled && await _steerVideoLaneAfterSkip(finished.ratingKey)) return;
+    // An explicit admin-picked TV playlist is sticky until its boundary expiry.
+    if (skipped && _automation.enabled && !manualVideoActive && await _steerVideoLaneAfterSkip(finished.ratingKey)) return;
     if (!skipped) _videoSkipPressure = { count: 0, lastRatingKey: "", lastAt: 0 };  }
 
-  if (_automation.enabled && !_isManualActive()) {
+  const manualVideoActive = _isManualVideoActive();
+  if (_automation.enabled && !_isManualActive() && !manualVideoActive) {
     const blend = timeblocks.getMusicBlendState(new Date());
     const targetMode = videoBlendPolicy.chooseNextVideoMode({
       currentMode: _videoMode.mode,
@@ -1061,7 +1123,9 @@ async function exitVideoMode(reason) {
   if (!_videoMode.active) return;
   console.log(`[video-mode] OFF (${reason})`);
   _videoMode.active = false;
+  _videoMode.manualUntil = 0;
   _wasVideoMode = false;
+  _radioTakeoverArmed = false;
   _bumpVideoHandoffToken();
   if (reason === "plexamp-override") {
     // Human explicitly started Radio; that explicit start owns the handoff.
@@ -1142,6 +1206,7 @@ async function _videoModeState({ bass, energy }) {
   }
   const plexArt = meta ? buildPlexArtUrl(meta.thumb) : "";
   const paused  = !!_videoMode.paused;
+  const manualVideoActive = _isManualVideoActive();
 
   return {
     appState: paused ? "VIDEO_PAUSED" : "VIDEO_PLAYING",
@@ -1157,7 +1222,11 @@ async function _videoModeState({ bass, energy }) {
       viewOffsetMs: 0,
       durationMs:   (meta && meta.duration) || 0,
     },
-    mode:         { current: mode, source: "video-session", manualExpiresAt: 0 },
+    mode:         {
+      current: mode,
+      source: manualVideoActive ? "manual" : "video-session",
+      manualExpiresAt: manualVideoActive ? (Number(_videoMode.manualUntil) || 0) : 0,
+    },
     video:        { phase: paused ? "paused" : "playing" },
     intelligence: { strikes: 0, softStrikes: 0, rating: 10, lastPlayPercent: null },
     plexamp:      { pausedByRsvpVideo: _plexampPausedByRsvp },
@@ -1375,7 +1444,8 @@ async function pollSessions() {
     // While video mode is active, the SERVER owns video state. The only thing
     // that ends it is OUR Plexamp actually playing (the user started music).
     if (_videoMode.active) {
-      if (_automation.enabled && !_isManualActive()) {
+      const manualVideoActive = _isManualVideoActive();
+      if (_automation.enabled && !_isManualActive() && !manualVideoActive) {
         // During the 20-minute handoff, clip-end weighting owns genre choice.
         // Outside it, queue the canonical block and switch only when the clip ends.
         if (musicBlend) {
@@ -1384,10 +1454,19 @@ async function pollSessions() {
           _pendingVideoMode = timeBlockMode;
         }
       }
-      if (await _plexampPlayingDirect()) {
+
+      const directState = await _plexampStateDirect();
+      if (!_radioTakeoverArmed) {
+        if (directState !== "unknown" && directState !== "playing") {
+          _radioTakeoverArmed = true;
+          console.log("[video-mode] Radio takeover armed after confirmed Plexamp non-playing state");
+        }
+      } else if (directState === "playing") {
         await exitVideoMode("plexamp-override");
         // fall through to the normal parse so music/idle state is reflected
-      } else {
+      }
+
+      if (_videoMode.active) {
         lastState = await _videoModeState({ bass, energy });
         return;
       }
@@ -1650,18 +1729,9 @@ async function pollSessions() {
 
     _currentVideoPath = t.isVideo ? (t.localFilePath || "") : "";
 
-    // ── Plexamp pause/resume ──────────────────────────────────────────────────
-    // Each transition bumps _videoHandoffToken so any in-flight callback from
-    // the previous transition becomes stale and self-corrects.
-    if (t.isVideo && !_wasVideoMode) {
-      _wasVideoMode = true;
-      const token = _bumpVideoHandoffToken();
-      plexampPauseIfPlaying(token); // only pauses if Plexamp was actively playing
-    } else if (!t.isVideo && _wasVideoMode) {
-      _wasVideoMode = false;
-      _bumpVideoHandoffToken();
-      plexampResumeIfWePaused(); // only resumes if RSVP was the one that paused it
-    }
+    // Plex video sessions are intentionally ignored by parseSessions().
+    // Radio/TV ownership is controlled only by the server-owned admin TV mode
+    // above, so there is no second PMS-driven pause/resume controller here.
 
     // For videos, Plex may not have proper artist/title metadata.
     // If artist === title (Plex using title as artist), parse from filename.
@@ -1767,6 +1837,13 @@ app.get("/state",  (_req, res) => {
   // (empty PLEX_TOKEN is the big one — silently breaks everything).
   res.json({
     ...lastState,
+    // Handoff ownership changes can occur between poll snapshots (for example,
+    // an aborted Radio -> TV takeover). Always expose the live ownership flag
+    // so Admin never shows a stale "paused by RSVP" state.
+    plexamp: {
+      ...(lastState.plexamp || {}),
+      pausedByRsvpVideo: _plexampPausedByRsvp,
+    },
     configHealth: {
       plexTokenSet: !!cfg.PLEX_TOKEN,
       lightsUrl:    cfg.LIGHTS_URL,
@@ -2003,6 +2080,7 @@ app.get("/admin/video-playlists", async (_req, res) => {
       total:       _videoMode.clips.length,
       mode:        _videoMode.mode,
       paused:      !!_videoMode.paused,
+      manualUntil: Number(_videoMode.manualUntil) || 0,
     } : null,
   });
 });
@@ -2010,10 +2088,10 @@ app.get("/admin/video-playlists", async (_req, res) => {
 app.post("/admin/video/play/:playlistKey", async (req, res) => {
   const key = String(req.params.playlistKey || "");
   if (!/^\d+$/.test(key)) return res.status(400).json({ ok: false, error: "invalid_playlist_key" });
-  const r = await enterVideoMode(key);
+  const r = await enterVideoMode(key, { manualOverride: true });
   if (!r.ok) return res.status(400).json({ ok: false, error: r.reason });
   try { await pollSessions(); } catch (_) {}
-  res.json({ ok: true, title: r.title, clips: r.clips, mode: r.mode });
+  res.json({ ok: true, title: r.title, clips: r.clips, mode: r.mode, manualUntil: r.manualUntil });
 });
 
 app.post("/admin/video/stop", async (_req, res) => {

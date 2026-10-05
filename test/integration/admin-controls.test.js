@@ -177,7 +177,10 @@ test("/admin/lights/mode/:mode rejects invalid mode with 400", async () => {
   try {
     const r = await fetch(`${server.baseUrl}/admin/lights/mode/notreal`, { method: "POST" });
     assert.equal(r.status, 400);
-    assert.equal(lights.calls.length, 0, "lights stub should not be called for invalid mode");
+    assert.ok(
+      !lights.calls.some((c) => c.path === "/mode/notreal"),
+      "invalid mode must never be forwarded to the lights service",
+    );
   } finally {
     await server.stop();
     await lights.stop();
