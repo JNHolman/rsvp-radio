@@ -1837,6 +1837,13 @@ app.get("/state",  (_req, res) => {
   // (empty PLEX_TOKEN is the big one — silently breaks everything).
   res.json({
     ...lastState,
+    // Handoff ownership changes can occur between poll snapshots (for example,
+    // an aborted Radio -> TV takeover). Always expose the live ownership flag
+    // so Admin never shows a stale "paused by RSVP" state.
+    plexamp: {
+      ...(lastState.plexamp || {}),
+      pausedByRsvpVideo: _plexampPausedByRsvp,
+    },
     configHealth: {
       plexTokenSet: !!cfg.PLEX_TOKEN,
       lightsUrl:    cfg.LIGHTS_URL,
