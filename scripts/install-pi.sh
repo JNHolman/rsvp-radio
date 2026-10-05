@@ -34,10 +34,13 @@ fi
 
 node scripts/preflight.js .env
 
-if ! python3 -c 'import numpy' >/dev/null 2>&1 || ! command -v pactl >/dev/null 2>&1 || ! command -v parec >/dev/null 2>&1; then
-  echo "Installing Raspberry Pi audio-analyzer dependencies..."
+if ! python3 -c 'import numpy' >/dev/null 2>&1 || \
+   ! command -v pactl >/dev/null 2>&1 || \
+   ! command -v parec >/dev/null 2>&1 || \
+   ! dpkg-query -W -f='${Status}' pipewire-alsa 2>/dev/null | grep -q 'install ok installed'; then
+  echo "Installing Raspberry Pi audio runtime dependencies..."
   sudo apt-get update
-  sudo apt-get install -y python3-numpy pulseaudio-utils
+  sudo apt-get install -y python3-numpy pulseaudio-utils pipewire-alsa
 fi
 
 if [[ -f package-lock.json ]]; then
