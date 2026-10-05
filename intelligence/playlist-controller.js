@@ -42,6 +42,9 @@ async function playPlaylist({ playlistRatingKey, plexBase, plexToken, clientId, 
     "X-Plex-Client-Identifier":        "rsvp-radio",
     "key":                              `/playlists/${playlistRatingKey}/items`,
     "containerKey":                     `/playlists/${playlistRatingKey}/items`,
+    // Repeat the complete play queue through long programming blocks. Stop
+    // remains human-controlled: RSVP does not restart a stopped Plexamp.
+    "repeat":                            "2",
     "commandID":                        String(Date.now()),
   });
   const url = `${plexBase}/player/playback/playMedia?${params.toString()}`;
