@@ -118,6 +118,7 @@ test("playPlaylist issues fetch with playMedia URL on success", async () => {
   assert.match(capturedUrl, /X-Plex-Target-Client-Identifier=client-uuid/);
   assert.match(capturedUrl, /X-Plex-Token=tok/);
   assert.match(capturedUrl, /key=%2Fplaylists%2F12345%2Fitems/);
+  assert.match(capturedUrl, /repeat=2/, "playMedia enables repeat-all for the playlist queue");
 });
 
 test("playPlaylist returns plex_http_<status> on non-ok response", async () => {

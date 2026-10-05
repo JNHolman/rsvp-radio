@@ -114,13 +114,17 @@ async function poll() {
   _busy = true;
 
   try {
-    let state = null;
-    try {
-      const r = await _fetchWithTimeout(STATE_URL, POLL_TIMEOUT);
-      if (r.ok) state = await r.json();
-    } catch (_) { /* network error → treat as idle */ }
+    const result = await window.RsvpStateFetch.fetchState(
+      _fetchWithTimeout,
+      STATE_URL,
+      POLL_TIMEOUT,
+    );
+    // A temporary server/network failure is unknown state, not proof that
+    // media stopped. Keep the current card and video until a valid state arrives.
+    if (!result.ok) return;
+    const state = result.state;
 
-    const media       = state?.media       || {};
+    const media       = state.media;
     const mediaType   = media.type         || "idle";
     const playerState = media.playerState  || "";
 

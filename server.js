@@ -43,8 +43,11 @@ const automationPolicy = require("./intelligence/automation-policy");
 const laneSteering = require("./intelligence/lane-steering");
 const plexParser  = require("./intelligence/plex-parser");
 const plexArt     = require("./intelligence/plex-art");
+const videoMetadata = require("./intelligence/video-metadata");
 const requestAuth = require("./intelligence/request-auth");
 const runtimeState = require("./intelligence/runtime-state");
+const { createSingleFlight } = require("./intelligence/single-flight");
+const { createCommandLane } = require("./intelligence/command-lane");
 const timeblocks  = require("./shared/timeblocks");
 const _persistedRuntime = runtimeState.load();
 
@@ -245,6 +248,7 @@ let _automation = _persistedRuntime.automation?.manualStop
   ? { ..._persistedRuntime.automation }
   : { enabled: true, manualStop: false, stoppedMode: null, stoppedAt: 0 };
 function _stopAutomation() {
+  _playlistCommands.issueIntent();
   _automation = { enabled:false, manualStop:true, stoppedMode:blockModeForNow(), stoppedAt:Date.now() };
   // Stop means stop NOW: clear decisions that were queued by automation so a
   // track/clip ending before the next poll cannot fire stale work.
@@ -254,6 +258,7 @@ function _stopAutomation() {
   _persistRuntimeState();
 }
 function _startAutomation() {
+  _playlistCommands.issueIntent();
   _automation = { enabled:true, manualStop:false, stoppedMode:null, stoppedAt:0 };
   _persistRuntimeState();
 }
@@ -283,6 +288,7 @@ function _isManualActive() {
 }
 
 function _setManualMode(mode) {
+  _playlistCommands.issueIntent();
   const expiresAt = timeblocks.getNextMusicBlendStartMs(new Date());
   _manualMode = { mode, expiresAt };
   // Explicit operator intent wins immediately over any queued automatic work.
@@ -327,6 +333,7 @@ function _setManualLights(mode) {
 // Boundary crosses queue a switch that fires at end of current track (option B).
 // Manual mode changes fire IMMEDIATELY (user explicit intent).
 let _pendingPlaylistSwitch = null; // { mode, playlistKey, queuedAt, reason, blendBoundaryMs? }
+const _playlistCommands = createCommandLane();
 let _lastBlockMode = null;          // tracked across polls to detect boundary cross
 let _musicBlendSession = null;      // active weighted handoff state for one boundary
 let _lastCommandedPlaylist = "";    // last successfully commanded playlist ratingKey
@@ -373,6 +380,7 @@ function _queueLaneSwitch(lane, reason) {
     console.log(`[steering] idle — not queueing lane "${lane.name}" (${reason})`);
     return;
   }
+  _playlistCommands.issueIntent();
   _pendingPlaylistSwitch = {
     mode:        _steering.snapshot().activeMode || "steer",
     playlistKey: lane.key,
@@ -383,6 +391,7 @@ function _queueLaneSwitch(lane, reason) {
 }
 
 function _fireImmediatePlaylistSwitch(mode, reason) {
+  const commandIntent = _playlistCommands.issueIntent();
   const playlistKey = playlistCtl.playlistKeyForMode(mode, cfg);
   if (!playlistKey) {
     console.log(`[playlist] would switch to ${mode} (${reason}) but PLAYLIST_${mode.toUpperCase()} not configured`);
@@ -398,14 +407,23 @@ function _fireImmediatePlaylistSwitch(mode, reason) {
     return;
   }
   console.log(`[playlist] immediate switch → ${mode} playlist ${playlistKey} (${reason})`);
-  playlistCtl.playPlaylist({
+  _playlistCommands.enqueue(() => {
+    if (!_playlistCommands.isCurrent(commandIntent)) {
+      return Promise.resolve({ ok: false, reason: "stale_intent" });
+    }
+    return playlistCtl.playPlaylist({
     playlistRatingKey: playlistKey,
     plexBase:          cfg.PLEX_BASE,
     plexToken:         cfg.PLEX_TOKEN,
     clientId:          PLEXAMP_PI_ID,
     fetchWithTimeout,
     timeoutMs:         cfg.POLL_TIMEOUT_MS,
+    });
   }).then((result) => {
+    if (!_playlistCommands.isCurrent(commandIntent)) {
+      console.log(`[playlist] ignored stale ${mode} command result (${reason})`);
+      return;
+    }
     if (result.ok) {
       _lastCommandedPlaylist = playlistKey;
     } else {
@@ -424,6 +442,7 @@ function _fireImmediatePlaylistSwitch(mode, reason) {
 }
 
 function _queuePlaylistSwitch(mode, reason) {
+  _playlistCommands.issueIntent();
   const playlistKey = playlistCtl.playlistKeyForMode(mode, cfg);
   if (!playlistKey) {
     console.log(`[playlist] would queue ${mode} (${reason}) but PLAYLIST_${mode.toUpperCase()} not configured`);
@@ -479,6 +498,7 @@ function _syncWeightedMusicBlend(blend, currentTrackKey) {
   const decisionKey = `${blend.boundaryMs}:${blend.stageIndex}:${currentTrackKey || "unknown"}`;
   if (_musicBlendSession.lastDecisionKey === decisionKey) return;
   _musicBlendSession.lastDecisionKey = decisionKey;
+  _playlistCommands.issueIntent();
 
   let selectedMode = blendPolicy.chooseMode(blend);
   let selectedKey  = playlistCtl.playlistKeyForMode(selectedMode, cfg);
@@ -516,6 +536,7 @@ function _flushPendingPlaylistSwitch(reason) {
   if (!_pendingPlaylistSwitch) return;
   const pending = _pendingPlaylistSwitch;
   const { mode, playlistKey } = pending;
+  const commandIntent = _playlistCommands.issueIntent();
 
   // Optimistically advance the blend source before the async Plex command. The
   // same poll immediately makes the NEXT weighted decision; without this, it
@@ -528,14 +549,23 @@ function _flushPendingPlaylistSwitch(reason) {
   }
 
   console.log(`[playlist] flushing queued ${mode} switch (trigger: ${reason})`);
-  playlistCtl.playPlaylist({
+  _playlistCommands.enqueue(() => {
+    if (!_playlistCommands.isCurrent(commandIntent)) {
+      return Promise.resolve({ ok: false, reason: "stale_intent" });
+    }
+    return playlistCtl.playPlaylist({
     playlistRatingKey: playlistKey,
     plexBase:          cfg.PLEX_BASE,
     plexToken:         cfg.PLEX_TOKEN,
     clientId:          PLEXAMP_PI_ID,
     fetchWithTimeout,
     timeoutMs:         cfg.POLL_TIMEOUT_MS,
+    });
   }).then((result) => {
+    if (!_playlistCommands.isCurrent(commandIntent)) {
+      console.log(`[playlist] ignored stale queued ${mode} command result`);
+      return;
+    }
     if (result.ok) {
       _lastCommandedPlaylist = playlistKey;
     } else {
@@ -971,6 +1001,7 @@ async function enterVideoMode(playlistKey, {
   if (freshTakeover) _radioTakeoverArmed = true;
 
   // TV owns playback now. Any queued/active Radio blend decision was calculated
+  _playlistCommands.issueIntent();
   // for a medium that is no longer playing and must never fire later as stale work.
   _pendingPlaylistSwitch = null;
   _musicBlendSession = null;
@@ -1158,36 +1189,7 @@ async function _fetchVideoMeta(ratingKey) {
     const url = `${cfg.PLEX_BASE}/library/metadata/${encodeURIComponent(ratingKey)}?X-Plex-Token=${encodeURIComponent(cfg.PLEX_TOKEN)}`;
     const r = await fetchWithTimeout(url, 3000);
     if (!r.ok) return null;
-    const xml = await r.text();
-    // Match whichever metadata element Plex returns — <Video> for video items,
-    // but some libraries (and the test stub) expose it as <Track>.
-    const item = (xml.match(/<(?:Video|Track)\b[^>]*>/i) || [""])[0];
-    const attr = (seg, re) => { const m = re.exec(seg); return m ? _xmlDecodeAttr(m[1]) : ""; };
-    const tagTitle  = attr(item, /\btitle="([^"]*)"/i);
-    const tagArtist = attr(item, /\bgrandparentTitle="([^"]*)"/i);
-    const thumb     = attr(item, /\bthumb="([^"]*)"/i) || attr(item, /\bart="([^"]*)"/i);
-    const partFile  = attr(xml, /<Part\b[^>]*\bfile="([^"]*)"/i);
-
-    // Filename-first parse.
-    let artist = "", title = "";
-    if (partFile) {
-      const base = partFile.replace(/^.*[\/\\]/, "").replace(/\.[^.]+$/, "");
-      const i = base.indexOf(" - ");
-      if (i !== -1) {
-        artist = base.slice(0, i).trim();
-        // strip trailing "(Clean)/(Dirty)/(Club)/..." tag(s) and collapse spaces
-        title  = base.slice(i + 3).trim().replace(/(\s*\([^)]*\))+\s*$/, "").replace(/\s{2,}/g, " ").trim();
-      } else {
-        title = base; // no "Artist - Title" convention — keep basename as title
-      }
-    }
-
-    // Tag fallbacks for anything the filename did not give us.
-    if (!artist) artist = tagArtist;
-    if (!title)  title  = tagTitle;
-
-    const duration = parseInt(attr(xml, /<Part\b[^>]*\bduration="(\d+)"/i) || attr(item, /\bduration="(\d+)"/i) || "0", 10) || 0;
-    return { ratingKey: String(ratingKey), title: title || "Video", artist, thumb, duration };
+    return videoMetadata.parseVideoMetadata(await r.text(), ratingKey);
   } catch { return null; }
 }
 
@@ -1215,7 +1217,7 @@ async function _videoModeState({ bass, energy }) {
       playerState:  paused ? "paused" : "playing",
       title:        (meta && meta.title)  || clip.title || "Video",   // line 1: song
       artist:       (meta && meta.artist) || "",                       // line 2: artist
-      album:        _videoMode.playlistTitle || "",                    // line 3: playlist
+      album:        (meta && meta.album) || _videoMode.playlistTitle || "",                    // line 3: playlist
       ratingKey,
       artUrl:       plexArt ? `/art?url=${encodeURIComponent(plexArt)}` : "",
       mediaUrl:     ratingKey ? `/media/${ratingKey}` : "",
@@ -1347,7 +1349,6 @@ function _plexampFallbackState({ bass, energy, meta, tl }) {
 
 // ── Skip detection state ──────────────────────────────────────────────────────
 let _prevPollTrack = null; // { ratingKey, title, artist, scrobbled, isVideo }
-let _pollInFlight  = false;
 
 // ── Play-count dedup (fixes double redemption) ────────────────────────────────
 // A single track-end can be reported by TWO independent paths: the poll's
@@ -1428,10 +1429,7 @@ function _idleState({ bass, energy, error }) {
 }
 
 // ── Plex poll ─────────────────────────────────────────────────────────────────
-async function pollSessions() {
-  if (_pollInFlight) return;
-  _pollInFlight = true;
-
+const pollSessions = createSingleFlight(async () => {
   const { bass, energy } = featuresNow();
   _relayFeaturesToLights(bass, energy);
   const now              = new Date();
@@ -1509,7 +1507,8 @@ async function pollSessions() {
           }
         }
       }
-      // Genuine stop — record skip-on-stop before clearing prev track.
+      // Genuine stop — invalidate pending/in-flight Radio work before clearing state.
+      _playlistCommands.issueIntent();
       _maybeRecordStopSkip();
       _currentVideoPath = "";
       _prevPollTrack    = null;
@@ -1813,10 +1812,8 @@ async function pollSessions() {
     _currentVideoPath = "";
     _prevPollTrack    = null;
     lastState = _idleState({ bass, energy, error: "plex_poll_failed" });
-  } finally {
-    _pollInFlight = false;
   }
-}
+});
 
 // ── Routes ────────────────────────────────────────────────────────────────────
 app.get("/runtime-config.js", (_req, res) => {
