@@ -2,7 +2,7 @@
 
 RSVP Radio / TV does not talk to bulbs directly. It talks to a local lighting adapter at `LIGHTS_URL` (default `http://127.0.0.1:5005`). For this installation, that adapter controls **Philips Hue**.
 
-The adapter is the hardware boundary: RSVP owns programming/scheduling; the Hue adapter owns bridge authentication, Hue room/zone/scene IDs, and translation to the Hue local API.
+The adapter is the hardware boundary: RSVP owns programming/scheduling; the Hue adapter owns bridge authentication, Hue group/zone/scene IDs, and translation to the Hue local API.
 
 ## Required endpoints
 
@@ -46,4 +46,4 @@ Hue receives one continuous destination-scene fade beginning at -10 minutes and 
 
 Use the local Philips Hue Bridge API over HTTPS and keep bridge credentials out of this repository. The adapter should keep the Hue application key and scene/group identifiers in environment configuration or another local secret store.
 
-Recommended mapping is one Hue scene per RSVP mode (`lofi`, `wrap`, `rap`, `rnb`) within one room/zone. Scene recall/transition should target that same room/zone so all lights move together.
+Recommended mapping is one Hue scene per RSVP mode (`lofi`, `wrap`, `rap`, `rnb`) within one Hue group/zone. Scene recall/transition should target that same Hue group/zone so all lights move together.
