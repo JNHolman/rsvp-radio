@@ -4,7 +4,7 @@
 
 RSVP is built around one belief: **music, art and technology should feel like one thing**.
 
-RSVP Radio / TV is a personal project built to push that belief as far as possible. Music provides the soundtrack. RSVP TV turns the visual layer into moving art and programming. Philips Hue extends the visual language beyond the screen. Technology sits underneath all of it, coordinating the experience without demanding attention.
+RSVP Radio / TV is a personal ambience system built to push that belief as far as possible. Music provides the soundtrack. RSVP TV turns the visual layer into moving art and programming. Philips Hue extends the visual language beyond the screen. Technology sits underneath all of it, coordinating the experience without demanding attention.
 
 It is not a productivity tool and it is not pretending to solve a business workflow. It exists because the experience itself is worth building.
 
@@ -18,11 +18,11 @@ They notice the music, the art and the atmosphere—and only later realize how m
 
 ## What it feels like
 
-At 11:50 AM, LOFI does not suddenly disappear because WRAP begins at noon.
+At 9:50 AM, LOFI does not suddenly disappear because LOUNGE begins at 10:00 AM.
 
 The handoff starts early. The outgoing programming still carries most of the weight, but the next block begins appearing. Across twenty minutes the balance moves through **80/20 → 60/40 → 40/60 → 20/80**. Songs finish naturally. Videos finish naturally. The lights begin one continuous fade toward the next Hue scene.
 
-At 12:10 PM, WRAP has completely taken over.
+At 10:10 AM, LOUNGE has completely taken over.
 
 There is no obvious switch.
 
@@ -30,8 +30,8 @@ That same idea repeats throughout the day:
 
 | Time | Programming world |
 |---|---|
-| 4:00 AM – 12:00 PM | **LOFI** |
-| 12:00 PM – 5:00 PM | **WRAP** |
+| 4:00 AM – 10:00 AM | **LOFI** |
+| 10:00 AM – 5:00 PM | **LOUNGE** |
 | 5:00 PM – 11:00 PM | **RAP** |
 | 11:00 PM – 4:00 AM | **R&B** |
 
@@ -43,7 +43,7 @@ Even the overnight R&B → LOFI handoff follows the same rules.
 
 RSVP Radio and RSVP TV are not separate applications competing with each other. They are two outputs of the same programming clock.
 
-**Radio** steers Plexamp through curated music playlists and sibling lanes. **TV** uses Plex video playlists as visual programming. When TV owns playback, Radio stops issuing stale music commands underneath it. When TV ends, audio ownership returns cleanly.
+**Radio** steers Plexamp through curated music playlists and sibling lanes. **TV** is the **Visual Machine**: a curated screen layer built from Plex video playlists. When TV owns playback, Radio stops issuing stale music commands underneath it. When TV ends, audio ownership returns cleanly.
 
 During a scheduled blend, the next song or video source is chosen using the current old/new weighting. The decision happens only at a natural media boundary, so RSVP never chops a song or clip in half just because the clock changed.
 
@@ -100,7 +100,7 @@ A manual decision wins immediately. Scheduled automation is allowed to reclaim c
 ```text
                          ┌──────────────────────────┐
                          │      RSVP CLOCK          │
-                         │ LOFI / WRAP / RAP / R&B │
+                         │ LOFI / LOUNGE / RAP / R&B │
                          └────────────┬─────────────┘
                                       │
                          20-minute weighted handoff
@@ -109,8 +109,8 @@ A manual decision wins immediately. Scheduled automation is allowed to reclaim c
                  │                    │                    │
                  ▼                    ▼                    ▼
          ┌──────────────┐     ┌──────────────┐     ┌──────────────┐
-         │    RADIO     │     │      TV      │     │     HUE      │
-         │   Plexamp    │     │ Plex videos  │     │ scene fades  │
+         │    RADIO     │     │   RSVP TV    │     │     HUE      │
+         │   Plexamp    │     │Visual Machine│     │ scene fades  │
          │ playlists    │     │ clip lanes   │     │ + brightness │
          └──────┬───────┘     └──────┬───────┘     └──────┬───────┘
                 │                    │                    │

@@ -47,7 +47,7 @@ test("lights seed: first song's Rap genre sets lights even with a playlist confi
     PLEXAMP_CLIENT_IDENTIFIER: "seed-test-client",
     // Every block has a playlist — the condition under which the OLD code
     // skipped the seed entirely.
-    PLAYLIST_LOFI: "111", PLAYLIST_WRAP: "222", PLAYLIST_RAP: "333", PLAYLIST_RNB: "444",
+    PLAYLIST_LOFI: "111", PLAYLIST_LOUNGE: "222", PLAYLIST_RAP: "333", PLAYLIST_RNB: "444",
   });
 
   try {

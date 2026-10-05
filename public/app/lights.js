@@ -4,7 +4,7 @@
  * Automatic Hue scheduling and reactive lighting are server-owned. The kiosk
  * only sends explicit human control actions.
  */
-const _VALID_MODES = new Set(["wrap", "lofi", "rap", "rnb"]);
+const _VALID_MODES = new Set(["lounge", "lofi", "rap", "rnb"]);
 
 function normalizeMode(mode) {
   const value = String(mode || "").toLowerCase();

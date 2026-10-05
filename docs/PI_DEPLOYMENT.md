@@ -36,7 +36,7 @@ http://<pi>:3000/plex?token=<PLEX_WEBHOOK_TOKEN>
 
 ### Philips Hue
 
-Required Hue values are `HUE_BRIDGE_HOST`, `HUE_BRIDGE_ID`, `HUE_USERNAME`, `HUE_GROUP_ID`, and one scene ID each for `LOFI`, `WRAP`, `RAP`, and `RNB`. These are bridge-specific local values and do not belong in source control.
+Required Hue values are `HUE_BRIDGE_HOST`, `HUE_BRIDGE_ID`, `HUE_USERNAME`, `HUE_GROUP_ID`, and one scene ID each for `LOFI`, `LOUNGE`, `RAP`, and `R&B`. These are bridge-specific local values and do not belong in source control.
 
 The adapter connects to the bridge over HTTPS with certificate verification enabled. `HUE_BRIDGE_HOST` is the LAN address used to reach the bridge; `HUE_BRIDGE_ID` is checked against the bridge certificate Common Name. If the Pi does not already trust the bridge chain, install/pin the appropriate Hue certificate/CA locally and set `HUE_CA_CERT_PATH`. There is no insecure TLS bypass.
 

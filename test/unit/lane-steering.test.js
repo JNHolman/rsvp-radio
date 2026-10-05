@@ -46,7 +46,7 @@ test("buildLaneMap: assembles four modes from cfg", () => {
   const cfg = {
     PLAYLIST_RAP: "r0", LANE_NAME_RAP: "Trap Anchor", LANES_RAP: "Memphis:r1, Bounce:r2",
     PLAYLIST_RNB: "b0", LANES_RNB: "Slow Jams:b1",
-    PLAYLIST_LOFI: "", PLAYLIST_WRAP: "",
+    PLAYLIST_LOFI: "", PLAYLIST_LOUNGE: "",
   };
   const map = buildLaneMap(cfg);
   assert.equal(map.rap.length, 3);

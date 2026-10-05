@@ -36,25 +36,31 @@
 
     <!-- QUICK CONTROLS -->
     <section class="card controls">
+      <h2>Programming</h2>
+      <div class="row">
+        <button class="btn mode" data-program-mode="lofi">LOFI</button>
+        <button class="btn mode" data-program-mode="lounge">LOUNGE</button>
+        <button class="btn mode" data-program-mode="rap">RAP</button>
+        <button class="btn mode" data-program-mode="rnb">R&amp;B</button>
+      </div>
+      <div class="row">
+        <button class="btn" data-action="force-sync">Sync to Schedule</button>
+        <button class="btn" data-action="automation-stop">Stop Automation</button>
+        <button class="btn" data-action="automation-start">Resume Automation</button>
+        <button class="btn" data-action="clear-manual">Clear Manual Mode</button>
+        <button class="btn ghost" data-action="sync-ratings">Sync Ratings to Plex</button>
+      </div>
+
       <h2>Lights</h2>
       <div class="row">
         <button class="btn lg primary" data-action="lights-on">Lights ON</button>
-        <button class="btn lg ghost"   data-action="lights-off">Lights OFF</button>
+        <button class="btn lg ghost" data-action="lights-off">Lights OFF</button>
       </div>
       <div class="row">
-        <button class="btn mode" data-mode="rnb">RNB</button>
-        <button class="btn mode" data-mode="rap">RAP</button>
         <button class="btn mode" data-mode="lofi">LOFI</button>
-        <button class="btn mode" data-mode="wrap">WRAP</button>
-      </div>
-
-      <h2>Music</h2>
-      <div class="row">
-        <button class="btn"       data-action="force-sync">Sync to Schedule</button>
-        <button class="btn" data-action="automation-stop">Stop Auto-DJ</button>
-        <button class="btn" data-action="automation-start">Resume Auto-DJ</button>
-        <button class="btn"       data-action="clear-manual">Clear Manual Mode</button>
-        <button class="btn ghost" data-action="sync-ratings">Sync Ratings to Plex</button>
+        <button class="btn mode" data-mode="lounge">LOUNGE</button>
+        <button class="btn mode" data-mode="rap">RAP</button>
+        <button class="btn mode" data-mode="rnb">R&amp;B</button>
       </div>
 
       <div id="actionResult" class="actionResult">Ready.</div>
@@ -62,7 +68,7 @@
 
     <!-- VIDEO (admin-triggered, Pi-local) -->
     <section class="card controls videoCard">
-      <h2 class="cardTitle">VIDEO</h2>
+      <h2 class="cardTitle">RSVP TV</h2>
       <div class="row" id="videoPlaylists">
         <span class="empty">Loading video playlists…</span>
       </div>

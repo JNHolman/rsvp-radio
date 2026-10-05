@@ -218,9 +218,9 @@ async function handler(req, res) {
       return json(res, result.ok ? 200 : 502, { ok: result.ok, action: on ? "on" : "off", hueStatus: result.status });
     }
 
-    const modeMatch = url.pathname.match(/^\/mode\/(lofi|wrap|rap|rnb)$/);
+    const modeMatch = url.pathname.match(/^\/mode\/(lofi|lounge|wrap|rap|rnb)$/);
     if (modeMatch) {
-      const mode = modeMatch[1];
+      const mode = modeMatch[1] === "wrap" ? "lounge" : modeMatch[1];
       const result = await applyScene(mode, cfg.modeTransitionMs);
       return json(res, result.ok ? 200 : 502, { ok: result.ok, action: "mode", mode, hueStatus: result.status });
     }

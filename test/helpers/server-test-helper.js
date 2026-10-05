@@ -78,7 +78,7 @@ async function startServer(envOverrides = {}) {
     SESSION_GENRE_FETCH_TIMEOUT_MS: envOverrides.SESSION_GENRE_FETCH_TIMEOUT_MS || "",
     SKIP_DATA_PATH: envOverrides.SKIP_DATA_PATH || "",
     PLAYLIST_LOFI: envOverrides.PLAYLIST_LOFI || "",
-    PLAYLIST_WRAP: envOverrides.PLAYLIST_WRAP || "",
+    PLAYLIST_LOUNGE: envOverrides.PLAYLIST_LOUNGE || "",
     PLAYLIST_RAP:  envOverrides.PLAYLIST_RAP  || "",
     PLAYLIST_RNB:  envOverrides.PLAYLIST_RNB  || "",
     PLEXAMP_CLIENT_IDENTIFIER:     envOverrides.PLEXAMP_CLIENT_IDENTIFIER     || "",

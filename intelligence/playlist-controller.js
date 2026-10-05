@@ -16,7 +16,7 @@
 
 const MODE_KEY_TABLE = Object.freeze({
   lofi: "PLAYLIST_LOFI",
-  wrap: "PLAYLIST_WRAP",
+  lounge: "PLAYLIST_LOUNGE",
   rap:  "PLAYLIST_RAP",
   rnb:  "PLAYLIST_RNB",
 });

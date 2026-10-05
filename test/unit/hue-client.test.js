@@ -11,7 +11,7 @@ function cfg() {
     HUE_BRIDGE_ID: "001788fffe123456",
     HUE_GROUP_ID: "3",
     HUE_SCENE_LOFI: "scene-lofi",
-    HUE_SCENE_WRAP: "scene-wrap",
+    HUE_SCENE_LOUNGE: "scene-lounge",
     HUE_SCENE_RAP: "scene-rap",
     HUE_SCENE_RNB: "scene-rnb",
   });
@@ -25,7 +25,7 @@ test("Hue config requires bridge, credential, group and all four scenes", () => 
     "HUE_BRIDGE_ID",
     "HUE_GROUP_ID",
     "HUE_SCENE_LOFI",
-    "HUE_SCENE_WRAP",
+    "HUE_SCENE_LOUNGE",
     "HUE_SCENE_RAP",
     "HUE_SCENE_RNB",
   ]);
@@ -38,7 +38,7 @@ test("Hue config rejects untouched example placeholders", () => {
     HUE_BRIDGE_ID: "replace_with_bridge_id",
     HUE_GROUP_ID: "",
     HUE_SCENE_LOFI: "replace_with_scene_id",
-    HUE_SCENE_WRAP: "replace_with_scene_id",
+    HUE_SCENE_LOUNGE: "replace_with_scene_id",
     HUE_SCENE_RAP: "replace_with_scene_id",
     HUE_SCENE_RNB: "replace_with_scene_id",
   });
@@ -106,11 +106,16 @@ test("reactive Hue configuration is conservative by default and can be disabled"
 test("Hue adapter bind is restricted to loopback", () => {
   const base = {
     bridgeHost: "192.168.1.2", username: "u", bridgeId: "abcdef", groupId: "1",
-    scenes: { lofi: "1", wrap: "2", rap: "3", rnb: "4" },
+    scenes: { lofi: "1", lounge: "2", rap: "3", rnb: "4" },
     bind: "0.0.0.0",
   };
   assert.ok(hue.validateConfig(base).some((x) => x.startsWith("HUE_ADAPTER_BIND")));
   assert.ok(hue.validateConfig({ ...base, bind: "localhost" }).some((x) => x.startsWith("HUE_ADAPTER_BIND")));
   assert.ok(hue.validateConfig({ ...base, bind: "::1" }).some((x) => x.startsWith("HUE_ADAPTER_BIND")));
   assert.equal(hue.validateConfig({ ...base, bind: "127.0.0.1" }).some((x) => x.startsWith("HUE_ADAPTER_BIND")), false);
+});
+
+test("Hue config accepts legacy WRAP scene as a lounge migration alias", () => {
+  const migrated = hue.loadConfig({ HUE_SCENE_WRAP: "legacy-scene" });
+  assert.equal(migrated.scenes.lounge, "legacy-scene");
 });

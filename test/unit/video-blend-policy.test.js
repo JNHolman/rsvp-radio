@@ -2,40 +2,40 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const { chooseNextVideoMode } = require("../../intelligence/video-blend-policy");
 
-const blend = { active:true, fromMode:"lofi", toMode:"wrap", oldPct:60, newPct:40 };
+const blend = { active:true, fromMode:"lofi", toMode:"lounge", oldPct:60, newPct:40 };
 
 test("video uses weighted old/new choice only at a clip boundary", () => {
   assert.equal(chooseNextVideoMode({
-    currentMode:"lofi", blendState:blend, pendingMode:"wrap",
+    currentMode:"lofi", blendState:blend, pendingMode:"lounge",
     automationEnabled:true, manualActive:false, randomFn:() => 0.20,
   }), "lofi");
   assert.equal(chooseNextVideoMode({
-    currentMode:"lofi", blendState:blend, pendingMode:"wrap",
+    currentMode:"lofi", blendState:blend, pendingMode:"lounge",
     automationEnabled:true, manualActive:false, randomFn:() => 0.80,
-  }), "wrap");
+  }), "lounge");
 });
 
 test("hard-boundary pending mode cannot override an active weighted blend", () => {
   assert.equal(chooseNextVideoMode({
-    currentMode:"lofi", blendState:blend, pendingMode:"wrap",
+    currentMode:"lofi", blendState:blend, pendingMode:"lounge",
     automationEnabled:true, manualActive:false, randomFn:() => 0.10,
   }), "lofi");
 });
 
 test("outside blend, pending canonical mode wins at next clip boundary", () => {
   assert.equal(chooseNextVideoMode({
-    currentMode:"lofi", blendState:null, pendingMode:"wrap",
+    currentMode:"lofi", blendState:null, pendingMode:"lounge",
     automationEnabled:true, manualActive:false,
-  }), "wrap");
+  }), "lounge");
 });
 
 test("manual or stopped automation suppresses automatic video switching", () => {
   assert.equal(chooseNextVideoMode({
-    currentMode:"rap", blendState:blend, pendingMode:"wrap",
+    currentMode:"rap", blendState:blend, pendingMode:"lounge",
     automationEnabled:false, manualActive:false, randomFn:() => 0.99,
   }), "rap");
   assert.equal(chooseNextVideoMode({
-    currentMode:"rap", blendState:blend, pendingMode:"wrap",
+    currentMode:"rap", blendState:blend, pendingMode:"lounge",
     automationEnabled:true, manualActive:true, randomFn:() => 0.99,
   }), "rap");
 });

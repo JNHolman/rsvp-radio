@@ -14,7 +14,7 @@ test("runtime state round-trips TV, manual control and Hue intent", () => {
     lightsEnabled: false,
     lightsScene: "rnb",
     manualMode: { mode: "rnb", expiresAt: Date.now() + 60000 },
-    manualLights: { mode: "wrap", expiresAt: Date.now() + 45000 },
+    manualLights: { mode: "lounge", expiresAt: Date.now() + 45000 },
     automation: { enabled: false, manualStop: true, stoppedMode: "rap", stoppedAt: 99 },
     videoMode: {
       active: true,
@@ -34,7 +34,7 @@ test("runtime state round-trips TV, manual control and Hue intent", () => {
   assert.equal(loaded.lightsEnabled, false);
   assert.equal(loaded.lightsScene, "rnb");
   assert.equal(loaded.manualMode.mode, "rnb");
-  assert.equal(loaded.manualLights.mode, "wrap");
+  assert.equal(loaded.manualLights.mode, "lounge");
   assert.equal(loaded.automation.manualStop, true);
   assert.equal(loaded.automation.enabled, false);
   assert.equal(loaded.videoMode.playlistKey, "123");
@@ -61,4 +61,21 @@ test("runtime state drops malformed persisted control/video data safely", () => 
   assert.deepEqual(n.automation, { enabled: false, manualStop: true, stoppedMode: null, stoppedAt: 0 });
   assert.equal(n.videoMode, null);
   assert.deepEqual(n.videoResumeIndex, { "42": 2 });
+});
+
+test("runtime state migrates legacy wrap mode to lounge", () => {
+  const expiresAt = Date.now() + 60000;
+  const n = normalize({
+    lightsScene: "wrap",
+    seedMode: { mode: "wrap", expiresAt },
+    manualMode: { mode: "wrap", expiresAt },
+    manualLights: { mode: "wrap", expiresAt },
+    automation: { manualStop: true, stoppedMode: "wrap", stoppedAt: 1 },
+  });
+  assert.equal(n.version, 5);
+  assert.equal(n.lightsScene, "lounge");
+  assert.equal(n.seedMode.mode, "lounge");
+  assert.equal(n.manualMode.mode, "lounge");
+  assert.equal(n.manualLights.mode, "lounge");
+  assert.equal(n.automation.stoppedMode, "lounge");
 });

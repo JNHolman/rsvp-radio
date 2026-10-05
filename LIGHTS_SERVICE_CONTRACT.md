@@ -7,10 +7,10 @@ The adapter is the hardware boundary: RSVP owns programming/scheduling; the Hue 
 ## Required endpoints
 
 - `POST /mode/:mode`
-  - Allowed modes: `wrap`, `lofi`, `rap`, `rnb`
+  - Allowed modes: `lounge`, `lofi`, `rap`, `rnb`
   - Apply the Hue scene mapped to that programming mode.
 - `POST /transition`
-  - JSON: `{ "from": "lofi", "to": "wrap", "durMs": 1200000 }`
+  - JSON: `{ "from": "lofi", "to": "lounge", "durMs": 1200000 }`
   - Fade the **current physical Hue state** toward the destination scene over `durMs`.
   - `from` is context/fallback only; do not snap back to a stored source scene before fading.
   - A late/retry command may contain only the remaining duration. Accept it and continue smoothly from the bulbs' current state.
@@ -25,8 +25,8 @@ Successful commands return any 2xx response. RSVP treats non-2xx or connection f
 
 ## RSVP schedule
 
-- `lofi`: 04:00–12:00
-- `wrap`: 12:00–17:00
+- `lofi`: 04:00–10:00
+- `lounge`: 10:00–17:00
 - `rap`: 17:00–23:00
 - `rnb`: 23:00–04:00
 
@@ -46,4 +46,4 @@ Hue receives one continuous destination-scene fade beginning at -10 minutes and 
 
 Use the local Philips Hue Bridge API over HTTPS and keep bridge credentials out of this repository. The adapter should keep the Hue application key and scene/group identifiers in environment configuration or another local secret store.
 
-Recommended mapping is one Hue scene per RSVP mode (`lofi`, `wrap`, `rap`, `rnb`) within one Hue group/zone. Scene recall/transition should target that same Hue group/zone so all lights move together.
+Recommended mapping is one Hue scene per RSVP mode (`lofi`, `lounge`, `rap`, `rnb`) within one Hue group/zone. Scene recall/transition should target that same Hue group/zone so all lights move together.

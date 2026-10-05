@@ -80,7 +80,7 @@ test("idle Plexamp: /admin/force-timeblock-sync also no-ops, doesn't autoplay", 
   const server = await startServer({
     PUBLIC_DIR:    publicDir,
     PLAYLIST_LOFI: "lofi-key-99",
-    PLAYLIST_WRAP: "wrap-key-99",
+    PLAYLIST_LOUNGE: "lounge-key-99",
     PLAYLIST_RAP:  "rap-key-99",
     PLAYLIST_RNB:  "rnb-key-99",
   });

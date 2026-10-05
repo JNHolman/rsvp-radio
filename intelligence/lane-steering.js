@@ -21,7 +21,7 @@ function parseLanePool(rawPool, anchorName, anchorKey) {
 
 function buildLaneMap(cfg) {
   const out = {};
-  for (const mode of ["lofi", "wrap", "rap", "rnb"]) {
+  for (const mode of ["lofi", "lounge", "rap", "rnb"]) {
     const u = mode.toUpperCase();
     out[mode] = parseLanePool(
       cfg?.[`LANES_${u}`],

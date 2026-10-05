@@ -16,8 +16,8 @@ test("genreToMode maps elite seed genres correctly", () => {
   const session = freshSessionModule(tmp);
   assert.equal(session.genreToMode(["Neo-Soul"]), "rnb");
   assert.equal(session.genreToMode(["Southern Hip Hop"]), "rap");
-  assert.equal(session.genreToMode(["Jazz Lounge"]), "lofi");
-  assert.equal(session.genreToMode(["Electronic Dance"]), "wrap");
+  assert.equal(session.genreToMode(["Jazz Lounge"]), "lounge");
+  assert.equal(session.genreToMode(["Electronic Dance"]), "lounge");
   assert.equal(session.genreToMode(["Unknown"]), null);
 });
 
@@ -27,10 +27,10 @@ test("checkSession returns a new seed mode only after a real idle gap", async ()
   global.fetch = async () => ({ ok: true, text: async () => `<MediaContainer><Track><Genre tag="${genre}"/></Track></MediaContainer>` });
   const session = freshSessionModule(tmp);
 
-  const first = await session.checkSession({ ratingKey: "1", title: "A", artist: "B" }, "http://127.0.0.1:32400", "token", () => "wrap");
+  const first = await session.checkSession({ ratingKey: "1", title: "A", artist: "B" }, "http://127.0.0.1:32400", "token", () => "lounge");
   assert.equal(first, "rap");
 
-  const second = await session.checkSession({ ratingKey: "2", title: "C", artist: "D" }, "http://127.0.0.1:32400", "token", () => "wrap");
+  const second = await session.checkSession({ ratingKey: "2", title: "C", artist: "D" }, "http://127.0.0.1:32400", "token", () => "lounge");
   assert.equal(second, null);
 
   const saved = JSON.parse(fs.readFileSync(tmp, "utf8"));
@@ -38,11 +38,11 @@ test("checkSession returns a new seed mode only after a real idle gap", async ()
   fs.writeFileSync(tmp, JSON.stringify(saved));
 
   genre = "Jazz Lounge";
-  const third = await session.checkSession({ ratingKey: "3", title: "E", artist: "F" }, "http://127.0.0.1:32400", "token", () => "wrap");
-  assert.equal(third, "lofi");
+  const third = await session.checkSession({ ratingKey: "3", title: "E", artist: "F" }, "http://127.0.0.1:32400", "token", () => "lounge");
+  assert.equal(third, "lounge");
 
   const updated = JSON.parse(fs.readFileSync(tmp, "utf8"));
-  assert.equal(updated.seedMode, "lofi");
+  assert.equal(updated.seedMode, "lounge");
 });
 
 
@@ -58,14 +58,14 @@ test("slow genre fetch does not double-count a new session", async () => {
     { ratingKey: "1", title: "A", artist: "B" },
     "http://127.0.0.1:32400",
     "token",
-    () => "wrap",
+    () => "lounge",
   );
 
   const second = await session.checkSession(
     { ratingKey: "1", title: "A", artist: "B" },
     "http://127.0.0.1:32400",
     "token",
-    () => "wrap",
+    () => "lounge",
   );
 
   assert.equal(second, null);

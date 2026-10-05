@@ -51,7 +51,7 @@ const cfg = {
   // Empty = no auto-switch for that block (server stays observer-only for that
   // mode). Fill in once playlists exist in Plex.
   PLAYLIST_LOFI: process.env.PLAYLIST_LOFI || "",
-  PLAYLIST_WRAP: process.env.PLAYLIST_WRAP || "",
+  PLAYLIST_LOUNGE: process.env.PLAYLIST_LOUNGE || process.env.PLAYLIST_WRAP || "",
   PLAYLIST_RAP:  process.env.PLAYLIST_RAP  || "",
   PLAYLIST_RNB:  process.env.PLAYLIST_RNB  || "",
 
@@ -68,13 +68,13 @@ const cfg = {
   // Make names DJ-legible ("Memphis Trap", "Southern Bounce") so the picker
   // chooses the right adjacent move. Empty = no lateral steering for that mode.
   LANES_LOFI: process.env.LANES_LOFI || "",
-  LANES_WRAP: process.env.LANES_WRAP || "",
+  LANES_LOUNGE: process.env.LANES_LOUNGE || process.env.LANES_WRAP || "",
   LANES_RAP:  process.env.LANES_RAP  || "",
   LANES_RNB:  process.env.LANES_RNB  || "",
 
   // Display name for each anchor lane (how the picker refers to PLAYLIST_<MODE>).
   LANE_NAME_LOFI: process.env.LANE_NAME_LOFI || "",
-  LANE_NAME_WRAP: process.env.LANE_NAME_WRAP || "",
+  LANE_NAME_LOUNGE: process.env.LANE_NAME_LOUNGE || process.env.LANE_NAME_WRAP || "",
   LANE_NAME_RAP:  process.env.LANE_NAME_RAP  || "",
   LANE_NAME_RNB:  process.env.LANE_NAME_RNB  || "",
 

@@ -84,7 +84,7 @@ test("POST /admin/force-timeblock-sync returns current timeblock mode", async ()
     assert.equal(r.status, 200);
     const body = await r.json();
     assert.equal(body.ok, true);
-    assert.ok(["lofi", "wrap", "rap", "rnb"].includes(body.mode), "mode should be one of the four genres");
+    assert.ok(["lofi", "lounge", "rap", "rnb"].includes(body.mode), "mode should be one of the four genres");
   } finally {
     await server.stop();
   }

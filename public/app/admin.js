@@ -35,6 +35,15 @@ function fmtPercent(value) {
   return `${Math.round(n * 100)}%`;
 }
 
+function modeLabel(value) {
+  const mode = String(value || "").toLowerCase();
+  if (mode === "rnb") return "R&B";
+  if (mode === "lofi") return "LOFI";
+  if (mode === "lounge") return "LOUNGE";
+  if (mode === "rap") return "RAP";
+  return value ? String(value).toUpperCase() : "—";
+}
+
 function setNowArt(url) {
   const host = $("nowArt");
   if (!host) return;
@@ -50,7 +59,7 @@ function setConfigBanner(state) {
   const health = state.configHealth || {};
   const missingPlaylists = Object.entries(health.playlists || {})
     .filter(([, configured]) => !configured)
-    .map(([mode]) => mode.toUpperCase());
+    .map(([mode]) => modeLabel(mode));
   const messages = [];
   if (health.plexTokenSet === false) messages.push("Plex token is not configured.");
   if (missingPlaylists.length) messages.push(`Missing music playlist IDs: ${missingPlaylists.join(", ")}.`);
@@ -82,7 +91,7 @@ function setVideoTransport(state) {
   const label = $("videoResult");
   if (!label) return;
   if (!active || !vm) {
-    label.textContent = "Idle (music mode)";
+    label.textContent = "Idle · Radio owns the room";
     label.classList.remove("bad", "good");
     return;
   }
@@ -117,7 +126,7 @@ async function refreshState() {
     $("nowTitle").textContent = s.media?.title || "Nothing playing";
     $("nowArtist").textContent = s.media?.artist || "";
     $("nowAlbum").textContent = s.media?.album || "";
-    $("modeChip").textContent = (s.mode?.current || "—").toUpperCase();
+    $("modeChip").textContent = modeLabel(s.mode?.current);
     $("modeSource").textContent = s.mode?.source || "—";
     $("modeExpiry").textContent = s.mode?.manualExpiresAt ? `until ${fmtTime(s.mode.manualExpiresAt)}` : "";
     if ($("rawState")) $("rawState").textContent = JSON.stringify(s, null, 2);
@@ -269,7 +278,9 @@ document.addEventListener("click", async (event) => {
   const button = event.target.closest("button");
   if (!button || button.id === "detailsToggle") return;
   try {
-    if (button.dataset.mode) {
+    if (button.dataset.programMode) {
+      await post(`/mode/${button.dataset.programMode}`);
+    } else if (button.dataset.mode) {
       await post(`/admin/lights/mode/${button.dataset.mode}`);
     } else if (button.dataset.videoPlaylist) {
       await post(`/admin/video/play/${button.dataset.videoPlaylist}`);

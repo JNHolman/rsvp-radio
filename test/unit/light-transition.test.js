@@ -9,7 +9,7 @@ function blend(offsetMin) {
     boundaryMs,
     offsetMin,
     fromMode: "lofi",
-    toMode: "wrap",
+    toMode: "lounge",
   };
 }
 
@@ -23,7 +23,7 @@ test("lights start a full 20-minute transition at -10m", () => {
   });
   assert.equal(p.kind, "transition");
   assert.equal(p.fromMode, "lofi");
-  assert.equal(p.toMode, "wrap");
+  assert.equal(p.toMode, "lounge");
   assert.equal(p.durMs, 20 * 60 * 1000);
 });
 
@@ -38,7 +38,7 @@ test("light blend starts from the actual seeded/manual Hue scene", () => {
   });
   assert.equal(p.kind, "transition");
   assert.equal(p.fromMode, "rap");
-  assert.equal(p.toMode, "wrap");
+  assert.equal(p.toMode, "lounge");
 });
 
 test("late pre-boundary detection still finishes at +10m", () => {
@@ -55,11 +55,11 @@ test("late pre-boundary detection still finishes at +10m", () => {
 
 test("exact boundary does not force incoming scene and cut fade in half", () => {
   const b = blend(0);
-  const key = `lofi>wrap@${b.boundaryMs}`;
+  const key = `lofi>lounge@${b.boundaryMs}`;
   const p = planLightSync({
     nowMs: b.boundaryMs,
-    scheduledMode: "wrap", blendState: b,
-    lastScheduledMode: "lofi", lightsScene: "wrap", lastBlendKey: key,
+    scheduledMode: "lounge", blendState: b,
+    lastScheduledMode: "lofi", lightsScene: "lounge", lastBlendKey: key,
     lightsEnabled: true, blendHalfMin: 10,
   });
   assert.equal(p.kind, "hold");
@@ -69,22 +69,22 @@ test("post-boundary restart resumes the remaining Hue fade", () => {
   const b = blend(3);
   const p = planLightSync({
     nowMs: b.boundaryMs + 3 * 60 * 1000,
-    scheduledMode: "wrap", blendState: b,
-    lastScheduledMode: "wrap", lightsScene: "wrap", lastBlendKey: "",
+    scheduledMode: "lounge", blendState: b,
+    lastScheduledMode: "lounge", lightsScene: "lounge", lastBlendKey: "",
     lightsEnabled: true, blendHalfMin: 10,
   });
   assert.equal(p.kind, "transition");
-  assert.equal(p.toMode, "wrap");
+  assert.equal(p.toMode, "lounge");
   assert.equal(p.durMs, 7 * 60 * 1000);
 });
 
 test("successful post-boundary Hue fade is not reissued", () => {
   const b = blend(3);
-  const key = `lofi>wrap@${b.boundaryMs}`;
+  const key = `lofi>lounge@${b.boundaryMs}`;
   const p = planLightSync({
     nowMs: b.boundaryMs + 3 * 60 * 1000,
-    scheduledMode: "wrap", blendState: b,
-    lastScheduledMode: "wrap", lightsScene: "wrap", lastBlendKey: key,
+    scheduledMode: "lounge", blendState: b,
+    lastScheduledMode: "lounge", lightsScene: "lounge", lastBlendKey: key,
     lightsEnabled: true, blendHalfMin: 10,
   });
   assert.equal(p.kind, "hold");
@@ -99,18 +99,18 @@ test("lights-off state defers transition without marking it sent", () => {
     lightsEnabled: false, blendHalfMin: 10,
   });
   assert.equal(p.kind, "defer");
-  assert.equal(p.scene, "wrap");
+  assert.equal(p.scene, "lounge");
 });
 
 test("after +10m the scheduler finalizes the incoming scene", () => {
   const p = planLightSync({
     nowMs: new Date(2026, 9, 4, 12, 10, 0, 0).getTime(),
-    scheduledMode: "wrap", blendState: null,
-    lastScheduledMode: "lofi", lightsScene: "wrap", lastBlendKey: "lofi>wrap@x",
+    scheduledMode: "lounge", blendState: null,
+    lastScheduledMode: "lofi", lightsScene: "lounge", lastBlendKey: "lofi>lounge@x",
     lightsEnabled: true, blendHalfMin: 10,
   });
   assert.equal(p.kind, "mode");
-  assert.equal(p.mode, "wrap");
+  assert.equal(p.mode, "lounge");
 });
 
 test("overnight rnb -> lofi blend drives lights toward lofi", () => {

@@ -15,8 +15,8 @@ const MUSIC_BLEND_STAGES = Object.freeze([
 ]);
 
 const TIME_BLOCKS = [
-  { mode: "lofi", startMin: 4 * 60,  endMin: 12 * 60 },
-  { mode: "wrap", startMin: 12 * 60, endMin: 17 * 60 },
+  { mode: "lofi",   startMin: 4 * 60,  endMin: 10 * 60 },
+  { mode: "lounge", startMin: 10 * 60, endMin: 17 * 60 },
   { mode: "rap",  startMin: 17 * 60, endMin: 23 * 60 },
   { mode: "rnb",  startMin: 23 * 60, endMin: 4 * 60  },
 ];

@@ -9,8 +9,8 @@
  * Seed → Lights mode map:
  *   R&B, Soul, Neo-Soul, 90s R&B, 2000s R&B  → rnb
  *   Hip Hop, Rap, Trap, Southern Hip Hop       → rap
- *   Lo-Fi, Lounge, Chill, Jazz, Ambient        → lofi
- *   Pop, Dance, Party, Electronic              → wrap
+ *   Lo-Fi, Chill, Jazz, Ambient                 → lofi
+ *   Lounge, Pop, Dance, Funk, House, Electronic → lounge
  *   Unrecognized / untagged                    → current time block (safe fallback)
  *
  * Session state persists to data/session.json
@@ -30,8 +30,8 @@ let _lastHeartbeatPersistAt = 0;
 const GENRE_MODE_MAP = [
   { keywords: ["r&b", "rnb", "soul", "neo-soul", "neo soul", "quiet storm"], mode: "rnb"  },
   { keywords: ["hip hop", "hip-hop", "rap", "trap", "southern", "drill"],     mode: "rap"  },
-  { keywords: ["lo-fi", "lofi", "lo fi", "lounge", "chill", "jazz", "ambient", "instrumental"], mode: "lofi" },
-  { keywords: ["pop", "dance", "party", "electronic", "edm", "funk"],         mode: "wrap" },
+  { keywords: ["lounge", "cocktail", "dinner", "daytime", "pop", "dance", "party", "electronic", "edm", "funk", "house"], mode: "lounge" },
+  { keywords: ["lo-fi", "lofi", "lo fi", "chill", "jazz", "ambient", "instrumental"], mode: "lofi" },
 ];
 
 function genreToMode(genres) {

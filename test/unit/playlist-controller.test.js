@@ -28,10 +28,10 @@ test("getNextBoundaryMode at 03:30 (rnb block) returns lofi (4 AM boundary)", ()
   assert.equal(tb.getNextBoundaryMode(probe), "lofi");
 });
 
-test("getNextBoundaryMode at 11:30 (lofi block) returns wrap (12 PM boundary)", () => {
+test("getNextBoundaryMode at 09:30 (lofi block) returns lounge (10 AM boundary)", () => {
   const probe = new Date();
-  probe.setHours(11, 30, 0, 0);
-  assert.equal(tb.getNextBoundaryMode(probe), "wrap");
+  probe.setHours(9, 30, 0, 0);
+  assert.equal(tb.getNextBoundaryMode(probe), "lounge");
 });
 
 test("getNextBoundaryMode at 22:30 (rap block) returns rnb (11 PM boundary)", () => {
@@ -64,13 +64,13 @@ test("getNextBoundaryMs at 23:59 wraps to tomorrow's 04:00", () => {
 // ── Playlist controller ───────────────────────────────────────────────────────
 
 test("playlistKeyForMode returns configured ratingKey", () => {
-  const cfg = { PLAYLIST_LOFI: "999", PLAYLIST_WRAP: "", PLAYLIST_RAP: "111", PLAYLIST_RNB: "" };
+  const cfg = { PLAYLIST_LOFI: "999", PLAYLIST_LOUNGE: "", PLAYLIST_RAP: "111", PLAYLIST_RNB: "" };
   assert.equal(playlistCtl.playlistKeyForMode("lofi", cfg), "999");
   assert.equal(playlistCtl.playlistKeyForMode("rap",  cfg), "111");
 });
 
 test("playlistKeyForMode returns empty string when not configured", () => {
-  const cfg = { PLAYLIST_LOFI: "", PLAYLIST_WRAP: "", PLAYLIST_RAP: "", PLAYLIST_RNB: "" };
+  const cfg = { PLAYLIST_LOFI: "", PLAYLIST_LOUNGE: "", PLAYLIST_RAP: "", PLAYLIST_RNB: "" };
   assert.equal(playlistCtl.playlistKeyForMode("lofi", cfg), "");
   assert.equal(playlistCtl.playlistKeyForMode("rnb",  cfg), "");
 });

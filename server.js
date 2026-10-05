@@ -782,10 +782,10 @@ function _xmlDecodeAttr(str) {
 
 function _videoPlaylistMode(title) {
   const t = String(title || "").toLowerCase();
-  if (/r&b|rnb|soul|quiet storm|slow jam/.test(t))                return "rnb";
-  if (/rap|trap|hip ?hop|drill|club|party|twerk|bounce/.test(t))  return "rap";
-  if (/lo-?fi|lounge|chill|jazz|ambient|dinner|cocktail/.test(t)) return "lofi";
-  if (/wrap|pop|dance|edm|wind ?down|close|last call/.test(t))     return "wrap";
+  if (/r&b|rnb|soul|quiet storm|slow jam|wind ?down|last call/.test(t)) return "rnb";
+  if (/rap|trap|hip ?hop|drill|club|party|twerk|bounce/.test(t))        return "rap";
+  if (/lounge|cocktail|dinner|daytime|pop|dance|edm|funk|house/.test(t)) return "lounge";
+  if (/lo-?fi|chill|jazz|ambient|study|focus/.test(t))                  return "lofi";
   return blockModeForNow();
 }
 
@@ -1776,7 +1776,7 @@ app.get("/state",  (_req, res) => {
       // empty, mean the music-switching layer does nothing for that block.
       playlists: {
         lofi: !!cfg.PLAYLIST_LOFI,
-        wrap: !!cfg.PLAYLIST_WRAP,
+        lounge: !!cfg.PLAYLIST_LOUNGE,
         rap:  !!cfg.PLAYLIST_RAP,
         rnb:  !!cfg.PLAYLIST_RNB,
       },
@@ -2094,7 +2094,7 @@ app.post("/admin/automation/start", async (_req, res) => {
 // path doesn't get caught by the param matcher (which would reject "clear" as
 // an invalid mode).
 
-const _VALID_MODES = new Set(["lofi", "wrap", "rap", "rnb"]);
+const _VALID_MODES = new Set(["lofi", "lounge", "rap", "rnb"]);
 
 app.post("/mode/clear", async (_req, res) => {
   _clearManualMode();
@@ -2129,7 +2129,8 @@ app.post("/mode/clear", async (_req, res) => {
 
 app.post("/mode/:mode", async (req, res) => {
   // LAN-accessible by design for trusted local control devices. Lets admin from a Mac/phone set manual mode.
-  const mode = String(req.params.mode || "").toLowerCase();
+  const requestedMode = String(req.params.mode || "").toLowerCase();
+  const mode = requestedMode === "wrap" ? "lounge" : requestedMode;
   if (!_VALID_MODES.has(mode)) return res.status(400).json({ ok: false, error: "invalid_mode" });
   _setManualMode(mode);
   _steering.onBoundaryOrModeChange(mode);
@@ -2192,7 +2193,7 @@ app.post("/admin/force-timeblock-sync", async (_req, res) => {
 //
 // Whitelisted actions only:
 //   /on             /off
-//   /mode/rnb /mode/rap /mode/lofi /mode/wrap
+//   /mode/rnb /mode/rap /mode/lofi /mode/lounge
 //   /signal         /transition
 
 let _lightsEnabled = _persistedRuntime.lightsEnabled !== false;
@@ -2349,7 +2350,8 @@ app.post("/admin/lights/on", async (_req, res) => {
 });
 
 app.post("/admin/lights/mode/:mode", async (req, res) => {
-  const mode = String(req.params.mode || "").toLowerCase();
+  const requestedMode = String(req.params.mode || "").toLowerCase();
+  const mode = requestedMode === "wrap" ? "lounge" : requestedMode;
   if (!_VALID_MODES.has(mode)) {
     return res.status(400).json({ ok: false, error: "invalid_mode" });
   }

@@ -139,7 +139,7 @@ test("first-start alignment: server boots and exposes desiredPlaylist for curren
   const server = await startServer({
     PUBLIC_DIR: makePublicDir({ withAssets: true }),
     PLAYLIST_LOFI: "lofi-fs",
-    PLAYLIST_WRAP: "wrap-fs",
+    PLAYLIST_LOUNGE: "lounge-fs",
     PLAYLIST_RAP:  "rap-fs",
     PLAYLIST_RNB:  "rnb-fs",
   });

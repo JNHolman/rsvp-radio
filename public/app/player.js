@@ -17,6 +17,7 @@ const _el = {
   title:   document.getElementById("tTitle"),
   artist:  document.getElementById("tArtist"),
   album:   document.getElementById("tAlbum"),
+  brand:   document.getElementById("brand"),
 };
 
 // ── Change detection cache ────────────────────────────────────────────────────
@@ -88,6 +89,24 @@ function _setMeta(title, artist, album) {
   _el.album.textContent  = _decode(album)  || "—";
 }
 
+function _setSurface(isVideo) {
+  if (_el.brand) {
+    _el.brand.replaceChildren();
+    const rsvp = document.createElement("span");
+    rsvp.className = "rsvp";
+    rsvp.textContent = "RSVP";
+    _el.brand.append(rsvp, document.createTextNode(isVideo ? " TV" : " RADIO"));
+  }
+  if (_el.ph) {
+    _el.ph.replaceChildren(
+      document.createTextNode("RSVP"),
+      document.createElement("br"),
+      document.createTextNode(isVideo ? "TV" : "RADIO"),
+    );
+  }
+  document.title = isVideo ? "RSVP TV" : "RSVP Radio";
+}
+
 // ── Poll ──────────────────────────────────────────────────────────────────────
 
 async function poll() {
@@ -121,6 +140,7 @@ async function poll() {
       if (_prev.isVideo) {
         _prev.isVideo = false;
         _prev.ratingKey = null;
+        _setSurface(false);
         exitMusicVideoMode();
       }
       if (_prev.playing !== false) _prev.playing = false;
@@ -133,6 +153,8 @@ async function poll() {
     const isVideo   = mediaType === "video";
     const ratingKey = String(media.ratingKey || "");
     const mediaUrl  = media.mediaUrl || "";
+
+    if (!isVideo && _prev.isVideo === null) _setSurface(false);
 
     // Only pause from poll — never call play() here
     // play() is called inside enterMusicVideoMode after loadedmetadata
@@ -168,6 +190,7 @@ async function poll() {
     if (isVideo && mediaUrl && !localVideoFailed && !sameVideo) {
       _prev.isVideo   = isVideo;
       _prev.ratingKey = ratingKey;
+      _setSurface(true);
       await enterMusicVideoMode(mediaUrl, playerState || "playing");
     } else if (!isVideo && _prev.isVideo) {
       // Only exit video mode if ratingKey also changed — Plex can misreport
@@ -177,6 +200,7 @@ async function poll() {
       if (ratingKeyChanged || ratingKeyGone) {
         _prev.isVideo   = false;
         _prev.ratingKey = null;
+        _setSurface(false);
         exitMusicVideoMode();
       }
     }

@@ -26,12 +26,15 @@ function parseEnv(text) {
 }
 
 const env = parseEnv(fs.readFileSync(envPath, "utf8"));
+// One-release compatibility with installations created before WRAP was renamed LOUNGE.
+if (!env.PLAYLIST_LOUNGE && env.PLAYLIST_WRAP) env.PLAYLIST_LOUNGE = env.PLAYLIST_WRAP;
+if (!env.HUE_SCENE_LOUNGE && env.HUE_SCENE_WRAP) env.HUE_SCENE_LOUNGE = env.HUE_SCENE_WRAP;
 const required = [
   "TZ",
   "PLEX_TOKEN",
   "PLEX_TARGET_CLIENT_IDENTIFIER",
   "PLAYLIST_LOFI",
-  "PLAYLIST_WRAP",
+  "PLAYLIST_LOUNGE",
   "PLAYLIST_RAP",
   "PLAYLIST_RNB",
   "HUE_BRIDGE_HOST",
@@ -39,7 +42,7 @@ const required = [
   "HUE_USERNAME",
   "HUE_GROUP_ID",
   "HUE_SCENE_LOFI",
-  "HUE_SCENE_WRAP",
+  "HUE_SCENE_LOUNGE",
   "HUE_SCENE_RAP",
   "HUE_SCENE_RNB",
 ];
@@ -54,7 +57,7 @@ if (env.TZ) {
   catch (_) { errors.push("TZ must be a valid IANA timezone"); }
 }
 if (env.HUE_GROUP_ID && !/^\d+$/.test(env.HUE_GROUP_ID)) errors.push("HUE_GROUP_ID must be numeric");
-for (const key of ["PLAYLIST_LOFI", "PLAYLIST_WRAP", "PLAYLIST_RAP", "PLAYLIST_RNB"]) {
+for (const key of ["PLAYLIST_LOFI", "PLAYLIST_LOUNGE", "PLAYLIST_RAP", "PLAYLIST_RNB"]) {
   if (env[key] && !/^\d+$/.test(env[key])) errors.push(`${key} must be a numeric Plex ratingKey`);
 }
 if (env.HUE_BRIDGE_ID && !/^replace_with/i.test(env.HUE_BRIDGE_ID) && !/^[0-9a-f]+$/i.test(env.HUE_BRIDGE_ID)) errors.push("HUE_BRIDGE_ID must be hexadecimal");

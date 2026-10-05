@@ -5,10 +5,10 @@ const path = require("path");
 const { writeJsonAtomic } = require("./atomic-json");
 
 const DEFAULT_PATH = process.env.RUNTIME_STATE_PATH || path.join(__dirname, "..", "data", "runtime-state.json");
-const MODES = new Set(["lofi", "wrap", "rap", "rnb"]);
+const MODES = new Set(["lofi", "lounge", "rap", "rnb"]);
 
 const DEFAULT_STATE = Object.freeze({
-  version: 4,
+  version: 5,
   plexampPausedByRsvp: false,
   wasVideoMode: false,
   lightsEnabled: true,
@@ -20,6 +20,12 @@ const DEFAULT_STATE = Object.freeze({
   videoMode: null,
   videoResumeIndex: {},
 });
+
+function normalizeMode(value) {
+  const mode = String(value || "").toLowerCase();
+  if (mode === "wrap") return "lounge"; // one-release migration from the old label
+  return MODES.has(mode) ? mode : "";
+}
 
 function normalize(raw) {
   const src = raw && typeof raw === "object" ? raw : {};
@@ -34,7 +40,7 @@ function normalize(raw) {
               .map((c) => ({ ratingKey: String(c.ratingKey), title: String(c.title || "") }))
           : [],
         index: Number.isInteger(src.videoMode.index) ? Math.max(0, src.videoMode.index) : 0,
-        mode: MODES.has(src.videoMode.mode) ? src.videoMode.mode : "",
+        mode: normalizeMode(src.videoMode.mode),
         startedAt: Number.isFinite(Number(src.videoMode.startedAt)) ? Number(src.videoMode.startedAt) : 0,
         paused: !!src.videoMode.paused,
       }
@@ -47,19 +53,22 @@ function normalize(raw) {
     }
   }
 
-  const seedMode = src.seedMode && typeof src.seedMode === "object" && MODES.has(src.seedMode.mode)
+  const seedModeValue = normalizeMode(src.seedMode?.mode);
+  const seedMode = src.seedMode && typeof src.seedMode === "object" && seedModeValue
     && Number.isFinite(Number(src.seedMode.expiresAt)) && Number(src.seedMode.expiresAt) > 0
-    ? { mode: src.seedMode.mode, expiresAt: Number(src.seedMode.expiresAt) }
+    ? { mode: seedModeValue, expiresAt: Number(src.seedMode.expiresAt) }
     : null;
 
-  const mm = src.manualMode && typeof src.manualMode === "object" && MODES.has(src.manualMode.mode)
+  const manualModeValue = normalizeMode(src.manualMode?.mode);
+  const mm = src.manualMode && typeof src.manualMode === "object" && manualModeValue
     && Number.isFinite(Number(src.manualMode.expiresAt)) && Number(src.manualMode.expiresAt) > 0
-    ? { mode: src.manualMode.mode, expiresAt: Number(src.manualMode.expiresAt) }
+    ? { mode: manualModeValue, expiresAt: Number(src.manualMode.expiresAt) }
     : null;
 
-  const ml = src.manualLights && typeof src.manualLights === "object" && MODES.has(src.manualLights.mode)
+  const manualLightsValue = normalizeMode(src.manualLights?.mode);
+  const ml = src.manualLights && typeof src.manualLights === "object" && manualLightsValue
     && Number.isFinite(Number(src.manualLights.expiresAt)) && Number(src.manualLights.expiresAt) > 0
-    ? { mode: src.manualLights.mode, expiresAt: Number(src.manualLights.expiresAt) }
+    ? { mode: manualLightsValue, expiresAt: Number(src.manualLights.expiresAt) }
     : null;
 
   const a = src.automation && typeof src.automation === "object" ? src.automation : {};
@@ -68,17 +77,17 @@ function normalize(raw) {
     ? {
         enabled: false,
         manualStop: true,
-        stoppedMode: MODES.has(a.stoppedMode) ? a.stoppedMode : null,
+        stoppedMode: normalizeMode(a.stoppedMode) || null,
         stoppedAt: Number.isFinite(Number(a.stoppedAt)) ? Math.max(0, Number(a.stoppedAt)) : 0,
       }
     : { enabled: true, manualStop: false, stoppedMode: null, stoppedAt: 0 };
 
   return {
-    version: 4,
+    version: 5,
     plexampPausedByRsvp: !!src.plexampPausedByRsvp,
     wasVideoMode: !!src.wasVideoMode || !!vm,
     lightsEnabled: src.lightsEnabled !== false,
-    lightsScene: MODES.has(src.lightsScene) ? src.lightsScene : "",
+    lightsScene: normalizeMode(src.lightsScene),
     seedMode,
     manualMode: mm,
     manualLights: ml,

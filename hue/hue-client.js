@@ -2,7 +2,7 @@
 
 const fs = require("fs");
 
-const MODES = Object.freeze(["lofi", "wrap", "rap", "rnb"]);
+const MODES = Object.freeze(["lofi", "lounge", "rap", "rnb"]);
 const MAX_TRANSITION_DS = 65535; // Hue v1 transitiontime: deciseconds, uint16.
 
 function nonEmpty(value) {
@@ -31,7 +31,7 @@ function transitionDeciseconds(durMs) {
 function loadConfig(env = process.env) {
   const scenes = {
     lofi: String(env.HUE_SCENE_LOFI || "").trim(),
-    wrap: String(env.HUE_SCENE_WRAP || "").trim(),
+    lounge: String(env.HUE_SCENE_LOUNGE || env.HUE_SCENE_WRAP || "").trim(),
     rap: String(env.HUE_SCENE_RAP || "").trim(),
     rnb: String(env.HUE_SCENE_RNB || "").trim(),
   };
