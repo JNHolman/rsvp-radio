@@ -1729,18 +1729,9 @@ async function pollSessions() {
 
     _currentVideoPath = t.isVideo ? (t.localFilePath || "") : "";
 
-    // ── Plexamp pause/resume ──────────────────────────────────────────────────
-    // Each transition bumps _videoHandoffToken so any in-flight callback from
-    // the previous transition becomes stale and self-corrects.
-    if (t.isVideo && !_wasVideoMode) {
-      _wasVideoMode = true;
-      const token = _bumpVideoHandoffToken();
-      plexampPauseIfPlaying(token); // only pauses if Plexamp was actively playing
-    } else if (!t.isVideo && _wasVideoMode) {
-      _wasVideoMode = false;
-      _bumpVideoHandoffToken();
-      plexampResumeIfWePaused(); // only resumes if RSVP was the one that paused it
-    }
+    // Plex video sessions are intentionally ignored by parseSessions().
+    // Radio/TV ownership is controlled only by the server-owned admin TV mode
+    // above, so there is no second PMS-driven pause/resume controller here.
 
     // For videos, Plex may not have proper artist/title metadata.
     // If artist === title (Plex using title as artist), parse from filename.
