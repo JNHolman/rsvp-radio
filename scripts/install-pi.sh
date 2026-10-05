@@ -76,6 +76,14 @@ sed "s|/home/pi/rsvp-radio|$APP_DIR|g" deploy/autostart/rsvp-kiosk.desktop \
   > "$APP_HOME/.config/autostart/rsvp-kiosk.desktop"
 chmod 0644 "$APP_HOME/.config/autostart/rsvp-kiosk.desktop"
 
+# Older RSVP builds used rsvp-lights.service on the same loopback port (5005).
+# Stop and disable it before starting rsvp-hue so upgrades cannot leave both
+# adapters competing for the port.
+if systemctl list-unit-files rsvp-lights.service --no-legend 2>/dev/null | grep -q '^rsvp-lights\.service'; then
+  echo "Disabling legacy rsvp-lights.service..."
+  sudo systemctl disable --now rsvp-lights.service
+fi
+
 sudo systemctl daemon-reload
 sudo systemctl enable rsvp-hue.service rsvp-radio.service
 sudo systemctl restart rsvp-hue.service
