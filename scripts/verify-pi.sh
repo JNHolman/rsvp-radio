@@ -19,6 +19,7 @@ check() {
 check "Node.js available" node -e 'process.exit(Number(process.versions.node.split(".")[0]) >= 18 ? 0 : 1)'
 check "Python analyzer dependency" python3 -c 'import numpy'
 check "Pulse monitor tools available" bash -lc 'command -v pactl >/dev/null && command -v parec >/dev/null'
+check "PipeWire ALSA bridge available" bash -lc 'aplay -L 2>/dev/null | grep -qi "PipeWire Media Server"'
 check ".env exists" test -f .env
 check "Environment preflight" node scripts/preflight.js .env
 check "Hue service active" systemctl is-active --quiet rsvp-hue.service
