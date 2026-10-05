@@ -1,6 +1,9 @@
 .env
 node_modules/
 *.log
+data/session.json
+data/skip-data.json
+data/last-commanded.json
 data/runtime-state.json
 data/runtime-state.json.tmp-*
 data/video-skip-data.json
