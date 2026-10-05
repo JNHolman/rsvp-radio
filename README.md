@@ -1,16 +1,18 @@
 # RSVP Radio / TV
 
-## The ambience changes before anyone notices.
+## Music. Art. Technology. One experience.
 
-RSVP Radio / TV is a personal ambience system built around a simple idea: **music, video and light should feel like one thing**.
+RSVP is built around one belief: **music, art and technology should feel like one thing**.
 
-It is not a productivity tool and it is not trying to solve a business workflow. It exists to make the overall experience feel different at different times of day without anyone having to think about why.
+RSVP Radio / TV is a personal project built to push that belief as far as possible. Music provides the soundtrack. RSVP TV turns the visual layer into moving art and programming. Philips Hue extends the visual language beyond the screen. Technology sits underneath all of it, coordinating the experience without demanding attention.
 
-A Raspberry Pi quietly watches the clock, Plex, Plexamp, what is being played, what gets skipped, which visual program owns the screen, and what the Philips Hue lights are doing. Then it keeps music, video and lighting moving together.
+It is not a productivity tool and it is not pretending to solve a business workflow. It exists because the experience itself is worth building.
 
-The goal is that nobody notices the machinery.
+A Raspberry Pi quietly watches the clock, Plex, Plexamp, what is being played, what gets skipped, which visual program owns the screen, and what the Philips Hue lights are doing. It then orchestrates those systems as parts of one continuous experience.
 
-They just notice that the ambience feels right.
+The goal is that nobody notices the machinery first.
+
+They notice the music, the art and the atmosphere—and only later realize how much technology was underneath it.
 
 ---
 
@@ -170,7 +172,7 @@ Deployment details live in [`docs/PI_DEPLOYMENT.md`](docs/PI_DEPLOYMENT.md). The
 
 ## Why this exists
 
-Because music, video and light can be programmed together without feeling programmed.
+Because RSVP believes **music, art and technology should feel inseparable**. This project is the most complete technical expression of that idea so far.
 
 A song ends and the next era begins a little more often. A video finishes and the next visual world has quietly gained weight. The lights have been moving toward a different color for minutes. The system remembers what keeps getting rejected. A person can interrupt any of it and the automation knows how to find its way back later.
 
@@ -178,4 +180,4 @@ Most of that should be invisible.
 
 That is the point.
 
-**Lights breathe. Music moves. TV follows. The ambience shifts. Nobody notices the system doing it.**
+**Music moves. Visuals evolve. Light follows the art. Technology disappears into the experience.**
