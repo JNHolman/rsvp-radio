@@ -4,11 +4,10 @@
  * Video handoff resilience integration tests.
  *
  * Covers:
- *  - corrective resume after late pause checks response.ok and
- *              preserves _plexampPausedByRsvp = true on failure so the normal
- *              resume path can retry instead of leaving Plexamp silently paused.
+ *  - admin-owned TV takeover does not publish TV until Plexamp confirms
+ *    a non-playing state after RSVP sends Pause.
  *  - structured parser and regex fallback agree on "missing state =
- *              active video" for video sessions (parity test).
+ *    active video" for video sessions (parser parity; parser is reused elsewhere).
  *
  */
 
@@ -21,51 +20,53 @@ function delay(ms) { return new Promise((resolve) => setTimeout(resolve, ms)); }
 
 // ── Corrective resume failure path ───────────────────────────────────────────
 
-test("corrective resume failure: pausedByRsvpVideo flag is set true so retry path can fire", async () => {
-  // Stub: pause succeeds slowly, resume always returns 500.
-  // Sequence we want to exercise:
-  //   1. Server polls Plex → sees a playing video → fires pause (in flight, slow)
-  //   2. We POST /video-failed → bumps handoff token, fires resume
-  //      (no-op because _plexampPausedByRsvp is still false, pause hasn't landed)
-  //   3. Pause finally lands → token now stale → corrective resume fires
-  //   4. Corrective resume returns 500 → _plexampPausedByRsvp set to true
-  //   5. /state must reflect plexamp.pausedByRsvpVideo === true so the next
-  //      retry trigger (poll, /video-failed, manual mode) can re-attempt.
-
+test("TV takeover aborts cleanly when Plexamp never confirms the pause", async () => {
   const FAKE_CLIENT = "test-plexamp-client-uuid";
 
-  const plex = http.createServer(async (req, res) => {
-    // Sessions endpoint — always shows the video session and a Plexamp track
-    // tagged with our test client ID so isPlexampPlaying() detects it.
-    if (req.url.startsWith("/status/sessions")) {
+  const plex = http.createServer((req, res) => {
+    const u = req.url || "";
+
+    if (u.startsWith("/status/sessions")) {
       res.writeHead(200, { "Content-Type": "application/xml" });
-      res.end(
-        '<MediaContainer size="2">' +
-          '<Video type="movie" title="V" grandparentTitle="A" ' +
-          'ratingKey="555" duration="100000" viewOffset="5000">' +
-          `<Player state="playing" product="Plex" machineIdentifier="${FAKE_CLIENT}" />` +
-          '<Media><Part file="/tmp/v.mp4" /></Media>' +
-        '</Video>' +
-        '<Track type="track" title="T" grandparentTitle="A2" parentTitle="X" ' +
-        'ratingKey="100" duration="200000" viewOffset="1000">' +
-        `<Player product="Plexamp" state="playing" machineIdentifier="${FAKE_CLIENT}" />` +
-        '</Track></MediaContainer>',
+      return res.end('<MediaContainer size="0"></MediaContainer>');
+    }
+
+    if (u.startsWith("/playlists/41/items")) {
+      res.writeHead(200, { "Content-Type": "application/xml" });
+      return res.end(
+        '<MediaContainer size="1">' +
+        '<Video ratingKey="555" title="Test Clip"><Media><Part file="/tmp/v.mp4"/></Media></Video>' +
+        '</MediaContainer>',
       );
-      return;
     }
-    // Pause: succeed but slowly so the corrective race window opens.
-    if (req.url.includes("/playback/pause")) {
-      await delay(1200);
-      res.writeHead(200); res.end("ok");
-      return;
+
+    if (u.startsWith("/playlists")) {
+      res.writeHead(200, { "Content-Type": "application/xml" });
+      return res.end(
+        '<MediaContainer size="1">' +
+        '<Playlist ratingKey="41" title="Rap Videos" playlistType="video"/>' +
+        '</MediaContainer>',
+      );
     }
-    // Resume (play): always fail 500 to exercise corrective recovery.
-    if (req.url.includes("/playback/play")) {
-      res.writeHead(500); res.end("server error");
-      return;
+
+    if (u.includes("/player/playback/pause")) {
+      res.writeHead(200);
+      return res.end("ok");
     }
-    res.writeHead(404); res.end();
+
+    // Simulate a receiver that acknowledges Pause but never actually leaves
+    // playing state. RSVP must NOT publish TV ownership in this condition.
+    if (u.includes("/player/timeline/poll")) {
+      res.writeHead(200, { "Content-Type": "text/xml" });
+      return res.end(
+        '<MediaContainer><Timeline type="music" state="playing" ratingKey="100"/></MediaContainer>',
+      );
+    }
+
+    res.writeHead(404);
+    res.end();
   });
+
   await new Promise((r) => plex.listen(0, "127.0.0.1", r));
   const plexBase = `http://127.0.0.1:${plex.address().port}`;
 
@@ -74,34 +75,21 @@ test("corrective resume failure: pausedByRsvpVideo flag is set true so retry pat
     PLEX_BASE:    plexBase,
     PLEXAMP_BASE: plexBase,
     POLL_MS:      "200",
-    PLEX_TARGET_CLIENT_IDENTIFIER: FAKE_CLIENT,
+    PLEXAMP_CLIENT_IDENTIFIER: FAKE_CLIENT,
   });
 
   try {
-    // Wait for the video poll → pause initiated. Pause stub will take 1.2s.
-    await delay(400);
+    const r = await fetch(`${server.baseUrl}/admin/video/play/41`, { method: "POST" });
+    assert.equal(r.status, 400, "TV takeover must fail when Plexamp never confirms non-playing");
+    const body = await r.json();
+    assert.equal(body.error, "plexamp_pause_unconfirmed");
 
-    // Trigger /video-failed mid-pause. This bumps the handoff token.
-    await fetch(`${server.baseUrl}/video-failed`, {
-      method:  "POST",
-      headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify({ mediaUrl: "/media/555" }),
-    });
-
-    // Now wait for the slow pause to complete + the corrective resume attempt.
-    // Pause: ~1.2s after poll fired. Then corrective resume fires (500).
-    // Give it generous time.
-    await delay(2500);
-
-    const r = await fetch(`${server.baseUrl}/state`);
-    const state = await r.json();
-
-    // When corrective resume fails, the ownership flag must remain true
-    // so the next normal trigger can retry. Don't silently abandon.
+    const state = await (await fetch(`${server.baseUrl}/state`)).json();
+    assert.notEqual(state.media.type, "video", "failed takeover must not publish TV ownership");
     assert.equal(
       state.plexamp.pausedByRsvpVideo,
-      true,
-      "corrective resume failure must leave pausedByRsvpVideo=true for retry",
+      false,
+      "receiver still reports playing, so RSVP must not claim it owns a pause",
     );
   } finally {
     await server.stop();
