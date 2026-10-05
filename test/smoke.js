@@ -39,11 +39,18 @@ async function testState() {
   const r = await fetch(`${BASE}/state`);
   assert("status 200", r.status === 200, `got ${r.status}`);
   const body = await r.json();
-  assert("has event", typeof body.event === "string");
-  assert("has mode", typeof body.mode === "string");
-  assert("has bass", typeof body.bass === "number");
-  assert("has energy", typeof body.energy === "number");
-  assert("has updatedAt", typeof body.updatedAt === "number");
+  assert("has appState",       typeof body.appState === "string");
+  assert("has media",          body.media && typeof body.media === "object");
+  assert("has media.type",     typeof body.media?.type === "string");
+  assert("has mode",           body.mode && typeof body.mode === "object");
+  assert("has mode.current",   typeof body.mode?.current === "string");
+  assert("has mode.source",    typeof body.mode?.source === "string");
+  assert("has features.bass",  typeof body.features?.bass === "number");
+  assert("has features.energy",typeof body.features?.energy === "number");
+  assert("has updatedAt",      typeof body.updatedAt === "number");
+  assert("has intelligence",   body.intelligence && typeof body.intelligence === "object");
+  assert("has plexamp",        body.plexamp && typeof body.plexamp === "object");
+  assert("has video",          body.video && typeof body.video === "object");
 }
 
 async function testArtReject() {

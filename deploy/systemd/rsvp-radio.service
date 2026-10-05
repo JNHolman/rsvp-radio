@@ -1,0 +1,25 @@
+[Unit]
+Description=RSVP Radio / TV
+Wants=network-online.target rsvp-hue.service
+After=network-online.target rsvp-hue.service
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+WorkingDirectory=/home/pi/rsvp-radio
+EnvironmentFile=/home/pi/rsvp-radio/.env
+ExecStart=/usr/bin/node /home/pi/rsvp-radio/server.js
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectControlGroups=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ReadWritePaths=/home/pi/rsvp-radio/data
+
+[Install]
+WantedBy=multi-user.target

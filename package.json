@@ -1,7 +1,7 @@
 {
   "name": "rsvp-radio",
   "version": "1.0.0",
-  "description": "RSVP Radio \u2014 Plex kiosk UI with music-reactive lights",
+  "description": "RSVP Radio / TV \u2014 adaptive Plex ambience system with Philips Hue lighting",
   "main": "server.js",
   "engines": {
     "node": ">=18"
@@ -12,11 +12,20 @@
     "lint": "find . -name \"*.js\" -not -path \"./node_modules/*\" -print0 | xargs -0 -n1 node --check",
     "test": "node --test test/unit/*.test.js test/integration/*.test.js",
     "test:smoke": "node test/smoke.js",
-    "verify": "npm run lint && npm test"
+    "verify": "npm run lint && npm run lint:python && npm run test:analyzer && npm test",
+    "start:hue": "node hue-adapter.js",
+    "verify:pi": "bash scripts/verify-pi.sh",
+    "test:analyzer": "python3 -m unittest discover -s test/python -p 'test_*.py'",
+    "lint:python": "python3 -m py_compile analyzer/*.py test/python/*.py"
   },
   "license": "ISC",
   "dependencies": {
-    "express": "^5.2.1",
-    "fast-xml-parser": "^4.4.1"
-  }
+    "dotenv": "17.4.2",
+    "express": "5.2.1",
+    "fast-xml-parser": "5.10.1"
+  },
+  "overrides": {
+    "body-parser": "2.3.0"
+  },
+  "private": true
 }

@@ -1,0 +1,17 @@
+[Unit]
+Description=RSVP Radio / TV Audio Analyzer
+After=pipewire.service pipewire-pulse.service
+
+[Service]
+Type=simple
+WorkingDirectory=/home/pi/rsvp-radio
+EnvironmentFile=/home/pi/rsvp-radio/.env
+ExecStart=/home/pi/rsvp-radio/scripts/start-analyzer.sh
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=default.target

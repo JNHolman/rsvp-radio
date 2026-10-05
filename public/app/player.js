@@ -20,7 +20,7 @@ const _el = {
 };
 
 // ── Change detection cache ────────────────────────────────────────────────────
-let _prev = { playing: null, title: null, artist: null, album: null, artUrl: null, mode: null };
+let _prev = { playing: null, title: null, artist: null, album: null, artUrl: null, mode: null, isVideo: null, ratingKey: null };
 
 // ── In-flight guard ───────────────────────────────────────────────────────────
 let _busy = false;
@@ -38,9 +38,10 @@ function _artUrl(state) {
   if (!state) return "";
   // Always use relative URLs — the server proxies art through /art
   // Never call Plex directly from the browser
-  if (state.artUrl) {
-    if (state.artUrl.startsWith("/")) return state.artUrl; // relative — let browser resolve
-    try { return new URL(state.artUrl, location.origin).href; } catch (_) {}
+  const url = state.media?.artUrl || "";
+  if (url) {
+    if (url.startsWith("/")) return url; // relative — let browser resolve
+    try { return new URL(url, location.origin).href; } catch (_) {}
   }
   return "";
 }
@@ -55,8 +56,14 @@ function _fetchWithTimeout(url, ms) {
 
 // ── DOM writers (only called when value changed) ──────────────────────────────
 
-function _setStatus(playing) {
-  _el.status.textContent = playing ? "NOW PLAYING" : "IDLE";
+function _setStatus(playerState) {
+  if (playerState === "playing") {
+    _el.status.textContent = "NOW PLAYING";
+  } else if (playerState === "paused") {
+    _el.status.textContent = "PAUSED";
+  } else {
+    _el.status.textContent = "IDLE";
+  }
 }
 
 function _showCard(on) {
@@ -94,41 +101,106 @@ async function poll() {
       if (r.ok) state = await r.json();
     } catch (_) { /* network error → treat as idle */ }
 
+    const media       = state?.media       || {};
+    const mediaType   = media.type         || "idle";
+    const playerState = media.playerState  || "";
+
     const playing = !!(
-      state?.type        === "track" &&
-      state?.playerState === "playing"
+      (mediaType === "audio" || mediaType === "video") &&
+      playerState === "playing"
     );
 
-    _setStatus(playing);
+    const activeMedia = !!(
+      (mediaType === "audio" || mediaType === "video") &&
+      (playerState === "playing" || playerState === "paused")
+    );
 
-    if (!playing) {
+    if (!activeMedia) {
+      _setStatus("idle");
       _showCard(false);
-      _prev.mode = null;
-      if (_prev.playing !== false) {
-        _prev.playing = false;
-        await onPlaybackStop();
+      if (_prev.isVideo) {
+        _prev.isVideo = false;
+        _prev.ratingKey = null;
+        exitMusicVideoMode();
       }
+      if (_prev.playing !== false) _prev.playing = false;
       return;
     }
 
-    // ── Playing ───────────────────────────────────────────────────────────────
-    const serverMode = typeof state?.mode === "string" ? state.mode : "";
+    // Something is playing.
+    _setStatus(playerState || "idle");
 
-    if (_prev.playing !== true) {
+    const isVideo   = mediaType === "video";
+    const ratingKey = String(media.ratingKey || "");
+    const mediaUrl  = media.mediaUrl || "";
+
+    // Only pause from poll — never call play() here
+    // play() is called inside enterMusicVideoMode after loadedmetadata
+    // Calling play() from poll can restart a nearly-ended video before ended fires
+    if (isVideo) {
+      const mv = document.getElementById("musicVideo");
+      if (mv) {
+        if (playerState === "paused") {
+          mv.pause();
+        }
+        // Seek sync disabled — polling every 2s causes constant seeks and stuttering.
+        // Plex viewOffsetMs is too unstable at 2s intervals for reliable seek.
+      }
+    }
+
+    // ── Playing ───────────────────────────────────────────────────────────────
+    if (playing && _prev.playing !== true) {
       _prev.playing = true;
-      _prev.mode = serverMode || null;
-      await onPlaybackStart(serverMode);
-    } else if (serverMode && serverMode !== _prev.mode) {
-      _prev.mode = serverMode;
-      await applyServerMode(serverMode);
+    }
+
+    const sameVideo = isVideo &&
+      _prev.isVideo &&
+      _prev.ratingKey &&
+      String(_prev.ratingKey) === ratingKey;
+
+    const localEnded = typeof isMusicVideoEnded === "function" && isMusicVideoEnded();
+    const localVideoFailed = isVideo && mediaUrl &&
+      typeof isMusicVideoFailed === "function" && isMusicVideoFailed(mediaUrl);
+
+    // ── Music video mode ──────────────────────────────────────────────────────
+    // NEW VIDEO LOADS FIRST — before any ended/failed guard
+    // This ensures Video B loads immediately even if Video A just ended
+    if (isVideo && mediaUrl && !localVideoFailed && !sameVideo) {
+      _prev.isVideo   = isVideo;
+      _prev.ratingKey = ratingKey;
+      await enterMusicVideoMode(mediaUrl, playerState || "playing");
+    } else if (!isVideo && _prev.isVideo) {
+      // Only exit video mode if ratingKey also changed — Plex can misreport
+      // a paused video as type "audio", so don't exit just because the type flipped
+      const ratingKeyChanged = ratingKey && _prev.ratingKey && ratingKey !== _prev.ratingKey;
+      const ratingKeyGone    = !ratingKey;
+      if (ratingKeyChanged || ratingKeyGone) {
+        _prev.isVideo   = false;
+        _prev.ratingKey = null;
+        exitMusicVideoMode();
+      }
+    }
+
+    // SAME ENDED VIDEO — hold black, don't show card
+    if (sameVideo && localEnded) {
+      _showCard(false);
+      _el.status.textContent = "LOADING NEXT VIDEO";
+      return;
+    }
+
+    // FAILED VIDEO — hide card, show failure status
+    if (localVideoFailed) {
+      _showCard(false);
+      _el.status.textContent = "VIDEO FAILED";
+      return;
     }
 
     _showCard(true);
 
     // Metadata — write only on change
-    const title  = state.title  || "";
-    const artist = state.artist || "";
-    const album  = state.album  || "";
+    const title  = media.title  || "";
+    const artist = media.artist || "";
+    const album  = media.album  || "";
     if (title !== _prev.title || artist !== _prev.artist || album !== _prev.album) {
       _prev.title  = title;
       _prev.artist = artist;
@@ -142,9 +214,6 @@ async function poll() {
       _prev.artUrl = url;
       _setArt(url);
     }
-
-    // Signal — throttled inside sendSignal()
-    await sendSignal(Number(state.bass || 0), Number(state.energy || 0));
 
   } finally {
     _busy = false;

@@ -37,6 +37,31 @@ html, body {
 }
 .bgVideo.on { opacity: 1; }
 
+/* ── Black hold — explicit black screen between videos ── */
+.blackHold {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  background: #000;
+  opacity: 0;
+  transition: opacity 400ms ease;
+  pointer-events: none;
+}
+.blackHold.on { opacity: 1; }
+
+/* ── Music video ── */
+/* Sits above the ambient bg videos but below all overlays/UI.
+   DOM order handles z-ordering — no explicit z-index needed. */
+.musicVideo {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  object-fit: contain;           /* letterbox — preserves aspect ratio */
+  background: #000;
+  opacity: 0;
+  transition: opacity 800ms ease;
+  pointer-events: none;
+}
+.musicVideo.on { opacity: 1; }
+
 .vignette {
   position: absolute; inset: -8%;
   pointer-events: none;

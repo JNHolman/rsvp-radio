@@ -3,7 +3,7 @@
 /**
  * intelligence/session.js — RSVP Radio Session Detection
  *
- * Detects when a new session starts (first song after 45+ min of silence)
+ * Detects when a new session starts (first song after 30+ min of silence)
  * and reads the seed song's genre from Plex to set the initial lights mode.
  *
  * Seed → Lights mode map:
@@ -18,10 +18,13 @@
 
 const fs   = require("fs");
 const path = require("path");
+const { writeJsonAtomic } = require("./atomic-json");
 
 const DATA_PATH    = process.env.SESSION_DATA_PATH || path.join(__dirname, "..", "data", "session.json");
-const IDLE_TIMEOUT = 45 * 60 * 1000; // 45 minutes of silence = new session
+const IDLE_TIMEOUT = 30 * 60 * 1000; // 30 minutes of silence = new session
 const GENRE_FETCH_TIMEOUT_MS = Number(process.env.SESSION_GENRE_FETCH_TIMEOUT_MS) || 4000;
+const HEARTBEAT_PERSIST_MS = Number(process.env.SESSION_HEARTBEAT_PERSIST_MS) || 5 * 60 * 1000;
+let _lastHeartbeatPersistAt = 0;
 
 // ── Genre → mode map ──────────────────────────────────────────────────────────
 const GENRE_MODE_MAP = [
@@ -50,9 +53,11 @@ function load() {
 
 function save(data) {
   try {
-    fs.mkdirSync(path.dirname(DATA_PATH), { recursive: true });
-    fs.writeFileSync(DATA_PATH, JSON.stringify(data, null, 2), "utf8");
-  } catch {}
+    writeJsonAtomic(DATA_PATH, data);
+    _lastHeartbeatPersistAt = Date.now();
+  } catch (err) {
+    console.warn("[session] save failed:", err.message);
+  }
 }
 
 // ── Fetch genres from Plex ────────────────────────────────────────────────────
@@ -93,9 +98,11 @@ async function checkSession(track, plexBase, plexToken, blockMode) {
   const wasIdle = (now - state.lastPlayedAt) > IDLE_TIMEOUT;
   state.lastPlayedAt = now;
 
-  // Not a new session — just update timestamp and return
+  // Mid-session we only need a coarse persisted heartbeat. Writing and fsyncing
+  // every poll adds needless storage churn on a Pi; a five-minute checkpoint is
+  // comfortably inside the 30-minute idle threshold while still surviving restarts.
   if (!wasIdle) {
-    save(state);
+    if (!_lastHeartbeatPersistAt || (now - _lastHeartbeatPersistAt) >= HEARTBEAT_PERSIST_MS) save(state);
     return null;
   }
 

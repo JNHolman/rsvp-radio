@@ -11,6 +11,8 @@
   <div class="stage">
     <video id="bgA" class="bgVideo" autoplay muted loop playsinline></video>
     <video id="bgB" class="bgVideo" autoplay muted loop playsinline></video>
+    <div id="blackHold" class="blackHold"></div>
+    <video id="musicVideo" class="musicVideo" playsinline></video>
     <div class="vignette"></div>
     <div class="topFade"></div>
     <div class="bottomFade"></div>
@@ -63,25 +65,16 @@
     Load order is intentional — /runtime-config.js injects deployment values,
     then /app/constants.js defines the browser globals that the later files use.
 
-    constants.js   defines: BG_DAY, BG_NIGHT, BG_CROSSFADE_MS, BG_CHECK_MS,
-                            BG_RELOAD_MS, STATE_URL, LIGHTS_URL, POLL_MS,
-                            POLL_TIMEOUT, SIGNAL_DELTA_THRESHOLD,
-                            IDLE_TRANSITION_MS, TRANSITION_MS_DEFAULT,
-                            LS_MODE, LS_ACTIVE, isDayTime(), blockModeForNow()
+    constants.js   defines: browser rendering/poll/background constants only
 
     background.js  uses:   BG_*, isDayTime
                    exports: bootBackground(), swapBackgroundIfNeeded(),
                             startBackgroundTimers()
 
-    lights.js      uses:   LIGHTS_URL, LS_*, blockModeForNow,
-                            SIGNAL_DELTA_THRESHOLD, IDLE_TRANSITION_MS,
-                            TRANSITION_MS_DEFAULT
-                   exports: onPlaybackStart(), onPlaybackStop(), sendSignal(),
-                            setLightsMode(), setLightsOn(), setLightsOff(),
-                            startBoundaryTimer()
+    lights.js      exports: explicit human controls only; the server owns
+                            all automatic Hue timing and reactive behavior
 
-    player.js      uses:   STATE_URL, POLL_MS, POLL_TIMEOUT,
-                            onPlaybackStart, onPlaybackStop, sendSignal
+    player.js      uses:   STATE_URL, POLL_MS, POLL_TIMEOUT
                    exports: startPolling()
 
     main.js        uses:   all of the above exports

@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=RSVP Radio TV Kiosk
+Comment=Launch RSVP Radio / TV after the Pi desktop session starts
+Exec=/home/pi/rsvp-radio/scripts/start-kiosk.sh
+Terminal=false
+X-GNOME-Autostart-enabled=true

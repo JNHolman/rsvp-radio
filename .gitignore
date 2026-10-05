@@ -1,5 +1,11 @@
+.env
+node_modules/
+*.log
+data/runtime-state.json
+data/runtime-state.json.tmp-*
+data/video-skip-data.json
+data/*.tmp-*
 .DS_Store
-node_modules
-*.mp4
-!public/assets/bg/rsvp_day_720_optimized.mp4
-!public/assets/bg/rsvp_night_720.mp4
+
+__pycache__/
+*.pyc

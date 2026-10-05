@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>RSVP Radio — Control</title>
+  <link rel="stylesheet" href="/admin.css" />
+</head>
+<body>
+
+  <header class="hdr">
+    <div class="brand"><span class="rsvp">RSVP</span><span class="dot">·</span><span class="control">CONTROL</span></div>
+    <div class="status" id="statusPill">—</div>
+  </header>
+
+  <div class="configBanner" id="configBanner" hidden></div>
+
+  <main>
+
+    <!-- NOW PLAYING — the headline card -->
+    <section class="card now">
+      <div class="nowArt" id="nowArt">
+        <div class="nowArtPlaceholder">—</div>
+      </div>
+      <div class="nowMeta">
+        <div class="nowTitle"  id="nowTitle">Nothing playing</div>
+        <div class="nowArtist" id="nowArtist">&nbsp;</div>
+        <div class="nowAlbum"  id="nowAlbum">&nbsp;</div>
+        <div class="nowMode">
+          <span class="modeChip" id="modeChip">—</span>
+          <span class="modeSource" id="modeSource">timeblock</span>
+          <span class="modeExpiry" id="modeExpiry"></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- QUICK CONTROLS -->
+    <section class="card controls">
+      <h2>Lights</h2>
+      <div class="row">
+        <button class="btn lg primary" data-action="lights-on">Lights ON</button>
+        <button class="btn lg ghost"   data-action="lights-off">Lights OFF</button>
+      </div>
+      <div class="row">
+        <button class="btn mode" data-mode="rnb">RNB</button>
+        <button class="btn mode" data-mode="rap">RAP</button>
+        <button class="btn mode" data-mode="lofi">LOFI</button>
+        <button class="btn mode" data-mode="wrap">WRAP</button>
+      </div>
+
+      <h2>Music</h2>
+      <div class="row">
+        <button class="btn"       data-action="force-sync">Sync to Schedule</button>
+        <button class="btn" data-action="automation-stop">Stop Auto-DJ</button>
+        <button class="btn" data-action="automation-start">Resume Auto-DJ</button>
+        <button class="btn"       data-action="clear-manual">Clear Manual Mode</button>
+        <button class="btn ghost" data-action="sync-ratings">Sync Ratings to Plex</button>
+      </div>
+
+      <div id="actionResult" class="actionResult">Ready.</div>
+    </section>
+
+    <!-- VIDEO (admin-triggered, Pi-local) -->
+    <section class="card controls videoCard">
+      <h2 class="cardTitle">VIDEO</h2>
+      <div class="row" id="videoPlaylists">
+        <span class="empty">Loading video playlists…</span>
+      </div>
+
+      <div class="videoTransport disabled" id="videoTransport">
+        <button class="vbtn"      data-action="video-prev"  title="Previous clip">⏮</button>
+        <button class="vbtn play"  data-action="video-pause" data-paused="0" title="Pause / resume">Pause ⏸</button>
+        <button class="vbtn"      data-action="video-next"  title="Next clip">⏭</button>
+        <button class="vbtn stop" data-action="video-stop"  title="Stop video">Stop ⏹</button>
+      </div>
+
+      <div id="videoResult" class="actionResult">Idle (music mode)</div>
+    </section>
+
+    <style>
+      .videoTransport {
+        display: flex; gap: 8px; align-items: stretch;
+        margin: 12px 0 6px; flex-wrap: wrap;
+      }
+      .videoTransport.disabled { opacity: .45; }
+      .videoTransport .vbtn {
+        flex: 1 1 64px; min-height: 52px;
+        font-size: 18px; font-weight: 700; line-height: 1;
+        border: 1px solid rgba(255,255,255,.16);
+        border-radius: 12px;
+        background: rgba(255,255,255,.06);
+        color: #f4f4f6; cursor: pointer;
+        transition: background .12s ease, transform .05s ease, border-color .12s ease;
+      }
+      .videoTransport .vbtn:hover:not(:disabled) { background: rgba(255,255,255,.12); }
+      .videoTransport .vbtn:active:not(:disabled) { transform: translateY(1px); }
+      .videoTransport .vbtn:disabled { cursor: default; }
+      .videoTransport .vbtn.play { flex: 2 1 120px; }
+      .videoTransport .vbtn.play.primary {
+        background: #d8a657; border-color: #d8a657; color: #1b1b1f;
+      }
+      .videoTransport .vbtn.stop {
+        flex: 1 1 96px;
+        background: rgba(200,70,70,.14); border-color: rgba(200,70,70,.4); color: #ff9c9c;
+      }
+      .videoTransport .vbtn.stop:hover:not(:disabled) { background: rgba(200,70,70,.24); }
+    </style>
+
+    <!-- TOP 10 CARDS -->
+    <div class="topGrid">
+      <section class="card top">
+        <h2>Most Played</h2>
+        <ol class="topList" id="topPlayed"><li class="empty">No plays yet</li></ol>
+      </section>
+      <section class="card top">
+        <h2>Most Struck</h2>
+        <ol class="topList" id="topStruck"><li class="empty">No strikes yet</li></ol>
+      </section>
+    </div>
+
+    <!-- TECHNICAL DETAILS (hidden by default) -->
+    <section class="card details">
+      <button class="detailsToggle" id="detailsToggle">Show technical details ▾</button>
+      <div class="detailsBody" id="detailsBody" hidden>
+
+        <h2>App state</h2>
+        <div class="kv">
+          <div class="k">App state</div>           <div class="v" id="kAppState">—</div>
+          <div class="k">Media type</div>          <div class="v" id="kMediaType">—</div>
+          <div class="k">Player state</div>        <div class="v" id="kPlayerState">—</div>
+          <div class="k">Mode source</div>         <div class="v" id="kModeSource">—</div>
+          <div class="k">Manual override expires</div><div class="v" id="kManualExpires">—</div>
+          <div class="k">Video phase</div>         <div class="v" id="kVideoPhase">—</div>
+          <div class="k">Plexamp paused by RSVP</div><div class="v" id="kPlexamp">—</div>
+          <div class="k">Hue power intent</div><div class="v" id="kLightsEnabled">—</div>
+          <div class="k">Manual Hue scene expires</div><div class="v" id="kLightsManualExpires">—</div>
+          <div class="k">Last update</div>         <div class="v" id="kUpdated">—</div>
+          <div class="k">Error</div>               <div class="v" id="kError">—</div>
+        </div>
+
+        <h2>Now-playing details</h2>
+        <div class="kv">
+          <div class="k">Rating key</div>     <div class="v" id="kRatingKey">—</div>
+          <div class="k">Strikes</div>        <div class="v" id="kStrikes">—</div>
+          <div class="k">Soft strikes</div>   <div class="v" id="kSoftStrikes">—</div>
+          <div class="k">Plex rating</div>    <div class="v" id="kRating">—</div>
+          <div class="k">Last play %</div>    <div class="v" id="kLastPlayPct">—</div>
+        </div>
+
+        <h2>Music — playlist alignment</h2>
+        <div class="kv">
+          <div class="k">Desired playlist</div>       <div class="v" id="kDesiredPlaylist">—</div>
+          <div class="k">Last commanded</div>         <div class="v" id="kCommandedPlaylist">—</div>
+          <div class="k">Last command aligned</div>   <div class="v" id="kAligned">—</div>
+        </div>
+
+        <h2>Diagnostic actions</h2>
+        <div class="row">
+          <button class="btn small" data-action="plexamp-pause">Plexamp pause test</button>
+          <button class="btn small" data-action="plexamp-resume">Plexamp resume test</button>
+        </div>
+
+        <h2>Skip data — full table</h2>
+        <table class="skipTable">
+          <thead>
+            <tr><th>Title</th><th>Artist</th><th>Plays</th><th>Strikes</th><th>Soft</th><th>Rating</th><th>Last</th></tr>
+          </thead>
+          <tbody id="skipTbody"><tr><td colspan="7" class="empty">Loading…</td></tr></tbody>
+        </table>
+
+        <h2>Raw /state</h2>
+        <pre id="rawState">{}</pre>
+      </div>
+    </section>
+
+  </main>
+
+  <script src="/runtime-config.js"></script>
+  <script src="/app/constants.js"></script>
+  <script src="/app/admin.js"></script>
+</body>
+</html>

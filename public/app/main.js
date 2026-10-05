@@ -6,7 +6,8 @@
  *   1. Load background video (one video, done — no forced swap)
  *   2. Start background day/night check + reload timer
  *   3. Start Plex polling
- *   4. Start time-block boundary watcher
+ *
+ * Time-block scheduling is server-owned; the kiosk does not run a second clock.
  */
 
 // ── Light menu ────────────────────────────────────────────────────────────────
@@ -51,5 +52,4 @@ document.getElementById("exitBtn").addEventListener("pointerdown", async (e) => 
   await bootBackground();
   startBackgroundTimers();
   startPolling();
-  startBoundaryTimer();
 })();

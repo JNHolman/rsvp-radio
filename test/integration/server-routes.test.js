@@ -2,18 +2,20 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const { makePublicDir, startServer } = require("../helpers/server-test-helper");
 
-test("/runtime-config.js reflects LIGHTS_URL and shared schedule", async () => {
+test("/runtime-config.js exposes browser settings but not server scheduling or Hue endpoints", async () => {
   const server = await startServer({
     PUBLIC_DIR: makePublicDir({ withAssets: true }),
     LIGHTS_URL: "http://127.0.0.1:5999",
+    POLL_MS: "1777",
   });
   try {
     const res = await fetch(`${server.baseUrl}/runtime-config.js`);
     const text = await res.text();
     assert.equal(res.status, 200);
-    assert.match(text, /http:\/\/127\.0\.0\.1:5999/);
-    assert.match(text, /timeBlocks/);
-    assert.match(text, /preFadeMin/);
+    assert.match(text, /1777/);
+    assert.doesNotMatch(text, /127\.0\.0\.1:5999/);
+    assert.doesNotMatch(text, /timeBlocks/);
+    assert.doesNotMatch(text, /preFadeMin/);
   } finally {
     await server.stop();
   }
@@ -52,19 +54,13 @@ test("/plex rejects oversized webhook payloads", async () => {
   }
 });
 
-test("/api/exit requires token when EXIT_API_TOKEN is set", async () => {
+test("/api/exit allows the local kiosk even when EXIT_API_TOKEN is set", async () => {
   const server = await startServer({
     PUBLIC_DIR: makePublicDir({ withAssets: true }),
     EXIT_API_TOKEN: "secret-token",
   });
   try {
-    const denied = await fetch(`${server.baseUrl}/api/exit`, { method: "POST" });
-    assert.equal(denied.status, 403);
-
-    const allowed = await fetch(`${server.baseUrl}/api/exit`, {
-      method: "POST",
-      headers: { "x-exit-token": "secret-token" },
-    });
+    const allowed = await fetch(`${server.baseUrl}/api/exit`, { method: "POST" });
     const body = await allowed.json();
     assert.equal(allowed.status, 200);
     assert.equal(body.ok, true);

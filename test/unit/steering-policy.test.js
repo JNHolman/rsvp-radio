@@ -1,0 +1,6 @@
+"use strict";
+const test=require("node:test");const assert=require("node:assert/strict");const {createSteering}=require("../../intelligence/lane-steering");
+const lanes={rap:[{name:"Main",key:"1"},{name:"Throwbacks",key:"2"},{name:"Club",key:"3"}]};
+test("two distinct skips steer laterally inside the same block",async()=>{const s=createSteering({laneMap:lanes,skipThreshold:2,minDwellMs:0});s.onBoundaryOrModeChange("rap");assert.equal(await s.onSkip("rap","a"),null);assert.equal((await s.onSkip("rap","b")).name,"Throwbacks");});
+test("same item cannot cast two lane votes",async()=>{const s=createSteering({laneMap:lanes,skipThreshold:2,minDwellMs:0});s.onBoundaryOrModeChange("rap");await s.onSkip("rap","a");assert.equal(await s.onSkip("rap","a"),null);});
+test("clean plays clear pressure and can recover a lane",async()=>{const s=createSteering({laneMap:lanes,skipThreshold:2,minDwellMs:0});s.onBoundaryOrModeChange("rap");await s.onSkip("rap","a");await s.onSkip("rap","b");s.onCleanPlay();s.onCleanPlay();assert.equal(s.snapshot().consecutiveSkips,0);});

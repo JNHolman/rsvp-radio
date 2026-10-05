@@ -1,195 +1,118 @@
 "use strict";
 
-/**
- * intelligence/skip-tracker.js — RSVP Radio Skip Intelligence
- *
- * Tracks song skip history and manages reputation cooldowns.
- * Data persists to skip-data.json — no database required.
- *
- * Skip thresholds:
- *   Hard skip (0–25% played)   = 1.0 strike
- *   Soft skip (25–40% played)  = 0.5 strike
- *   Played   (40%+ played)     = clears soft skip history
- *
- * Cooldown ladder (full strikes):
- *   1 strike  = 30 days
- *   2 strikes = 90 days
- *   3 strikes = 180 days
- *   4 strikes = 1 year
- *   5 strikes = permanent exile
- */
-
-const fs   = require("fs");
+/** Shared item reputation policy for Radio and TV. */
+const fs = require("fs");
 const path = require("path");
+const { writeJsonAtomic } = require("./atomic-json");
 
-// ── Data file ─────────────────────────────────────────────────────────────────
-const DATA_PATH = process.env.SKIP_DATA_PATH || path.join(__dirname, "..", "data", "skip-data.json");
+function createTracker(dataPath) {
+  const DATA_PATH = dataPath;
+  const load = () => {
+    try { return fs.existsSync(DATA_PATH) ? JSON.parse(fs.readFileSync(DATA_PATH, "utf8")) : {}; }
+    catch (e) { console.warn("[reputation] load failed:", e.message); return {}; }
+  };
+  const save = (data) => {
+    try {
+      writeJsonAtomic(DATA_PATH, data);
+    } catch (e) { console.warn("[reputation] save failed:", e.message); }
+  };
+  const ensure = (data, track) => data[track.ratingKey] ||= {
+    ratingKey: String(track.ratingKey),
+    title: track.title || "",
+    artist: track.artist || "",
+    strikes: 0,
+    softStrikes: 0,
+    cooldownUntil: 0, // legacy field retained; Plex rating is the rotation gate
+    plays: 0,
+    history: [],
+  };
+  const trim = (e) => { if (e.history.length > 20) e.history = e.history.slice(-20); };
 
-// ── Cooldown ladder (days) ────────────────────────────────────────────────────
-const COOLDOWNS = [
-  { strikes: 1, days: 30   },
-  { strikes: 2, days: 90   },
-  { strikes: 3, days: 180  },
-  { strikes: 4, days: 365  },
-  { strikes: 5, days: 36500 }, // permanent exile (~100 years)
-];
+  function recordPlay(track) {
+    if (!track?.ratingKey) return;
+    const data = load();
+    const e = ensure(data, track);
+    e.plays = (e.plays || 0) + 1;
+    e.title = track.title || e.title;
+    e.artist = track.artist || e.artist;
+    e.cooldownUntil = 0;
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function now() { return Date.now(); }
-function daysToMs(d) { return d * 24 * 60 * 60 * 1000; }
-
-function load() {
-  try {
-    if (fs.existsSync(DATA_PATH)) {
-      return JSON.parse(fs.readFileSync(DATA_PATH, "utf8"));
+    if (e.strikes < 5) { // five strikes is permanent exile
+      if (e.softStrikes > 0) e.softStrikes = 0;
+      else if (e.strikes > 0) e.strikes = Math.max(0, e.strikes - 1);
+      e.history.push({ type: "redemption", ts: Date.now(), strikes: e.strikes });
+    } else {
+      e.history.push({ type: "play_exiled", ts: Date.now(), strikes: e.strikes });
     }
-  } catch (err) {
-    console.warn("[skip-tracker] Could not load data file, starting fresh:", err.message);
-  }
-  return {};
-}
-
-function save(data) {
-  try {
-    const dir = path.dirname(DATA_PATH);
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(DATA_PATH, JSON.stringify(data, null, 2), "utf8");
-  } catch (err) {
-    console.warn("[skip-tracker] Could not save data file:", err.message);
-  }
-}
-
-function cooldownForStrikes(strikes) {
-  const match = [...COOLDOWNS].reverse().find(c => strikes >= c.strikes);
-  return match ? daysToMs(match.days) : 0;
-}
-
-function cooldownLabel(strikes) {
-  if (strikes >= 5) return "PERMANENT EXILE";
-  if (strikes >= 4) return "1 year";
-  if (strikes >= 3) return "180 days";
-  if (strikes >= 2) return "90 days";
-  if (strikes >= 1) return "30 days";
-  return "none";
-}
-
-// ── Public API ────────────────────────────────────────────────────────────────
-
-/**
- * recordSkip — called when a song is skipped
- * @param {object} track  { ratingKey, title, artist }
- * @param {number} pct    0.0–1.0, how far through the song they got
- */
-function recordSkip(track, pct) {
-  const { ratingKey, title, artist } = track;
-  const data = load();
-
-  if (!data[ratingKey]) {
-    data[ratingKey] = { ratingKey, title, artist, strikes: 0, softStrikes: 0, cooldownUntil: 0, history: [] };
-  }
-
-  const entry = data[ratingKey];
-
-  // Determine strike weight
-  let strikeWeight = 0;
-  let skipType     = "";
-
-  if (pct < 0.25) {
-    strikeWeight = 1.0;
-    skipType     = "hard";
-  } else if (pct < 0.40) {
-    strikeWeight = 0.5;
-    skipType     = "soft";
-  } else {
-    // 40%+ counts as a play, not a skip
-    console.log(`[skip-tracker] "${title}" played ${Math.round(pct * 100)}% — counts as a listen, no strike`);
-    return;
-  }
-
-  // Accumulate strikes
-  if (skipType === "soft") {
-    entry.softStrikes += 0.5;
-    if (entry.softStrikes >= 1.0) {
-      entry.strikes    += 1;
-      entry.softStrikes = 0;
-      console.log(`[skip-tracker] "${title}" — 2 soft skips converted to 1 full strike`);
-    }
-  } else {
-    entry.strikes += strikeWeight;
-  }
-
-  // Log history entry
-  entry.history.push({
-    type:   skipType,
-    pct:    Math.round(pct * 100),
-    ts:     now(),
-    strikes: entry.strikes,
-  });
-
-  // Keep history to last 20 entries
-  if (entry.history.length > 20) entry.history = entry.history.slice(-20);
-
-  // Set cooldown
-  const cooldownMs    = cooldownForStrikes(entry.strikes);
-  entry.cooldownUntil = now() + cooldownMs;
-  entry.title         = title;
-  entry.artist        = artist;
-
-  console.log(`[skip-tracker] ${skipType.toUpperCase()} SKIP | "${title}" by ${artist} | strikes: ${entry.strikes} | cooldown: ${cooldownLabel(entry.strikes)}`);
-
-  save(data);
-}
-
-/**
- * recordPlay — called when a song scrobbles (played 40%+)
- * Resets all strikes to zero — one clean play = full redemption.
- * At 5000 songs the natural replay gap is so long that if a crowd
- * lets it ride, it's forgiven.
- */
-function recordPlay(track) {
-  const { ratingKey, title, artist } = track;
-  const data = load();
-
-  if (!data[ratingKey]) return; // never been skipped, nothing to clear
-
-  const entry = data[ratingKey];
-
-  if (entry.strikes > 0 || entry.softStrikes > 0) {
-    console.log(`[skip-tracker] "${title}" redeemed — resetting ${entry.strikes} strikes to 0`);
-    entry.strikes     = 0;
-    entry.softStrikes = 0;
-    entry.cooldownUntil = 0;
-    entry.history.push({ type: "redemption", ts: now(), strikes: 0 });
-    if (entry.history.length > 20) entry.history = entry.history.slice(-20);
+    trim(e);
     save(data);
   }
+
+  function recordSkip(track, pct) {
+    if (!track?.ratingKey) return;
+    const played = Number(pct);
+    if (!Number.isFinite(played)) return;
+
+    // 70%+ is a clean play: count it, redeem reputation, and keep the same
+    // behavior whether completion came from polling or a scrobble event.
+    if (played >= 0.70) {
+      recordPlay(track);
+      return;
+    }
+
+    // 40-69% is neutral. It may clear only unfinished soft debt on an existing
+    // entry, but it neither creates a record nor changes hard strikes/plays.
+    if (played >= 0.40) {
+      const data = load();
+      const e = data[track.ratingKey];
+      if (e?.softStrikes) {
+        e.softStrikes = 0;
+        e.cooldownUntil = 0;
+        e.history.push({ type: "listen", pct: Math.round(played * 100), ts: Date.now(), strikes: e.strikes });
+        trim(e);
+        save(data);
+      }
+      return;
+    }
+
+    const data = load();
+    const e = ensure(data, track);
+    if (played < 0.25) {
+      e.strikes += 1;
+    } else {
+      e.softStrikes += 0.5;
+      if (e.softStrikes >= 1) {
+        e.strikes += 1;
+        e.softStrikes = 0;
+      }
+    }
+
+    // Do not write time-based cooldowns. Plex ratings/strikes are the
+    // rotation mechanism; keep the legacy field at zero for data compatibility.
+    e.cooldownUntil = 0;
+    e.title = track.title || e.title;
+    e.artist = track.artist || e.artist;
+    e.history.push({
+      type: played < 0.25 ? "hard" : "soft",
+      pct: Math.round(played * 100),
+      ts: Date.now(),
+      strikes: e.strikes,
+    });
+    trim(e);
+    save(data);
+  }
+
+  const getStatus = (key) => load()[key] || null;
+  // Legacy method name: callers/tests use this as "rotation suppressed". The
+  // field cooldownUntil is no longer authoritative; strike reputation is.
+  const isOnCooldown = (key) => {
+    const e = getStatus(key);
+    return !!e && Number(e.strikes || 0) > 0;
+  };
+  const getAllExiled = () => Object.values(load()).filter((e) => e.strikes >= 5);
+  return { recordSkip, recordPlay, getStatus, isOnCooldown, getAllExiled };
 }
 
-/**
- * isOnCooldown — returns true if song should not play right now
- */
-function isOnCooldown(ratingKey) {
-  const data  = load();
-  const entry = data[ratingKey];
-  if (!entry) return false;
-  return entry.cooldownUntil > now();
-}
-
-/**
- * getStatus — returns full status for a song (for debugging/dashboard)
- */
-function getStatus(ratingKey) {
-  const data  = load();
-  return data[ratingKey] || null;
-}
-
-/**
- * getAllExiled — returns all songs with 5+ strikes (for smart playlist reference)
- */
-function getAllExiled() {
-  const data = load();
-  return Object.values(data).filter(e => e.strikes >= 5);
-}
-
-module.exports = { recordSkip, recordPlay, isOnCooldown, getStatus, getAllExiled };
+const defaultPath = process.env.SKIP_DATA_PATH || path.join(__dirname, "..", "data", "skip-data.json");
+const defaultTracker = createTracker(defaultPath);
+module.exports = { ...defaultTracker, createTracker };

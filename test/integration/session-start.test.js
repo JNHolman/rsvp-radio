@@ -67,8 +67,8 @@ test("first playing state uses seed genre mode, not an intermediate time-block m
     while (Date.now() - started < 4000) {
       const res = await fetch(`${server.baseUrl}/state`, { cache: "no-store" });
       const body = await res.json();
-      observed.push({ event: body.event, mode: body.mode });
-      if (body.event === "media.play") {
+      observed.push({ appState: body.appState, mode: body.mode?.current });
+      if (body.appState === "AUDIO_PLAYING" || body.appState === "VIDEO_PLAYING") {
         firstPlaying = body;
         break;
       }
@@ -76,9 +76,9 @@ test("first playing state uses seed genre mode, not an intermediate time-block m
     }
 
     assert.ok(firstPlaying, "expected a playing state to appear");
-    assert.equal(firstPlaying.mode, expectedMode);
+    assert.equal(firstPlaying.mode?.current, expectedMode);
     assert.ok(
-      observed.slice(0, -1).every((state) => state.event === "idle"),
+      observed.slice(0, -1).every((state) => state.appState === "IDLE"),
       `expected only idle states before first playing state, saw ${JSON.stringify(observed)}`,
     );
   } finally {
