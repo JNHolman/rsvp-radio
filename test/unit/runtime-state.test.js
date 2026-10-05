@@ -25,6 +25,7 @@ test("runtime state round-trips TV, manual control and Hue intent", () => {
       mode: "rap",
       startedAt: 99,
       paused: true,
+      manualUntil: Date.now() + 30000,
     },
     videoResumeIndex: { "123": 1, "456": 3 },
   }), true);
@@ -40,6 +41,7 @@ test("runtime state round-trips TV, manual control and Hue intent", () => {
   assert.equal(loaded.videoMode.playlistKey, "123");
   assert.equal(loaded.videoMode.index, 1);
   assert.equal(loaded.videoMode.paused, true);
+  assert.ok(loaded.videoMode.manualUntil > Date.now(), "manual TV expiry survives persistence");
   assert.deepEqual(loaded.videoResumeIndex, { "123": 1, "456": 3 });
 });
 
@@ -72,7 +74,7 @@ test("runtime state migrates legacy wrap mode to lounge", () => {
     manualLights: { mode: "wrap", expiresAt },
     automation: { manualStop: true, stoppedMode: "wrap", stoppedAt: 1 },
   });
-  assert.equal(n.version, 5);
+  assert.equal(n.version, 6);
   assert.equal(n.lightsScene, "lounge");
   assert.equal(n.seedMode.mode, "lounge");
   assert.equal(n.manualMode.mode, "lounge");
