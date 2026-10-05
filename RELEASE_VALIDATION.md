@@ -84,7 +84,7 @@ This environment cannot certify the physical stack:
 - Raspberry Pi boot and graphical-session timing.
 - Plex Media Server and Plexamp connectivity/control.
 - PipeWire/PulseAudio monitor capture on the actual Pi audio session.
-- Philips Hue Bridge certificate, application credential, room/group, and scene IDs.
+- Philips Hue Bridge certificate, application credential, group/zone and scene IDs.
 - Real 20-minute Hue transitions on the physical lights.
 - Chromium kiosk autoplay/fullscreen behavior.
 - Power-cycle/reboot recovery with the real services and devices.
