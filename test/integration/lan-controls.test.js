@@ -34,7 +34,7 @@ for (const { method, path } of ADMIN_ENDPOINTS) {
       const r = await fetch(`${server.baseUrl}${path}`, { method });
       // The endpoint may legitimately return 200 (success), 500 (Plex
       // unreachable in test env), or 502 (downstream service down). The
-      // Room controls are intentionally available to trusted LAN clients.
+      // Local controls are intentionally available to trusted LAN clients.
       assert.notEqual(r.status, 403,
         `${path} must NOT return 403 — trusted-LAN control must remain reachable`);
     } finally {

@@ -3,9 +3,9 @@
 /**
  * server.js — RSVP Radio / TV orchestration server
  *
- * Owns room state, Plex/Plexamp coordination, Radio/TV ownership, scheduled
+ * Owns system state, Plex/Plexamp coordination, Radio/TV ownership, scheduled
  * programming, weighted handoffs, Hue intent, reputation and the kiosk/admin
- * API. The browser renders and controls the room; it does not run a second
+ * API. The browser renders state and sends controls; it does not run a second
  * automation clock.
  */
 
@@ -116,7 +116,7 @@ function parseSessions(xml) {
   return plexParser.parseSessions(xml, {
     targetClientId: cfg.PLEX_TARGET_CLIENT_IDENTIFIER || "",
     // TV is started explicitly from RSVP Admin. Plex remains the catalog,
-    // but a stray Plex Web/TV session must never steal room ownership.
+    // but a stray Plex Web/TV session must never steal media ownership.
     ignoreVideo: true,
   });
 }
@@ -267,7 +267,7 @@ function _maybeResumeAutomationForBlend(blendState = timeblocks.getMusicBlendSta
 
   _startAutomation();
   _videoSkipPressure = { count:0, lastRatingKey:"", lastAt:0 };
-  console.log(`[automation] future scheduled ${timeblocks.MUSIC_BLEND_WINDOW_MIN}-minute blend reclaimed room control`);
+  console.log(`[automation] future scheduled ${timeblocks.MUSIC_BLEND_WINDOW_MIN}-minute blend reclaimed automation control`);
   return true;
 }
 
@@ -410,7 +410,7 @@ function _fireImmediatePlaylistSwitch(mode, reason) {
       _lastCommandedPlaylist = playlistKey;
     } else {
       console.warn(`[playlist] switch failed: ${result.reason}; retrying at next natural track boundary`);
-      // A transient Plex/Plexamp failure must not permanently strand the room
+      // A transient Plex/Plexamp failure must not permanently strand playback
       // on the wrong source. Preserve the no-mid-song rule by retrying only
       // when the next track naturally changes. Do not resurrect Radio work if
       // TV took ownership while this command was in flight.
@@ -445,7 +445,7 @@ function _knownBlendSourceMode(blend) {
 }
 
 function _syncWeightedMusicBlend(blend, currentTrackKey) {
-  // Blend just ended: guarantee the room lands on the incoming block, but still
+  // Blend just ended: guarantee the system lands on the incoming block, but still
   // wait for the current song to finish. Any stale weighted decision is replaced.
   if (!blend) {
     if (_musicBlendSession) {
@@ -910,13 +910,13 @@ async function enterVideoMode(playlistKey, {
     _videoPlaylistResumeIndex.set(previous.playlistKey, resumeIndex);
   }
 
-  // Handoff is atomic from the room's perspective: silence Radio first, then
-  // publish TV ownership. Preserve the pause flag when TV already owns the room.
+  // Handoff is atomic from the system's perspective: silence Radio first, then
+  // publish TV ownership. Preserve the pause flag when TV already owns playback.
   if (!await _plexampPauseDirect({ preserveExistingPause: previous.active })) {
     return { ok: false, reason: "plexamp_pause_failed" };
   }
 
-  // TV owns the room now. Any queued/active Radio blend decision was calculated
+  // TV owns playback now. Any queued/active Radio blend decision was calculated
   // for a medium that is no longer playing and must never fire later as stale work.
   _pendingPlaylistSwitch = null;
   _musicBlendSession = null;
@@ -997,8 +997,7 @@ async function advanceVideoMode({ skipped = false } = {}) {
 
     // Two skips steer laterally inside the CURRENT video genre/lane family.
     if (skipped && _automation.enabled && await _steerVideoLaneAfterSkip(finished.ratingKey)) return;
-    if (!skipped) _videoSkipPressure = { count: 0, lastRatingKey: "", lastAt: 0 };
-  }
+    if (!skipped) _videoSkipPressure = { count: 0, lastRatingKey: "", lastAt: 0 };  }
 
   if (_automation.enabled && !_isManualActive()) {
     const blend = timeblocks.getMusicBlendState(new Date());
@@ -1070,7 +1069,7 @@ async function exitVideoMode(reason) {
     _setPlexampPausedByRsvp(false);
   } else {
     if (reason === "admin-stop") _videoStopSignal = Date.now();
-    // Sticky ownership: stopping TV leaves the room TV/silent. Radio returns
+    // Sticky ownership: stopping TV leaves TV active/silent. Radio returns
     // only when a human explicitly starts Plexamp.
     _setPlexampPausedByRsvp(false);
   }
@@ -1517,12 +1516,12 @@ async function pollSessions() {
         }
       }
       // End-of-track is the boundary we wait on. Never fire a music playlist
-      // command while RSVP TV owns the room: entering/changing a video clears
+      // command while RSVP TV owns playback: entering/changing a video clears
       // stale pending music work. When audio returns, schedule/blend logic below
       // recalculates from the current clock instead of replaying an old decision.
       if (t.isVideo) {
         if (_pendingPlaylistSwitch) {
-          console.log(`[playlist] clearing pending music switch while video owns room (${_pendingPlaylistSwitch.reason || "pending"})`);
+          console.log(`[playlist] clearing pending music switch while video owns playback (${_pendingPlaylistSwitch.reason || "pending"})`);
           _pendingPlaylistSwitch = null;
         }
       } else {
@@ -1636,7 +1635,7 @@ async function pollSessions() {
 
       // Only update _lastBlockMode when music automation is actually in control.
       // Video intentionally leaves it stale so audio resume can reconcile any
-      // boundary crossed while RSVP TV owned the room.
+      // boundary crossed while RSVP TV owned playback.
       _lastBlockMode = timeBlockMode;
     } else if (resolvedSource !== "timeblock" || !_automation.enabled) {
       if (_musicBlendSession) {
@@ -1852,8 +1851,8 @@ app.post("/features", (req, res) => {
   const now = Date.now();
   lastFeatures = { bass, energy, updatedAt: now };
 
-  // Reactive lighting belongs to the room runtime, not the kiosk browser.
-  // The regular room poll also relays the decayed feature envelope so an
+  // Reactive lighting belongs to the main runtime, not the kiosk browser.
+  // The regular state poll also relays the decayed feature envelope so an
   // analyzer failure naturally returns Hue brightness to the scene baseline.
   _relayFeaturesToLights(bass, energy);
 
@@ -1971,7 +1970,7 @@ app.get("/admin/top-songs", (_req, res) => {
 });
 
 app.post("/admin/sync-ratings", async (req, res) => {
-  // LAN-accessible by design so trusted devices can control the room.
+  // LAN-accessible by design so trusted devices can control the system.
   // already see and trigger lights via /admin/lights/*. Symmetric with that.
   // Do NOT expose port 3000 to the internet.
   try {
@@ -1983,7 +1982,7 @@ app.post("/admin/sync-ratings", async (req, res) => {
 });
 
 app.post("/admin/plexamp/pause", async (req, res) => {
-  // LAN-accessible by design for trusted room-control devices.
+  // LAN-accessible by design for trusted local control devices.
   try {
     await plexampPauseIfPlaying();
     res.json({ ok: true, pausedByRsvp: _plexampPausedByRsvp });
@@ -1997,8 +1996,7 @@ app.get("/admin/video-playlists", async (_req, res) => {
   const playlists = await fetchVideoPlaylists();
   res.json({
     ok: true,
-    playlists,
-    active: _videoMode.active ? {
+    playlists,    active: _videoMode.active ? {
       playlistKey: _videoMode.playlistKey,
       title:       _videoMode.playlistTitle,
       index:       _videoMode.index,
@@ -2053,7 +2051,7 @@ app.post("/admin/video/resume", async (_req, res) => {
 });
 
 app.post("/admin/plexamp/resume", async (req, res) => {
-  // LAN-accessible by design for trusted room-control devices.
+  // LAN-accessible by design for trusted local control devices.
   try {
     await plexampResumeIfWePaused();
     res.json({ ok: true, pausedByRsvp: _plexampPausedByRsvp });
@@ -2130,7 +2128,7 @@ app.post("/mode/clear", async (_req, res) => {
 });
 
 app.post("/mode/:mode", async (req, res) => {
-  // LAN-accessible by design for trusted room-control devices. Lets admin from a Mac/phone set manual mode.
+  // LAN-accessible by design for trusted local control devices. Lets admin from a Mac/phone set manual mode.
   const mode = String(req.params.mode || "").toLowerCase();
   if (!_VALID_MODES.has(mode)) return res.status(400).json({ ok: false, error: "invalid_mode" });
   _setManualMode(mode);
@@ -2140,7 +2138,7 @@ app.post("/mode/:mode", async (req, res) => {
   // restart would no-op (lastState is still IDLE) and require a second tap.
   // Correlate browser completion to the active clip before mutating TV state.
   try { await pollSessions(); } catch (_) {}
-  // Manual block selection acts on whichever medium owns the room. It never
+  // Manual block selection acts on whichever medium owns playback. It never
   // changes Radio <-> TV ownership by itself.
   if (_roomOwner === "tv") {
     _pendingVideoMode = null;
@@ -2162,7 +2160,7 @@ app.post("/mode/:mode", async (req, res) => {
 });
 
 app.post("/admin/force-timeblock-sync", async (_req, res) => {
-  // Explicit operator recovery: align the CURRENT room owner to the hard
+  // Explicit operator recovery: align the CURRENT media owner to the hard
   // timeblock immediately. This intentionally bypasses blend weighting.
   try { await pollSessions(); } catch (_) {}
   const mode = blockModeForNow();
@@ -2412,7 +2410,7 @@ app.post("/video-failed", async (req, res) => {
       return res.json({ ok: true, ratingKey, removed: true, tvContinues: true });
     }
     if (recovered.ok && recovered.empty) {
-      console.warn(`[video-mode] final playable clip failed (${ratingKey}); returning room to Radio`);
+      console.warn(`[video-mode] final playable clip failed (${ratingKey}); returning playback to Radio`);
       _videoMode = recovered.state;
       _wasVideoMode = false;
       _roomOwner = "radio";
@@ -2717,7 +2715,7 @@ const _httpServer = app.listen(cfg.PORT, () => {
   // Sync all existing skip data to Plex on startup
   plexSync.syncAll(cfg.PLEX_BASE, cfg.PLEX_TOKEN);
   pollSessions();
-  // Reconcile room lights immediately on boot. The browser is intentionally not
+  // Reconcile Hue state immediately on boot. The browser is intentionally not
   // a second scheduler anymore, so waiting 30 seconds here would leave a stale
   // scene visible after a server restart.
   (async () => {

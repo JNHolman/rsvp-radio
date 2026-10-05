@@ -56,7 +56,7 @@ The unit suite covers the parts of the system that are most dangerous to regress
 - Hue's single continuous 20-minute scheduled fade.
 - Restart recovery during an active Hue fade.
 - Manual control and Stop Auto-DJ behavior during an already-active handoff.
-- Radio/TV room ownership and stale-command suppression.
+- Radio/TV media ownership and stale-command suppression.
 - TV failure recovery and stale browser-event rejection.
 - Hue reactive brightness rate limiting, scene-baseline preservation, fade suppression, and analyzer-loss decay.
 - Session/reputation/skip persistence, clean-play recovery, and lane steering.
@@ -99,6 +99,6 @@ Before promoting this candidate beyond RC status on the Pi:
 4. From the frozen dependency graph, run `npm ci` and then `npm test`.
 5. Run `bash scripts/verify-pi.sh`.
 6. Reboot the Pi and verify RSVP, Hue, analyzer, Plexamp, and Chromium recover without manual repair.
-7. Observe at least one real scheduled 20-minute boundary and verify Radio/TV/Hue ownership and transition behavior in the room.
+7. Observe at least one real scheduled 20-minute boundary and verify Radio/TV/Hue ownership and transition behavior across music, video and Hue.
 
 Until those steps pass, this is correctly labeled a **cold-audited release candidate**, not a hardware-certified production release.

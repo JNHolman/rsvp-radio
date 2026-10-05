@@ -1,7 +1,7 @@
 "use strict";
 
 /**
- * Pure scheduling policy for RSVP room-light handoffs.
+ * Pure scheduling policy for RSVP lighting handoffs.
  *
  * Music uses four weighted source-selection stages. Lights use the same
  * 20-minute window as one continuous color fade: start at -10m, finish +10m.
@@ -28,7 +28,7 @@ function planLightSync({
         kind: lightsEnabled ? "transition" : "defer",
         key,
         scene: blendState.toMode,
-        // Transition from whatever the room is showing now. The Hue service
+        // Transition from whatever Hue is showing now. The Hue service
         // should treat `from` as context only and fade the current physical
         // light state toward the destination scene for the remaining window.
         // This makes a late service start / server restart recover cleanly even

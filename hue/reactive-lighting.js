@@ -53,10 +53,10 @@ function createReactiveLighting({ minIntervalMs = 1800, range = 36 } = {}) {
     const e = clamp01(energy);
 
     // Smooth enough to breathe with the music without twitching on individual
-    // analyzer samples. Bass leads; energy provides a slower room-level lift.
+    // analyzer samples. Bass leads; energy provides a slower overall lift.
     // Exact silence is special: return to the scene baseline immediately at
     // the policy layer and let Hue's short transition provide the soft decay.
-    // This also guarantees analyzer loss cannot strand the room above baseline.
+    // This also guarantees analyzer loss cannot strand brightness above baseline.
     if (b === 0 && e === 0) {
       smoothBass = 0;
       smoothEnergy = 0;

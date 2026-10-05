@@ -121,12 +121,7 @@ class AdaptiveLevel:
 
 
 def _band_rms(psd: np.ndarray, freqs: np.ndarray, low: float, high: float) -> float:
-    """Return RMS energy integrated across a frequency band.
-
-    ``psd`` is a one-sided power spectral density in signal-units²/Hz.
-    Integrating power over frequency keeps the result stable when FFT size
-    changes; averaging FFT-bin amplitudes does not.
-    """
+    """Return RMS energy integrated across a frequency band."""
     mask = (freqs >= low) & (freqs < high)
     if not np.any(mask) or freqs.size < 2:
         return 0.0
@@ -144,9 +139,6 @@ def spectral_levels(interleaved: np.ndarray, sample_rate: int = SAMPLE_RATE, cha
     if data.size < 32:
         return 0.0, 0.0
 
-    # Remove DC and estimate a one-sided power spectral density. Integrating
-    # PSD over a band produces an RMS-like level that is effectively invariant
-    # to FFT/chunk size, unlike the previous mean-of-bin-amplitudes approach.
     mono = data.astype(np.float64, copy=False)
     mono = mono - float(np.mean(mono))
     window = np.hanning(mono.size)

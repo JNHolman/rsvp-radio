@@ -38,7 +38,7 @@ Each boundary is a 20-minute ambience transition centered on the schedule bounda
 - -5 to 0 minutes: 60% / 40%
 - 0 to +5 minutes: 40% / 60%
 - +5 to +10 minutes: 20% / 80%
-- +10 minutes: incoming mode owns the room fully
+- +10 minutes: incoming mode owns the programming fully
 
 Hue receives one continuous destination-scene fade beginning at -10 minutes and ending at +10 minutes. If RSVP or the Hue adapter starts late, RSVP sends the remaining duration instead of snapping directly to the destination.
 

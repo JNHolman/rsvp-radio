@@ -1,7 +1,7 @@
 "use strict";
 
 /**
- * Room ownership integration tests.
+ * Media ownership integration tests.
  *
  * Covers:
  *  - /video-failed resumes Plexamp even when _wasVideoMode is false

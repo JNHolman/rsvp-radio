@@ -1,5 +1,5 @@
 /**
- * Room-light controls.
+ * Hue light controls.
  *
  * Automatic Hue scheduling and reactive lighting are server-owned. The kiosk
  * only sends explicit human control actions.
@@ -20,7 +20,7 @@ async function _roomPost(path, payload = {}) {
     });
     return r.ok;
   } catch (err) {
-    console.warn("[room] POST", path, "failed:", err.message);
+    console.warn("[lights] POST", path, "failed:", err.message);
     return false;
   }
 }

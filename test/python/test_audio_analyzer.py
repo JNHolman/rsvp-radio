@@ -16,7 +16,7 @@ class AnalyzerTests(unittest.TestCase):
         self.assertEqual(choose_monitor_source(sources, default_sink="main"), "main.monitor")
 
     def test_monitor_override_can_match_by_substring(self):
-        self.assertEqual(choose_monitor_source(["alpha.monitor", "living_room.monitor"], override="living"), "living_room.monitor")
+        self.assertEqual(choose_monitor_source(["alpha.monitor", "secondary_output.monitor"], override="secondary"), "secondary_output.monitor")
 
     def test_fft_normalization_is_not_chunk_size_dependent(self):
         def tone(frames):

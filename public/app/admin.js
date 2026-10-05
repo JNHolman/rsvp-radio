@@ -1,4 +1,4 @@
-/** RSVP Radio / TV admin console. The server remains the only room authority. */
+/** RSVP Radio / TV admin console. The server remains the only automation authority. */
 const $ = (id) => document.getElementById(id);
 
 async function api(path, opts = {}) {

@@ -42,7 +42,7 @@ The adapter connects to the bridge over HTTPS with certificate verification enab
 
 ### Audio analyzer
 
-By default the analyzer follows the **current default playback sink's `.monitor` source**. This means it listens to what the Pi is playing, not to a room microphone.
+By default the analyzer follows the **current default playback sink's `.monitor` source**. This means it listens to what the Pi is playing, not to a microphone.
 
 Normally leave `ANALYZER_SOURCE` blank. Set it only when you intentionally want a particular Pulse/PipeWire monitor source. Useful discovery commands are:
 

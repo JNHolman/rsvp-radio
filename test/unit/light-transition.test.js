@@ -28,7 +28,7 @@ test("lights start a full 20-minute transition at -10m", () => {
 });
 
 
-test("light blend starts from the room's actual seeded/manual scene", () => {
+test("light blend starts from the actual seeded/manual Hue scene", () => {
   const b = blend(-10);
   const p = planLightSync({
     nowMs: b.boundaryMs - 10 * 60 * 1000,
