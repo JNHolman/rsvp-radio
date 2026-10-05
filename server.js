@@ -868,10 +868,6 @@ async function _plexampStateDirect() {
   }
 }
 
-async function _plexampPlayingDirect() {
-  return (await _plexampStateDirect()) === "playing";
-}
-
 async function _waitForPlexampNotPlaying({ timeoutMs = 4000, pollMs = 100 } = {}) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() <= deadline) {
@@ -963,7 +959,13 @@ async function enterVideoMode(playlistKey, {
   }
   if (freshTakeover && !await _waitForPlexampNotPlaying()) {
     console.warn("[video-mode] Plexamp pause did not settle; keeping Radio ownership");
-    await plexampResumeIfWePaused();
+    // This was never a completed TV handoff, so do NOT use the normal
+    // resume-after-video path (it intentionally skipNexts). If Plexamp is still
+    // playing, the pause never took and there is nothing to recover. If the
+    // receiver is unreachable, keep the paused-by-RSVP flag so the ordinary
+    // recovery loop can repair a pause that may have landed.
+    const failedState = await _plexampStateDirect();
+    if (failedState === "playing") _setPlexampPausedByRsvp(false);
     return { ok: false, reason: "plexamp_pause_unconfirmed" };
   }
   if (freshTakeover) _radioTakeoverArmed = true;
@@ -1204,6 +1206,7 @@ async function _videoModeState({ bass, energy }) {
   }
   const plexArt = meta ? buildPlexArtUrl(meta.thumb) : "";
   const paused  = !!_videoMode.paused;
+  const manualVideoActive = _isManualVideoActive();
 
   return {
     appState: paused ? "VIDEO_PAUSED" : "VIDEO_PLAYING",
@@ -1221,8 +1224,8 @@ async function _videoModeState({ bass, energy }) {
     },
     mode:         {
       current: mode,
-      source: _isManualVideoActive() ? "manual" : "video-session",
-      manualExpiresAt: _isManualVideoActive() ? (Number(_videoMode.manualUntil) || 0) : 0,
+      source: manualVideoActive ? "manual" : "video-session",
+      manualExpiresAt: manualVideoActive ? (Number(_videoMode.manualUntil) || 0) : 0,
     },
     video:        { phase: paused ? "paused" : "playing" },
     intelligence: { strikes: 0, softStrikes: 0, rating: 10, lastPlayPercent: null },
