@@ -77,6 +77,8 @@ The result is not an autonomous DJ trying to be clever. It is a programmed envir
 
 Automation is supposed to disappear when it is useful and get out of the way when it is not.
 
+The admin panel lives at `http://<Pi-IP>:3000/admin` (or `http://127.0.0.1:3000/admin` on the Pi itself). It is intentionally reachable from the local network so the room can be controlled from a phone or Mac; the raw Hue adapter remains loopback-only.
+
 The admin surface can:
 
 - stop or resume automation;
