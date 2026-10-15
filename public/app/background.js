@@ -22,10 +22,19 @@ let _artReady = false;
 // Use the approved artwork if the assets were installed on this Pi.
 // Until then, the existing ambient videos remain visible beneath these layers.
 function _setArtworkForSource(src) {
-  if (!_artReady) return;
+  if (!_artReady || !src) return;
   const showingDay = src === BG_DAY;
-  _artDay.classList.toggle("on", showingDay && _artDay.naturalWidth > 0);
-  _artNight.classList.toggle("on", !showingDay && _artNight.naturalWidth > 0);
+  const dayVisible = showingDay && _artDay.naturalWidth > 0;
+  const nightVisible = !showingDay && _artNight.naturalWidth > 0;
+  _artDay.classList.toggle("on", dayVisible);
+  _artNight.classList.toggle("on", nightVisible);
+
+  // A bright daytime skyline requires dark text, while the night scene works
+  // with light lettering. Follow whichever approved artwork ACTUALLY loaded;
+  // never change the media scheduler, solar calculations or Hue behavior.
+  // No phase class means fallback ambient video uses existing default colors.
+  _stage.classList.toggle("art-phase-day", dayVisible);
+  _stage.classList.toggle("art-phase-night", nightVisible);
 }
 function _bootArtwork() {
   if (_artReady) return;
