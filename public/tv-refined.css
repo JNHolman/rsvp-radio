@@ -98,17 +98,17 @@
 .ui::before {
   content:"";position:absolute;inset:0;z-index:0;pointer-events:none;
   background:
-    radial-gradient(ellipse 36vw 24vh at 80vw 77vh,
+    radial-gradient(ellipse 36vw 24vh at 75vw 77vh,
       rgba(23,19,49,.69) 0%,
       rgba(23,19,49,.56) 31%,
       rgba(23,19,49,.30) 62%,
       rgba(23,19,49,0) 100%),
-    radial-gradient(ellipse 31vw 15vh at 73vw 88vh,
+    radial-gradient(ellipse 31vw 15vh at 69vw 88vh,
       rgba(16,27,61,.52) 0%,
       rgba(16,27,61,.37) 39%,
       rgba(16,27,61,.16) 68%,
       rgba(16,27,61,0) 100%),
-    radial-gradient(ellipse 25vw 17vh at 96vw 82vh,
+    radial-gradient(ellipse 25vw 17vh at 92vw 82vh,
       rgba(48,36,82,.27) 0%,
       rgba(48,36,82,.13) 55%,
       rgba(48,36,82,0) 100%);
