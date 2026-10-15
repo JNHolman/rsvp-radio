@@ -5,7 +5,7 @@
   const title = $("nextTitle"), artist = $("nextArtist"), featured = $("nextCoverImg"), strip = $("nextStrip");
   const upNext = $("upNext"), progress = $("nowExtras");
   const fill = $("playFill"), elapsed = $("playElapsed"), duration = $("playDuration");
-  const clock = $("localClock"), weather = $("weatherSummary");
+  const clock = $("localClock"), weatherTemp = $("weatherTemp"), weatherCondition = $("weatherCondition");
   const timeZone = "America/Kentucky/Louisville";
   let lastRatingKey = "", visibleAudio = false, paused = true, baselineMs = 0, baselineAt = 0, lengthMs = 0;
   let queueLoading = false, queueFetchedAt = 0;
@@ -34,9 +34,11 @@
       if (!res.ok) throw new Error("Weather request failed");
       const data = await res.json();
       if (!data.available || !Number.isFinite(data.temperatureF)) throw new Error("Weather unavailable");
-      weather.textContent = Math.round(data.temperatureF) + "°F · " + data.description;
+      weatherTemp.textContent = Math.round(data.temperatureF) + "°F";
+      weatherCondition.textContent = String(data.description || "").trim();
     } catch (_) {
-      weather.textContent = "WEATHER UNAVAILABLE";
+      weatherTemp.textContent = "--°F";
+      weatherCondition.textContent = "WEATHER UNAVAILABLE";
     }
   }
   const safeArt = (url) => typeof url === "string" && url.startsWith("/art?") ? url : "";
