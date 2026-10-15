@@ -197,7 +197,6 @@ function failMusicVideoMode(mediaUrl) {
 }
 
 async function enterMusicVideoMode(mediaUrl, playerState = "playing") {
-  _stage.classList.add("videoMode");
   if (_inMusicMode && _musicActiveKey === mediaUrl) return;
 
   // Don't retry a recently failed video — prevents retry loop
@@ -205,6 +204,8 @@ async function enterMusicVideoMode(mediaUrl, playerState = "playing") {
     console.warn("[bg] Skipping recently failed video:", mediaUrl);
     return;
   }
+
+  _stage.classList.add("videoMode");
 
   // Hide ambient backgrounds, show explicit black hold during transition
   _front.classList.remove("on");
