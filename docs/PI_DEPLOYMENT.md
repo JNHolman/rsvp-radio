@@ -53,6 +53,22 @@ pactl list short sources
 
 The analyzer posts only to loopback HTTP. `/features` rejects LAN clients, and the kiosk is not required for reactive Hue behavior.
 
+## TV artwork: sunrise and civil dusk
+
+The kiosk's ambient day/night background automatically follows **sunrise** and
+**civil dusk** (the end of evening civil twilight), rather than fixed clock
+hours. The Pi calculates these times locally from `SOLAR_LATITUDE` and
+`SOLAR_LONGITUDE` in `.env`; central Louisville defaults are
+`38.2527` and `-85.7585`. Set `TZ=America/Kentucky/Louisville` for the
+correct local calendar day, including daylight saving time.
+
+`GET /api/solar-state` reports the current `day` or `night` phase, that
+day's sunrise/dusk timestamps, and the next transition timestamp. The kiosk
+checks every 20 seconds and uses the **existing** background crossfade. On a
+short endpoint failure, it retains the last valid phase rather than abruptly
+switching scenes. Only the ambient artwork follows the sun: RSVP's scheduled
+music blocks and Philips Hue handoffs remain unchanged.
+
 ## Boot behavior
 
 `systemd` starts Hue and RSVP after networking. The desktop user's systemd session starts the analyzer once the audio session exists. RSVP immediately reconciles persisted power intent and the correct scheduled Hue scene/remaining 20-minute transition. Chromium waits until RSVP returns `/health` with `"ok": true` before opening the kiosk; Hue/analyzer degradation is reported separately and does not block the screen.
