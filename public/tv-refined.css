@@ -1,0 +1,439 @@
+/* RSVP Radio TV — refined concept approved Oct 15.
+   Keep all art untouched. This stylesheet deliberately overrides the
+   earlier TV overlay without modifying live production CSS. */
+
+:root { --rsvp-gold: #edbf79; }
+
+/* A quieter header: brand opens drawer; location label is removed. */
+.header { top: 4.4vh; left: 4.0vw; right: 4.0vw; }
+.header .brand {
+  font-size: clamp(24px, 2.2vw, 43px);
+  letter-spacing: -.025em;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.header .brand:focus-visible { outline: 2px solid var(--rsvp-gold); outline-offset: 7px; }
+.weatherWidget { gap: clamp(10px, 1.4vw, 25px); font-size: clamp(14px, 1.10vw, 22px); }
+.weatherCity { display: none !important; }
+.localClock { font-weight: 750; color: #fff; letter-spacing: .012em; }
+.weatherSummary { color: var(--rsvp-gold); opacity: 1; font-size: .90em; }
+
+/* Gradient improves type legibility, while center-left art stays visible.
+   It blends from clear into midnight purple at the right edge. */
+.ui::before {
+  content: "";
+  position: absolute;
+  left: 43vw;
+  top: 14vh;
+  width: 57vw;
+  height: 59vh;
+  z-index: 0;
+  pointer-events: none;
+  background: linear-gradient(90deg,
+    rgba(6,4,15,0) 0%,
+    rgba(6,4,17,.16) 14%,
+    rgba(7,5,19,.42) 55%,
+    rgba(7,5,18,.59) 100%);
+}
+.ui::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 70vw;
+  height: 27vh;
+  z-index: 0;
+  pointer-events: none;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    rgba(7,5,15,.15) 20%,
+    rgba(6,4,13,.65) 65%,
+    rgba(6,4,13,.83) 100%);
+}
+.bottomFade {
+  height: 19vh;
+  background: linear-gradient(to top, rgba(0,0,0,.30), transparent);
+}
+.sideNav { display: none !important; }
+
+/* Integrated player: metadata LEFT, album sleeve on the RIGHT. */
+.nowCard {
+  left: 53.2vw;
+  right: 3.8vw;
+  width: 43vw;
+  top: 27vh;
+  bottom: auto;
+  height: 30vh;
+  padding: 0;
+  gap: 1.7vw;
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-end;
+  align-items: center;
+  min-height: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  backdrop-filter: none;
+  box-shadow: none;
+}
+.nowCard .meta {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: none;
+  padding: 0;
+  text-shadow: 0 3px 15px rgba(0,0,0,.75);
+}
+.nowCard .tTitle {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  white-space: normal;
+  max-height: 2.25em;
+  overflow: hidden;
+  font-size: clamp(25px, 2.30vw, 45px);
+  font-weight: 750;
+  line-height: 1.12;
+  letter-spacing: -.018em;
+  overflow-wrap: anywhere;
+}
+.nowCard .tArtist {
+  color: rgba(255,255,255,.93);
+  font-size: clamp(18px, 1.48vw, 30px);
+  font-weight: 580;
+  margin-top: clamp(6px, .9vh, 14px);
+}
+.nowCard .tAlbum {
+  color: rgba(255,255,255,.77);
+  font-size: clamp(12px, .98vw, 21px);
+  margin-top: 6px;
+  white-space: normal;
+}
+.nowCard .cover {
+  position: relative;
+  z-index: 2;
+  flex: 0 0 auto;
+  width: 14.8vw;
+  height: 14.8vw;
+  max-width: 31vh;
+  max-height: 31vh;
+  min-width: 110px;
+  min-height: 110px;
+  border: 1.5px solid rgba(237,191,121,.70);
+  border-radius: 3px;
+  box-shadow: 0 15px 40px rgba(0,0,0,.48), 0 0 14px rgba(237,191,121,.09);
+}
+.nowExtras {
+  position: absolute;
+  z-index: 19;
+  left: 53.2vw;
+  right: auto;
+  top: 59vh;
+  width: 25.1vw;
+  min-width: 0;
+}
+.progressTimes {
+  margin: 0 0 6px;
+  color: rgba(255,255,255,.84);
+  font-size: clamp(11px, .83vw, 17px);
+}
+.progressTrack {
+  height: 3px;
+  margin-top: 0;
+  background: rgba(255,255,255,.38);
+}
+.progressFill {
+  background: linear-gradient(90deg, #b281e9, #ebc49d);
+  box-shadow: 0 0 9px rgba(226,155,234,.65);
+  transition: width .24s linear;
+}
+.soundBars { display: none !important; }
+
+/* No large full-screen queue bar. Right-half-only fading shadow is above.
+   Five tightly grouped covers, first title only, signature = sixth tile. */
+.upNext {
+  position: absolute;
+  top: auto;
+  left: auto;
+  right: 3.8vw;
+  bottom: 4vh;
+  width: 52.2vw;
+  height: 15vh;
+  min-height: 0;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: .56vw;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  overflow: visible;
+  transform: translateY(8px);
+  z-index: 19;
+}
+.upNext.on { transform: translateY(0); }
+.upNext h2 {
+  position: absolute;
+  left: 0;
+  top: -.2vh;
+  font-size: clamp(11px, .91vw, 18px);
+  line-height: 1;
+  font-weight: 750;
+  letter-spacing: .12em;
+  color: var(--rsvp-gold);
+  white-space: nowrap;
+  margin: 0;
+}
+.nextFeatured {
+  flex: 0 0 15.7vw;
+  width: 15.7vw;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: .65vw;
+}
+.nextCover {
+  flex: 0 0 auto;
+  width: 6.4vw;
+  height: 6.4vw;
+  min-width: 0;
+  min-height: 0;
+  border-radius: 2px;
+  border: 1px solid rgba(237,191,121,.62);
+  background: rgba(14,11,27,.45);
+  overflow: hidden;
+}
+.nextCover img { width: 100%; height: 100%; display: block; object-fit: cover; }
+.nextMeta { flex: 1 1 auto; min-width: 0; }
+.nextTitle {
+  font-size: clamp(12px, 1.04vw, 21px);
+  font-weight: 690;
+  line-height: 1.27;
+  max-height: 3.81em;
+  white-space: normal;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  text-shadow: 0 2px 10px #000b;
+}
+.nextArtist { display: none !important; }
+.nextStrip {
+  display: flex;
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 0;
+  align-items: center;
+  justify-content: flex-start;
+  gap: .43vw;
+  margin: 0;
+}
+.nextStripItem { flex: 0 0 auto; width: 6.4vw; min-width: 0; max-width: none; }
+.nextStripItem img {
+  display: block;
+  width: 6.4vw;
+  height: 6.4vw;
+  max-width: none;
+  object-fit: cover;
+  border: 1px solid rgba(255,255,255,.30);
+  border-radius: 2px;
+  box-shadow: 0 5px 14px rgba(0,0,0,.36);
+}
+.nextStripItem span, .nextStripItem small { display: none !important; }
+.nextStripItem.missingCover {
+  background: rgba(20,16,38,.6);
+  border: 1px solid rgba(255,255,255,.16);
+  aspect-ratio: 1;
+}
+.nextStripItem.missingCover img { display: none; }
+
+/* 500 x 500 graphic concept, rendered at EXACTLY album-sleeve dimensions. */
+.upNext .signature {
+  position: relative;
+  flex: 0 0 6.4vw;
+  right: auto;
+  bottom: auto;
+  top: auto;
+  left: auto;
+  min-width: 0;
+  min-height: 0;
+  max-width: none;
+  width: 6.4vw;
+  height: 6.4vw;
+  padding: .78vw;
+  margin-left: .35vw;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: .15vw;
+  border: 1px solid rgba(237,191,121,.72);
+  border-radius: 2px;
+  box-shadow: 0 5px 14px rgba(0,0,0,.34);
+  background: rgba(8,7,19,.78);
+  color: white;
+  font-size: clamp(10px, .77vw, 16px);
+  line-height: 1.12;
+  font-weight: 690;
+  letter-spacing: .03em;
+  text-shadow: 0 1px 7px rgba(0,0,0,.6);
+  box-sizing: border-box;
+}
+.upNext .signature::after {
+  content: "";
+  display: block;
+  margin-top: .38vw;
+  width: 32%;
+  height: 2px;
+  background: var(--rsvp-gold);
+}
+.upNext .signature span { display: block; }
+.exitBtn { display: none !important; }
+
+/* Hidden left-edge drawer. The RSVP logo is its only permanent trigger. */
+.menuScrim {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,.29);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  z-index: 28;
+  transition: opacity .30s ease, visibility .30s ease;
+}
+.menuScrim.on { opacity: 1; visibility: visible; pointer-events: auto; }
+.menu, .menu.on {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: min(420px, 37vw);
+  height: 100%;
+  min-width: 0;
+  max-height: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border-radius: 0;
+  border: 0;
+  border-right: 1px solid rgba(237,191,121,.28);
+  background: rgba(9,7,23,.92);
+  backdrop-filter: blur(22px);
+  box-shadow: 18px 0 55px rgba(0,0,0,.4);
+  overflow: hidden;
+  z-index: 35;
+}
+.menu {
+  transform: translateX(-103%);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: transform .38s cubic-bezier(.2,.85,.2,1), opacity .3s ease, visibility .38s ease;
+}
+.menu.on { transform: translateX(0); opacity: 1; visibility: visible; pointer-events: auto; }
+.drawerHead { flex: 0 0 auto; display: flex; justify-content: space-between; align-items: center; padding: 29px 27px 23px; border-bottom: 1px solid rgba(255,255,255,.12); }
+.drawerWordmark { font-size: 25px; color: var(--rsvp-gold); letter-spacing: -.025em; }
+.drawerWordmark b { color: #fff; font-weight: 850; }
+.drawerClose {
+  appearance: none; border: 0; background: transparent; color: #fff;
+  width: 44px; height: 44px; font: 300 32px/1 system-ui,sans-serif; cursor: pointer;
+}
+.drawerHome { padding: 30px 24px 15px; overflow-y: auto; flex: 1; }
+.drawerEyebrow { font-size: 11px; letter-spacing: .20em; font-weight: 600; color: var(--rsvp-gold); margin: 5px 0 25px; }
+.drawerChoice {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0,1fr) 25px;
+  grid-template-rows: auto auto;
+  gap: 6px 0;
+  width: 100%;
+  padding: 20px 8px 20px 2px;
+  border: 0;
+  border-bottom: 1px solid rgba(255,255,255,.15);
+  background: transparent;
+  color: #fff;
+  text-align: left;
+  cursor: pointer;
+}
+.drawerChoice > span { font-size: 21px; line-height: 1; letter-spacing: .045em; font-weight: 700; }
+.drawerChoice > small { grid-column: 1; color: rgba(255,255,255,.60); font-size: 13px; }
+.drawerChoice > i { grid-column: 2; grid-row: 1 / 3; align-self: center; font-size: 28px; color: var(--rsvp-gold); font-style: normal; }
+.drawerChoice:hover > span, .drawerChoice:focus-visible > span { color: var(--rsvp-gold); }
+.drawerDetails { padding: 21px 24px 26px; overflow-y: auto; flex: 1; }
+.drawerBack { color: var(--rsvp-gold); font: 650 12px system-ui,sans-serif; letter-spacing: .1em; border:0; background:none; padding:8px 0 20px; cursor:pointer; }
+.drawerDetails h2 { font-size: 24px; margin: 0 0 18px; font-weight: 700; letter-spacing: .045em; }
+.drawerPanel p { margin: 0 0 22px; color: rgba(255,255,255,.73); font-size: 13px; line-height: 1.6; }
+.drawerPanel .menuGrid { display: grid; gap: 9px; margin: 0 0 10px; }
+.menuGrid.one { grid-template-columns: 1fr; }
+.menuGrid.two { grid-template-columns: repeat(2,minmax(0,1fr)); }
+.menuGrid.three { grid-template-columns: repeat(3,minmax(0,1fr)); }
+.drawerPanel .menuBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  border-radius: 7px;
+  border: 1px solid rgba(237,191,121,.28);
+  background: rgba(255,255,255,.055);
+  color: #fff;
+  padding: 14px 10px;
+  font-size: 12px;
+  line-height: 1.3;
+  letter-spacing: .06em;
+  min-height: 50px;
+  cursor: pointer;
+}
+.drawerPanel .menuBtn:hover, .drawerPanel .menuBtn:focus-visible { border-color: var(--rsvp-gold); }
+.drawerWide { width: 100%; margin-top: 12px; }
+.menuFeedback {
+  flex: 0 0 auto;
+  padding: 4px 25px 0;
+  margin-top: 0;
+  min-height: 20px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #cfe5d1;
+}
+.menuFeedback.error { color: #facaca; }
+.drawerFoot {
+  flex: 0 0 auto;
+  padding: 22px 25px 25px;
+  color: rgba(255,255,255,.42);
+  font-size: 10px;
+  letter-spacing: .15em;
+}
+[hidden] { display: none !important; }
+
+/* 65-inch 16:9 TV is primary. These rules also protect laptop previews. */
+@media (max-width: 900px) {
+  .header { left: 3vw; right: 3vw; }
+  .nowCard { left: 50vw; width: 47vw; top: 27vh; gap: 1.5vw; }
+  .nowCard .cover { width: 17vw; height: 17vw; }
+  .nowCard .tTitle { font-size: clamp(21px, 2.65vw, 30px); }
+  .nowExtras { left: 50vw; width: 27.5vw; top: 60vh; }
+  .upNext { right: 3vw; width: 56.5vw; }
+  .nextFeatured { flex-basis: 17.2vw; width: 17.2vw; }
+  .nextCover, .nextStripItem, .nextStripItem img { width: 7vw; height: 7vw; }
+  .upNext .signature { flex-basis: 7vw; width: 7vw; height: 7vw; font-size: 9px; }
+  .menu, .menu.on { width: min(380px, 62vw); }
+}
+@media (max-width: 620px) {
+  .header .brand { font-size: 23px; }
+  .weatherWidget { gap: 8px; font-size: 12px; }
+  .nowCard { left: 45vw; width: 51vw; top: 34vh; height: 21vh; }
+  .nowCard .tTitle { font-size: 16px; }
+  .nowCard .tArtist { font-size: 13px; }
+  .nowCard .tAlbum { font-size: 10px; }
+  .nowCard .cover { width: 18vw; height: 18vw; min-width: 0; min-height: 0; }
+  .nowExtras { left: 45vw; width: 30vw; top: 56vh; }
+  .upNext { right: 2vw; bottom: 5vh; width: 70vw; }
+  .nextFeatured { flex-basis: 20vw; width: 20vw; }
+  .nextCover, .nextStripItem, .nextStripItem img { width: 8vw; height: 8vw; }
+  .nextTitle { font-size: 10px; }
+  .upNext .signature { flex-basis: 8vw; width: 8vw; height: 8vw; font-size: 7px; padding: 1vw; }
+  .menu, .menu.on { width: 86vw; }
+}
