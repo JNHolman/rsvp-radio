@@ -47,22 +47,28 @@
 .weatherWidget .weatherCondition {font-weight:470;}
 .weatherWidget .weatherCondition:not(:empty)::before {content:"·";padding-right:.4vw;opacity:.8;}
 .weatherCity {display:none!important;}
-/* Clearly positioned blue glass beneath Now Playing and Up Next.
-   Its left boundary is 50vw, BEFORE the first queue text; the full portrait
-   remains above this lower-right treatment. */
+/* Feathered twilight shading, not a glass card. Preserve the full 61vh
+   upper boundary and fade in from the left so the artwork remains prominent.
+   The lower radial pocket reinforces contrast under the small Up Next text. */
 .ui::before {
   content:"";position:absolute;z-index:0;pointer-events:none;
-  left:50vw;right:1.6vw;top:61vh;bottom:2.8vh;
-  border:1px solid rgba(223,239,255,.28);
-  border-radius:18px;
-  background:linear-gradient(to right,
-    rgba(16,67,145,.24) 0%,
-    rgba(14,65,144,.35) 38%,
-    rgba(12,55,128,.47) 75%,
-    rgba(14,52,117,.56) 100%);
-  -webkit-backdrop-filter:blur(11px) saturate(115%);
-  backdrop-filter:blur(11px) saturate(115%);
-  box-shadow:0 10px 34px rgba(3,19,48,.13),inset 0 1px 0 rgba(255,255,255,.16);
+  left:45vw;right:0;top:61vh;bottom:0;
+  border:0;border-radius:0;
+  background:
+    radial-gradient(ellipse 47% 50% at 42% 80%,
+      rgba(16,27,61,.68) 0%,
+      rgba(16,27,61,.50) 42%,
+      rgba(16,27,61,0) 100%),
+    linear-gradient(to right,
+      rgba(48,36,82,0) 0%,
+      rgba(48,36,82,.13) 16%,
+      rgba(48,36,82,.27) 30%,
+      rgba(23,19,49,.45) 60%,
+      rgba(16,27,61,.57) 100%);
+  -webkit-backdrop-filter:none;backdrop-filter:none;
+  box-shadow:none;
+  -webkit-mask-image:linear-gradient(to bottom,transparent 0%,rgba(0,0,0,.45) 19%,rgba(0,0,0,.92) 39%,black 56%);
+  mask-image:linear-gradient(to bottom,transparent 0%,rgba(0,0,0,.45) 19%,rgba(0,0,0,.92) 39%,black 56%);
   transition:opacity .25s ease;
 }
 .stage.art-phase-night .ui::before {opacity:.9;}
@@ -145,6 +151,7 @@
   flex:1 1 auto;min-width:0;
   display:flex;flex-direction:column;align-items:flex-end;justify-content:center;
   color:var(--rsvp-ivory);text-align:right;
+  text-shadow:0 2px 6px rgba(5,8,27,.90);
 }
 .upNext .nextFeatured .nextMeta h2 {
   position:static;display:block;flex:0 0 auto;align-self:auto;
