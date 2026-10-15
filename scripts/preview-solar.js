@@ -78,7 +78,7 @@ async function previewQueue() {
     if (!queue.available) return queue;
     return { available:true, reason:"", tracks:queue.tracks.map(t => {
       const art = plexArt.browserSafeSourceUrl(t.thumb, cfg.base);
-      return { title:t.title, artist:t.artist, album:t.album, artUrl:art ? "/art?url=" + encodeURIComponent(art) : "" };
+      return { ratingKey:t.ratingKey, title:t.title, artist:t.artist, album:t.album, artUrl:art ? "/art?url=" + encodeURIComponent(art) : "" };
     }) };
   } catch (_) { return none("queue_unavailable"); }
 }
