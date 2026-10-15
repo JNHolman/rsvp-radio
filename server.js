@@ -47,6 +47,7 @@ const requestAuth = require("./intelligence/request-auth");
 const runtimeState = require("./intelligence/runtime-state");
 const timeblocks  = require("./shared/timeblocks");
 const solarPhase = require("./shared/solar-phase");
+const plexQueue = require("./intelligence/plex-queue");
 const _persistedRuntime = runtimeState.load();
 
 // ── Express setup ─────────────────────────────────────────────────────────────
@@ -1851,6 +1852,120 @@ app.get("/api/solar-state", (_req, res) => {
     console.warn("[solar] Cannot calculate solar phase:", err.message);
     return res.status(503).json({ error: "solar_phase_unavailable" });
   }
+});
+
+// Read-only upcoming-song API. A Plex play queue is authoritative; an RSVP
+// playlist and a shuffle setting do NOT prove which track is next.
+const _upNextCache = { key: "", at: 0, result: null, pending: null };
+const _queueUnavailable = (reason) => ({ available: false, tracks: [], reason });
+
+async function _loadUpNext(currentKey) {
+  if (!cfg.PLEX_TOKEN || !currentKey) return _queueUnavailable("not_playing");
+  try {
+    const sessionUrl = new URL("/status/sessions", cfg.PLEX_BASE);
+    sessionUrl.searchParams.set("X-Plex-Token", cfg.PLEX_TOKEN);
+    const sessionResponse = await fetchWithTimeout(sessionUrl.toString(), 3000);
+    if (!sessionResponse.ok) return _queueUnavailable("plex_sessions_unavailable");
+    const context = plexQueue.parseCurrentQueueContext(
+      await sessionResponse.text(), cfg.PLEX_TARGET_CLIENT_IDENTIFIER,
+    );
+    if (!context || context.ratingKey !== currentKey) {
+      return _queueUnavailable("play_queue_not_reported");
+    }
+    const url = new URL("/playQueues/" + context.queueId, cfg.PLEX_BASE);
+    url.searchParams.set("X-Plex-Token", cfg.PLEX_TOKEN);
+    url.searchParams.set("window", "8");
+    if (context.itemId) url.searchParams.set("center", context.itemId);
+    const response = await fetchWithTimeout(url.toString(), 3000, { headers: { Accept: "application/json" } });
+    if (!response.ok) return _queueUnavailable("play_queue_unavailable");
+    const parsed = plexQueue.parseUpcomingQueue(await response.json(), context, 5);
+    if (!parsed.available) return parsed;
+    return {
+      available: true,
+      reason: "",
+      tracks: parsed.tracks.map(track => {
+        const original = buildPlexArtUrl(track.thumb);
+        return {
+          title: track.title,
+          artist: track.artist,
+          album: track.album,
+          artUrl: original ? "/art?url=" + encodeURIComponent(original) : "",
+        };
+      }),
+    };
+  } catch (err) {
+    console.warn("[up-next] Read-only queue lookup unavailable:", err.message);
+    return _queueUnavailable("play_queue_unavailable");
+  }
+}
+
+app.get("/api/up-next", async (_req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  if (lastState.media?.type !== "audio" ||
+      !["playing", "paused"].includes(lastState.media?.playerState)) {
+    return res.json(_queueUnavailable("not_playing"));
+  }
+  const key = String(lastState.media.ratingKey || "");
+  if (_upNextCache.key !== key) {
+    _upNextCache.key = key;
+    _upNextCache.result = null;
+    _upNextCache.at = 0;
+    _upNextCache.pending = null;
+  }
+  if (_upNextCache.result && Date.now() - _upNextCache.at < 12000) return res.json(_upNextCache.result);
+  const pending = _upNextCache.pending || _loadUpNext(key);
+  _upNextCache.pending = pending;
+  const result = await pending;
+  if (_upNextCache.key === key) {
+    _upNextCache.result = result;
+    _upNextCache.at = Date.now();
+    if (_upNextCache.pending === pending) _upNextCache.pending = null;
+  }
+  return res.json(result);
+});
+
+const _weatherCache = { at: 0, result: null, pending: null };
+const _conditions = {
+  0: "Clear", 1: "Mostly Clear", 2: "Partly Cloudy", 3: "Cloudy",
+  45: "Fog", 48: "Fog", 51: "Drizzle", 53: "Drizzle", 55: "Drizzle",
+  56: "Freezing Drizzle", 57: "Freezing Drizzle", 61: "Rain",
+  63: "Rain", 65: "Heavy Rain", 66: "Freezing Rain", 67: "Freezing Rain",
+  71: "Snow", 73: "Snow", 75: "Heavy Snow", 77: "Snow",
+  80: "Rain Showers", 81: "Rain Showers", 82: "Heavy Showers",
+  85: "Snow Showers", 86: "Snow Showers", 95: "Thunderstorm",
+  96: "Thunderstorm", 99: "Thunderstorm",
+};
+async function _loadWeather() {
+  const url = new URL("https://api.open-meteo.com/v1/forecast");
+  url.searchParams.set("latitude", String(cfg.SOLAR_LATITUDE));
+  url.searchParams.set("longitude", String(cfg.SOLAR_LONGITUDE));
+  url.searchParams.set("current", "temperature_2m,weather_code");
+  url.searchParams.set("temperature_unit", "fahrenheit");
+  url.searchParams.set("timezone", "America/Kentucky/Louisville");
+  const response = await fetchWithTimeout(url.toString(), 4000);
+  if (!response.ok) throw new Error("weather HTTP " + response.status);
+  const json = await response.json();
+  const temp = Number(json?.current?.temperature_2m);
+  const code = Number(json?.current?.weather_code);
+  if (!Number.isFinite(temp) || !Number.isInteger(code)) throw new Error("weather data incomplete");
+  return { available: true, temperatureF: temp, description: _conditions[code] || "Conditions unavailable" };
+}
+app.get("/api/weather", async (_req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  if (_weatherCache.result && Date.now() - _weatherCache.at < 10 * 60 * 1000) {
+    return res.json(_weatherCache.result);
+  }
+  if (!_weatherCache.pending) _weatherCache.pending = _loadWeather().catch(err => {
+    console.warn("[weather] Update unavailable:", err.message);
+    return { available: false };
+  });
+  const result = await _weatherCache.pending;
+  _weatherCache.pending = null;
+  if (result.available) {
+    _weatherCache.result = result;
+    _weatherCache.at = Date.now();
+  }
+  res.json(result);
 });
 
 app.get("/state",  (_req, res) => {
