@@ -37,6 +37,17 @@ html, body {
 }
 .bgVideo.on { opacity: 1; }
 
+/* Static approved art stays sharp; animations and live UI remain separate. */
+.artBg {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%; object-fit: cover;
+  opacity: 0; pointer-events: none;
+  transition: opacity 1200ms ease;
+}
+.artBg.on { opacity: 1; }
+/* When RSVP TV owns the screen, keep the music-video surface unobstructed. */
+.stage.videoMode .artBg { opacity: 0; }
+
 /* ── Black hold — explicit black screen between videos ── */
 .blackHold {
   position: absolute; inset: 0;
