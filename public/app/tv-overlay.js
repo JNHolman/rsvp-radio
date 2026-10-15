@@ -9,6 +9,7 @@
   const timeZone = "America/Kentucky/Louisville";
   let lastRatingKey = "", visibleAudio = false, paused = true, baselineMs = 0, baselineAt = 0, lengthMs = 0;
   let queueLoading = false, queueFetchedAt = 0;
+  let verifiedQueue = []; // Only items returned from the actual Plex play queue.
 
   function formatTime(ms) {
     const s = Math.max(0, Math.floor((Number(ms) || 0) / 1000));
@@ -45,7 +46,8 @@
     const available = payload?.available === true;
     const first = tracks[0];
     title.textContent = first?.title || (available ? "Nothing queued" : "Queue unavailable");
-    artist.textContent = ""; // Compact queue shows title only for the first upcoming track.
+    artist.textContent = first?.artist || "";
+    title.title = first?.title || "";
     const url = safeArt(first?.artUrl);
     if (url) {
       featured.src = url;
@@ -89,11 +91,20 @@
       finally { clearTimeout(timeout); }
       if (!res.ok) throw new Error("Queue request failed");
       const payload = await res.json();
-      if (visibleAudio && capturedKey === lastRatingKey) renderQueue(payload);
+      if (visibleAudio && capturedKey === lastRatingKey) {
+        verifiedQueue = payload.available && Array.isArray(payload.tracks) ? payload.tracks : [];
+        renderQueue(payload);
+      }
     } catch (_) {
-      if (visibleAudio && capturedKey === lastRatingKey) renderQueue({ available: false, tracks: [] });
+      if (visibleAudio && capturedKey === lastRatingKey) {
+        verifiedQueue = [];
+        renderQueue({ available: false, tracks: [] });
+      }
     } finally {
       queueLoading = false;
+      // The track may have advanced while this previous queue request was
+      // in flight; fetch the new queue without an extra polling-cycle wait.
+      if (visibleAudio && capturedKey !== lastRatingKey) updateQueue(true);
     }
   }
 
@@ -108,6 +119,7 @@
     upNext.classList.add("on");
     if (!playingAudio) {
       lastRatingKey = "";
+      verifiedQueue = [];
       renderQueue({ available: false, tracks: [] });
       title.textContent = "Waiting for music";
       return;
@@ -121,7 +133,17 @@
     if (key !== lastRatingKey) {
       lastRatingKey = key;
       queueFetchedAt = 0;
-      renderQueue({ available: false, tracks: [] });
+      if (key && verifiedQueue[0]?.ratingKey === key) {
+        // The previously verified next song is now playing: immediately
+        // advance the known queue while requesting the authoritative update.
+        // No guesses from the playlist; mismatches display a loading state.
+        verifiedQueue = verifiedQueue.slice(1);
+        renderQueue({ available: true, tracks: verifiedQueue });
+      } else {
+        verifiedQueue = [];
+        renderQueue({ available: false, tracks: [] });
+        title.textContent = "Loading next song";
+      }
       updateQueue(true);
     }
   };
