@@ -112,17 +112,23 @@
   // Called from the existing player.js after successful /state polling.
   window.renderTvOverlayState = function (state) {
     const m = state?.media || {};
-    const playingAudio = m.type === "audio" && ["playing", "paused"].includes(m.playerState);
+    const activeState = ["playing", "paused"].includes(m.playerState);
+    const playingAudio = m.type === "audio" && activeState;
+    const activeVideo = m.type === "video" && activeState;
     visibleAudio = playingAudio;
+
+    // Idle is background-only: no song/title/cover/progress/queue, logo,
+    // clock, or weather. Audio paused still has a loaded song and retains its
+    // information. Video is handled by the existing video-mode rules.
+    // The background artwork/light layer is never hidden by this state.
+    document.querySelector(".stage")?.classList.toggle("radio-idle", !playingAudio && !activeVideo);
     progress.classList.toggle("on", playingAudio);
-    // Bottom Up Next strip stays on screen even when radio is between tracks.
-    // The existing video-mode CSS hides it when RSVP TV owns the display.
-    upNext.classList.add("on");
+    upNext.classList.toggle("on", playingAudio);
     if (!playingAudio) {
       lastRatingKey = "";
       verifiedQueue = [];
+      // Clear old metadata so nothing stale appears when music resumes.
       renderQueue({ available: false, tracks: [] });
-      title.textContent = "Waiting for music";
       return;
     }
     paused = m.playerState !== "playing";
