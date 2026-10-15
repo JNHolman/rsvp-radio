@@ -83,18 +83,21 @@ function _setArt(url) {
   }
 }
 
-function _setMeta(title, artist, album) {
-  const readableTitle = _decode(title) || "—";
-  _el.title.textContent  = readableTitle;
-  _el.artist.textContent = _decode(artist) || "—";
-  _el.album.textContent  = _decode(album) || "—";
+let _originalDisplayTitle = "";
+function _fitCurrentTitle() {
+  if (window.RsvpTitleFit && typeof window.RsvpTitleFit.fitElement === "function") {
+    window.RsvpTitleFit.fitElement(_el.title, _originalDisplayTitle);
+  }
+}
 
-  // The approved vinyl artwork occupies the left portion of the TV.
-  // Keep the metadata INSIDE its fixed right-hand column; long Plex titles
-  // shrink within that column instead of growing toward the record.
-  const n = readableTitle.length;
-  _el.title.classList.toggle("title-long", n > 24 && n <= 43);
-  _el.title.classList.toggle("title-very-long", n > 43);
+function _setMeta(title, artist, album) {
+  _originalDisplayTitle = _decode(title) || "—";
+  _el.title.textContent = _originalDisplayTitle;
+  _el.artist.textContent = _decode(artist) || "—";
+  _el.album.textContent = _decode(album) || "—";
+  // Fit actual glyph widths within the fixed TV metadata column.
+  // Keep names on one line if readable; otherwise choose balanced wraps.
+  _fitCurrentTitle();
 }
 
 function _setSurface(isVideo) {
@@ -255,6 +258,11 @@ async function poll() {
 }
 
 function startPolling() {
+  // Refit after fonts finish loading and when Chromium changes output size.
+  window.addEventListener("resize", _fitCurrentTitle);
+  if (document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(_fitCurrentTitle).catch(() => {});
+  }
   poll();
   setInterval(poll, POLL_MS);
 }
