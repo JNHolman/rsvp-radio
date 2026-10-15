@@ -1,7 +1,7 @@
 "use strict";
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { parseCurrentQueueContext, parseUpcomingQueue } = require("../../intelligence/plex-queue");
+const { parseCurrentQueueContext, parseTimelineQueueContext, parseUpcomingQueue } = require("../../intelligence/plex-queue");
 
 const xml = '<MediaContainer size="1"><Track title="Playing" ratingKey="51" playQueueID="102" playQueueItemID="202"><Player product="Plexamp" machineIdentifier="rsvp-pi" state="playing"/></Track></MediaContainer>';
 
@@ -35,4 +35,10 @@ test("tracks duplicated in a queue are identified by unique playQueueItemID", ()
 test("stale queue is unavailable, never a guessed upcoming playlist", () => {
   const q = {MediaContainer:{Metadata:[{ratingKey:"30",playQueueItemID:300,title:"Unrelated"}]}};
   assert.deepEqual(parseUpcomingQueue(q,{itemId:"202",ratingKey:"51"}),{available:false,tracks:[],reason:"current_track_not_in_queue"});
+});
+
+test("Plexamp Headless local timeline can supply the queue during cached playback", () => {
+  const xml = '<MediaContainer><Timeline type="video" state="stopped"/><Timeline type="music" state="playing" ratingKey="51" playQueueID="102" playQueueItemID="202"/></MediaContainer>';
+  assert.deepEqual(parseTimelineQueueContext(xml), { queueId: "102", ratingKey: "51", itemId: "202" });
+  assert.equal(parseTimelineQueueContext('<MediaContainer><Timeline type="music" ratingKey="51"/></MediaContainer>'), null);
 });
