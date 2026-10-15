@@ -69,6 +69,17 @@ short endpoint failure, it retains the last valid phase rather than abruptly
 switching scenes. Only the ambient artwork follows the sun: RSVP's scheduled
 music blocks and Philips Hue handoffs remain unchanged.
 
+The two owner-approved still images are supported as separate, sharp layers:
+
+- `public/assets/bg/rsvp_day_art.webp`
+- `public/assets/bg/rsvp_night_art.webp`
+
+Place those files under the Pi checkout at those paths and reload the kiosk.
+They are intentionally **not baked into the UI**: the current live album
+cover, navigation, and future FX remain independent layers. If either image is
+missing or fails to load, the existing day/night MP4 continues working behind
+it as a fallback. Keep the files separate from the music and Hue data.
+
 ## Boot behavior
 
 `systemd` starts Hue and RSVP after networking. The desktop user's systemd session starts the analyzer once the audio session exists. RSVP immediately reconciles persisted power intent and the correct scheduled Hue scene/remaining 20-minute transition. Chromium waits until RSVP returns `/health` with `"ok": true` before opening the kiosk; Hue/analyzer degradation is reported separately and does not block the screen.
