@@ -15,7 +15,7 @@
   position:relative;cursor:pointer;
   color:var(--rsvp-ivory);
   font-size:clamp(24px,2.8vw,53px);
-  font-weight:630;line-height:1.1;
+  font-weight:770;line-height:1.1;
   letter-spacing:-.042em;white-space:nowrap;
   text-transform:none;
   text-shadow:0 1px 3px rgba(5,16,36,.4);
@@ -24,7 +24,8 @@
   color:var(--rsvp-gold);font-weight:850;
 }
 .header .brand:focus-visible {outline:2px solid var(--rsvp-gold);outline-offset:7px;}
-.stage.drawer-open .header .brand {visibility:hidden;}
+.stage.drawer-open .header {z-index:40;}
+.stage.drawer-open .header .brand {visibility:visible;}
 .weatherWidget {
   display:flex;flex-direction:column;align-items:flex-end;justify-content:flex-start;
   gap:.45vh;margin-top:.6vh;
@@ -47,21 +48,27 @@
 .weatherWidget .weatherCondition:not(:empty)::before {content:"·";padding-right:.4vw;opacity:.8;}
 .weatherCity {display:none!important;}
 /* A single transparent player with a smooth feather into sky and water. */
-.nowCard {
-  left:auto;right:3vw;top:61.0vh;bottom:auto;
-  width:37vw;height:22.0vh;min-height:0;
-  display:flex;flex-direction:row;align-items:flex-start;justify-content:flex-end;
-  padding:0;gap:1.4vw;
-  border:0;border-radius:0;background:none;backdrop-filter:none;box-shadow:none;
-  overflow:visible;isolation:isolate;z-index:18;pointer-events:none;
+/* Shared feathered navy/black shading supports the full lower-right composition. */
+.ui::before {
+  content:"";position:absolute;z-index:0;pointer-events:none;
+  right:0;top:47vh;bottom:0;width:57vw;
+  background:linear-gradient(to right,
+    rgba(5,15,35,0) 0%,
+    rgba(5,15,35,.09) 18%,
+    rgba(6,17,39,.29) 43%,
+    rgba(6,17,39,.59) 76%,
+    rgba(6,17,39,.66) 100%);
+  -webkit-mask-image:linear-gradient(to bottom,transparent 0%,black 30%,black 92%,transparent 100%);
+  mask-image:linear-gradient(to bottom,transparent 0%,black 30%,black 92%,transparent 100%);
 }
-.nowCard::before {
-  content:"";position:absolute;z-index:-1;
-  left:-4vw;right:-3vw;top:-3.6vh;bottom:-2vh;
-  pointer-events:none;
-  background:linear-gradient(to right,rgba(8,21,42,0),rgba(11,27,48,.13) 37%,rgba(13,31,54,.26) 77%,rgba(13,31,54,.17));
-  -webkit-mask-image:linear-gradient(to bottom,transparent 0%,black 27%,black 73%,transparent 100%);
-  mask-image:linear-gradient(to bottom,transparent 0%,black 27%,black 73%,transparent 100%);
+.stage.art-phase-night .ui::before {opacity:.75;}
+.nowCard {
+  left:auto;right:3vw;top:63.5vh;bottom:auto;
+  width:44vw;height:20.5vh;min-height:0;
+  display:flex;flex-direction:row;align-items:flex-start;justify-content:flex-end;
+  padding:0;gap:1.25vw;
+  border:0;border-radius:0;background:none;backdrop-filter:none;box-shadow:none;
+  overflow:visible;z-index:18;pointer-events:none;
 }
 .nowCard .meta {
   position:relative;z-index:1;
@@ -72,25 +79,25 @@
 }
 .nowCard .tTitle {
   width:100%;margin:0;
-  font-size:clamp(23px,2.07vw,42px);font-weight:780;line-height:1.12;
+  font-size:clamp(28px,2.55vw,51px);font-weight:790;line-height:1.12;
   letter-spacing:-.025em;text-align:right;white-space:pre-line;
   color:var(--rsvp-ivory);
   display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;
   overflow:hidden;overflow-wrap:anywhere;max-height:3.38em;
 }
 .nowCard .tArtist {
-  margin-top:.45vh;font-size:clamp(17px,1.52vw,32px);
+  margin-top:.5vh;font-size:clamp(19px,1.78vw,36px);
   font-weight:650;line-height:1.15;white-space:normal;
   color:var(--rsvp-ivory);
 }
 .nowCard .tAlbum {
-  margin-top:.22vh;font-size:clamp(14px,1.22vw,25px);
+  margin-top:.25vh;font-size:clamp(16px,1.4vw,28px);
   font-style:italic;line-height:1.15;white-space:normal;
   color:rgba(246,243,236,.93);
 }
 .nowCard .cover {
   z-index:2;position:relative;
-  flex:0 0 9.2vw;width:9.2vw;height:9.2vw;
+  flex:0 0 11.2vw;width:11.2vw;height:11.2vw;
   max-width:27vh;max-height:27vh;min-width:0;min-height:0;
   padding:0;border:1.5px solid rgba(237,191,121,.9);
   border-radius:14px;overflow:hidden;align-self:flex-start;
@@ -101,7 +108,7 @@
 .nowCard .meta .nowExtras {
   position:relative;z-index:1;left:auto;right:auto;top:auto;bottom:auto;
   display:flex;flex-direction:column;gap:0;
-  align-self:stretch;width:100%;min-width:0;max-width:none;
+  align-self:flex-end;width:74%;min-width:0;max-width:none;
   margin-top:1.25vh;opacity:0;transition:opacity .23s ease;
 }
 .nowCard .meta .nowExtras.on {opacity:1;}
@@ -112,24 +119,10 @@
   margin-top:.4vh;font-size:clamp(12px,.97vw,20px);
   color:var(--rsvp-ivory);font-variant-numeric:tabular-nums;
 }
-.transport {
-  display:flex;align-items:center;justify-content:space-around;
-  width:100%;margin-top:.3vh;line-height:1;
-  font-size:clamp(16px,1.3vw,27px);
-  color:var(--rsvp-ivory);opacity:.87;
-  pointer-events:none;user-select:none;
-}
-.transport .secondary {color:var(--rsvp-gold);}
-.transport .transport-play {
-  width:clamp(28px,3vw,58px);height:clamp(28px,3vw,58px);
-  display:grid;place-items:center;
-  font-size:1.02em;font-weight:750;
-  border:2px solid var(--rsvp-gold);border-radius:50%;
-}
 .upNext {
   position:absolute;z-index:19;
   top:auto;left:auto;right:3vw;bottom:5.2vh;
-  width:37vw;height:10.5vh;
+  width:44vw;height:10.5vh;
   display:flex;flex-direction:row;align-items:center;justify-content:flex-end;
   gap:.48vw;padding:1.1vh 0 0;
   border:0;border-radius:0;border-top:1.5px solid rgba(237,191,121,.9);
@@ -139,51 +132,43 @@
   pointer-events:none;isolation:isolate;
 }
 .upNext.on {opacity:1;transform:translateY(0);}
-.upNext::before {
-  content:"";position:absolute;z-index:-1;
-  left:-3vw;right:-3vw;top:-4vh;bottom:-2vh;
-  pointer-events:none;
-  background:linear-gradient(to right,rgba(5,22,40,0),rgba(6,24,43,.09) 28%,rgba(11,28,49,.20) 74%,rgba(11,28,49,.11));
-  -webkit-mask-image:linear-gradient(to bottom,transparent 0%,black 42%,black 84%,transparent 100%);
-  mask-image:linear-gradient(to bottom,transparent 0%,black 42%,black 84%,transparent 100%);
-}
 .nextFeatured {
   flex:1 1 auto;min-width:0;
   display:flex;flex-direction:row;align-items:center;justify-content:flex-end;gap:.45vw;
 }
 .upNext .nextFeatured .nextMeta {
   flex:1 1 auto;min-width:0;
-  display:flex;flex-direction:column;align-items:flex-start;justify-content:center;
-  color:var(--rsvp-ivory);text-align:left;
+  display:flex;flex-direction:column;align-items:flex-end;justify-content:center;
+  color:var(--rsvp-ivory);text-align:right;
 }
 .upNext .nextFeatured .nextMeta h2 {
   position:static;display:block;flex:0 0 auto;align-self:auto;
   width:100%;margin:0 0 .3vh;padding:0;transform:none;
-  font-size:clamp(11px,.95vw,20px);font-weight:790;
-  color:var(--rsvp-gold);letter-spacing:.17em;line-height:1.1;text-align:left;
+  font-size:clamp(14px,1.16vw,23px);font-weight:790;
+  color:var(--rsvp-gold);letter-spacing:.14em;line-height:1.1;text-align:right;
   white-space:nowrap;
 }
 .nextTitle {
-  display:block;max-width:100%;font-size:clamp(12px,1.05vw,22px);
-  font-weight:730;line-height:1.15;white-space:nowrap;
-  overflow:hidden;text-overflow:ellipsis;text-align:left;
+  display:block;max-width:100%;font-size:clamp(16px,1.46vw,29px);
+  font-weight:750;line-height:1.15;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;text-align:right;
   color:var(--rsvp-ivory);
 }
 .nextArtist {
   display:block;max-width:100%;margin-top:.22vh;
-  font-size:clamp(11px,.85vw,18px);line-height:1.15;
-  color:rgba(246,243,236,.89);
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left;
+  font-size:clamp(14px,1.14vw,23px);line-height:1.15;
+  color:rgba(246,243,236,.95);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:right;
 }
 .nextCover {
-  flex:0 0 3.45vw;width:3.45vw;height:3.45vw;min-width:0;min-height:0;
+  flex:0 0 4.3vw;width:4.3vw;height:4.3vw;min-width:0;min-height:0;
   overflow:hidden;border:1px solid rgba(237,191,121,.83);
   border-radius:9px;background:rgba(12,23,43,.29);
 }
 .nextCover img,.nextStripItem img {display:block;width:100%;height:100%;object-fit:cover;}
 .nextStrip {display:flex;flex:0 0 auto;align-items:center;gap:.42vw;margin:0;}
 .nextStripItem {
-  display:block;flex:0 0 3.25vw;width:3.25vw;height:3.25vw;
+  display:block;flex:0 0 3.9vw;width:3.9vw;height:3.9vw;
   min-width:0;min-height:0;overflow:hidden;
   border:1px solid rgba(237,191,121,.78);border-radius:8px;
   background:rgba(12,23,43,.26);
@@ -191,12 +176,12 @@
 .nextStripItem span,.nextStripItem small,.nextStripItem.missingCover img {display:none!important;}
 .upNext .signature {
   position:relative;z-index:1;
-  flex:0 0 5.2vw;width:5.2vw;height:6.9vh;min-width:0;min-height:0;
+  flex:0 0 5.75vw;width:5.75vw;height:5.75vw;min-width:0;min-height:0;
   margin-left:.25vw;padding:.6vw;
   display:flex;flex-direction:column;align-items:flex-start;justify-content:center;
   gap:.18vh;
-  border:1px solid rgba(237,191,121,.78);border-radius:8px;
-  background:rgba(9,20,37,.31);box-shadow:none;
+  border:1.5px solid rgba(237,191,121,.78);border-radius:10px;
+  background:rgba(8,7,19,.79);box-shadow:0 5px 14px rgba(0,0,0,.25);
   color:var(--rsvp-ivory);font-size:clamp(10px,.82vw,17px);
   font-weight:750;line-height:1.11;letter-spacing:.03em;text-shadow:0 1px 3px rgba(0,0,0,.50);
 }
@@ -353,13 +338,13 @@
 @media(max-width:900px) {
   .header {top:3.7vh;right:3vw;}
   .header .brand {font-size:clamp(23px,3vw,39px);}
-  .nowCard {top:57vh;right:2vw;width:46vw;height:24vh;}
+  .nowCard {top:60vh;right:2vw;width:51vw;height:22vh;}
   .nowCard .tTitle {font-size:clamp(19px,2.5vw,33px);}
-  .nowCard .cover {width:12vw;height:12vw;flex-basis:12vw;}
-  .upNext {right:2vw;width:48vw;bottom:4vh;}
-  .nextCover {width:4.1vw;height:4.1vw;flex-basis:4.1vw;}
-  .nextStripItem {width:3.8vw;height:3.8vw;flex-basis:3.8vw;}
-  .upNext .signature {width:6.5vw;flex-basis:6.5vw;font-size:clamp(9px,.95vw,13px);}
+  .nowCard .cover {width:12.8vw;height:12.8vw;flex-basis:12.8vw;}
+  .upNext {right:2vw;width:51vw;bottom:4vh;}
+  .nextCover {width:4.5vw;height:4.5vw;flex-basis:4.5vw;}
+  .nextStripItem {width:4vw;height:4vw;flex-basis:4vw;}
+  .upNext .signature {width:6vw;height:6vw;flex-basis:6vw;font-size:clamp(9px,1vw,14px);}
   .menu,.menu.on {width:min(380px,62vw);}
 }
 @media(max-width:620px) {
@@ -371,9 +356,12 @@
   .nowCard .tArtist {font-size:14px;}
   .nowCard .tAlbum {font-size:12px;}
   .nowCard .cover {width:15vw;height:15vw;flex-basis:15vw;}
-  .transport .transport-play {width:25px;height:25px;}
+  
   .upNext {right:2vw;width:75vw;bottom:3vh;}
   .nextCover,.nextStripItem {width:6vw;height:6vw;flex-basis:6vw;}
-  .upNext .signature {width:10vw;flex-basis:10vw;height:7vh;font-size:9px;}
+  .upNext .signature {width:10vw;flex-basis:10vw;height:10vw;font-size:9px;}
   .menu,.menu.on {width:86vw;}
 }
+
+/* Keep the header stationary when the menu opens. */
+.drawerHead{justify-content:flex-end;}
