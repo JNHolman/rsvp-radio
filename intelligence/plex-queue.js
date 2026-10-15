@@ -32,6 +32,25 @@ function parseCurrentQueueContext(xml, clientId = "") {
   };
 }
 
+// Plexamp Headless can report its active queue on its local timeline even when
+// Plex Media Server /status/sessions is empty during cached playback.
+function parseTimelineQueueContext(xml) {
+  if (!xml) return null;
+  let container;
+  try { container = parser.parse(xml)?.MediaContainer; } catch { return null; }
+  const timelines = arr(container?.Timeline);
+  const music = timelines.find((item) => attr(item, "type") === "music");
+  if (!music) return null;
+  const queueId = validId(attr(music, "playQueueID"));
+  const ratingKey = validId(attr(music, "ratingKey"));
+  if (!queueId || !ratingKey) return null;
+  return {
+    queueId,
+    ratingKey,
+    itemId: validId(attr(music, "playQueueItemID")),
+  };
+}
+
 function parseUpcomingQueue(payload, context, limit = 5) {
   const container = payload?.MediaContainer || {};
   if (!context || !Array.isArray(container.Metadata)) return { available: false, tracks: [], reason: "queue_unavailable" };
@@ -60,4 +79,4 @@ function parseUpcomingQueue(payload, context, limit = 5) {
     reason: "",
   };
 }
-module.exports = { parseCurrentQueueContext, parseUpcomingQueue };
+module.exports = { parseCurrentQueueContext, parseTimelineQueueContext, parseUpcomingQueue };
