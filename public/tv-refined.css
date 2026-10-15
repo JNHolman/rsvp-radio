@@ -13,11 +13,28 @@
   -webkit-tap-highlight-color: transparent;
 }
 .header .brand {
+  position: relative;
+  isolation: isolate;
   cursor: pointer;
   font-family: "DejaVu Sans", system-ui, sans-serif;
-  font-weight: 800;
-  letter-spacing: -.045em;
-  text-shadow: 0 1px 3px rgba(0,0,0,.55);
+  font-weight: 840;
+  letter-spacing: -.042em;
+  text-shadow: 0 1px 3px rgba(0,0,0,.35);
+}
+/* Natural upper-left lighting: visible only with day art, behind the mark.
+   Night retains the existing illustration with no extra tint. */
+.stage.art-phase-day:not(.videoMode) .header .brand::before {
+  content: "";
+  position: absolute;
+  inset: -4.5vh -5vw -3vh -3vw;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(ellipse 67% 61% at 37% 43%,
+    rgba(38,17,56,.47) 0%,
+    rgba(45,22,63,.30) 31%,
+    rgba(52,29,73,.11) 64%,
+    rgba(52,29,73,0) 100%);
+  filter: blur(1.35vw);
 }
 .drawerHead .drawerWordmark { cursor: default; }
 .stage.drawer-open .header .brand { visibility: hidden; }
@@ -41,24 +58,46 @@
 
 .header .brand:focus-visible { outline: 2px solid var(--rsvp-gold); outline-offset: 7px; }
 .weatherWidget {
-  gap: clamp(15px, 1.35vw, 30px);
-  font-size: clamp(15px, 1.3vw, 25px);
+  display: flex;
+  flex-direction: row;
+  gap: clamp(16px, 1.55vw, 32px);
   align-items: baseline;
-  text-shadow: 0 1px 3px rgba(0,0,0,.58);
+  justify-content: flex-end;
+  text-shadow: 0 1px 3px rgba(0,0,0,.42);
+}
+.weatherWidget .weatherSummary {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: baseline;
+  gap: .50vw;
+  color: var(--rsvp-gold);
+  opacity: 1;
+  white-space: nowrap;
+}
+.weatherWidget .weatherTemp {
+  font-size: clamp(21px, 1.9vw, 38px);
+  font-weight: 780;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.weatherWidget .weatherCondition {
+  font-size: clamp(14px, 1.02vw, 21px);
+  font-weight: 670;
+}
+.weatherWidget .weatherCondition:not(:empty)::before {
+  content: "·";
+  padding-right: .50vw;
+  opacity: .75;
 }
 .weatherWidget .localClock {
   font-size: clamp(24px, 2.15vw, 43px);
   font-weight: 800;
+  font-variant-numeric: tabular-nums;
   line-height: 1;
-}
-.weatherWidget .weatherSummary {
-  font-size: clamp(15px, 1.25vw, 26px);
-  font-weight: 675;
-  white-space: nowrap;
+  letter-spacing: .006em;
+  color: #F6EFE5;
 }
 .weatherCity { display: none !important; }
-.localClock { font-weight: 750; color: #fff; letter-spacing: .012em; }
-.weatherSummary { color: var(--rsvp-gold); opacity: 1; font-size: .90em; }
 
 .sideNav { display: none !important; }
 
@@ -105,7 +144,7 @@
   display: -webkit-box;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
-  white-space: normal;
+  white-space: pre-line;
   max-height: 3.33em;
   overflow: hidden;
   font-size: clamp(31px, 2.90vw, 58px);
@@ -115,10 +154,8 @@
   text-align: right;
   overflow-wrap: anywhere;
 }
-/* Long titles scale DOWN within the fixed text column, never leftward over
-   the vinyl. Each class is based on Plex's actual title length in player.js. */
-.nowCard .tTitle.title-long { font-size: clamp(28px, 2.45vw, 49px); }
-.nowCard .tTitle.title-very-long { font-size: clamp(25px, 2.08vw, 41px); }
+/* Actual glyph width and line balance are measured in title-fit.js.
+   Do not add character-count thresholds here: they create orphan words. */
 .nowCard .tArtist {
   color: #F6EFE5;
   font-size: clamp(23px, 1.98vw, 39px);
@@ -127,7 +164,7 @@
 }
 .nowCard .tAlbum {
   color: rgba(246,239,229,.86);
-  font-size: clamp(17px, 1.39vw, 28px);
+  font-size: clamp(18px, 1.47vw, 30px);
   margin-top: 7px;
   white-space: normal;
 }
@@ -142,7 +179,7 @@
   min-width: 110px;
   min-height: 110px;
   border: 1.5px solid rgba(237,191,121,.70);
-  border-radius: 9px;
+  border-radius: 16px;
   box-shadow: 0 15px 40px rgba(0,0,0,.48), 0 0 14px rgba(237,191,121,.09);
 }
 /* Progress is part of the metadata column, not a separately positioned box.
@@ -246,7 +283,7 @@
   height: 7.6vw;
   min-width: 0;
   min-height: 0;
-  border-radius: 6px;
+  border-radius: 10px;
   border: 1px solid rgba(237,191,121,.62);
   background: rgba(14,11,27,.45);
   overflow: hidden;
@@ -284,7 +321,7 @@
 .nextArtist {
   display: block;
   color: rgba(246,239,229,.87);
-  font-size: clamp(15px, 1.14vw, 23px);
+  font-size: clamp(16px, 1.22vw, 25px);
   font-weight: 700;
   line-height: 1.2;
   margin-top: .28vw;
@@ -312,14 +349,14 @@
   max-width: none;
   object-fit: cover;
   border: 1px solid rgba(255,255,255,.30);
-  border-radius: 6px;
+  border-radius: 10px;
   box-shadow: 0 5px 14px rgba(0,0,0,.36);
 }
 .nextStripItem span, .nextStripItem small { display: none !important; }
 .nextStripItem.missingCover {
   background: rgba(20,16,38,.6);
   border: 1px solid rgba(255,255,255,.16);
-  border-radius: 6px;
+  border-radius: 10px;
   aspect-ratio: 1;
 }
 .nextStripItem.missingCover img { display: none; }
@@ -350,7 +387,7 @@
   justify-content: center;
   gap: .15vw;
   border: 1px solid rgba(237,191,121,.72);
-  border-radius: 6px;
+  border-radius: 10px;
   box-shadow: 0 5px 14px rgba(0,0,0,.34);
   background: rgba(8,7,19,.78);
   color: white;
@@ -502,8 +539,7 @@
   .nowCard { left: 53vw; right: 3vw; width: 44vw; top: 26vh; gap: 1vw; }
   .nowCard .cover { width: 17vw; height: 17vw; }
   .nowCard .tTitle { font-size: clamp(24px, 3vw, 34px); }
-  .nowCard .tTitle.title-long { font-size: clamp(22px, 2.6vw, 29px); }
-  .nowCard .tTitle.title-very-long { font-size: clamp(20px, 2.2vw, 25px); }
+
   .upNext { right: 3vw; width: 62vw; }
   .nextFeatured { flex-basis: 25.5vw; width: 25.5vw; }
   .nextCover, .nextStripItem, .nextStripItem img { width: 7.6vw; height: 7.6vw; }
@@ -515,8 +551,7 @@
   .weatherWidget { gap: 8px; font-size: 12px; }
   .nowCard { left: 54vw; right: 2vw; width: 44vw; top: 30vh; height: 30vh; }
   .nowCard .tTitle { font-size: 20px; }
-  .nowCard .tTitle.title-long { font-size: 18px; }
-  .nowCard .tTitle.title-very-long { font-size: 16px; }
+
   .nowCard .tArtist { font-size: 15px; }
   .nowCard .tAlbum { font-size: 12px; }
   .nowCard .cover { width: 18vw; height: 18vw; min-width: 0; min-height: 0; }
@@ -539,21 +574,27 @@
 .stage.art-phase-day:not(.videoMode) .ui {
   color: #19283D;
 }
-/* Day wordmark: heavy, solid ink instead of the hard text outline.
-   A soft reflected-light halo distinguishes the mark from bright blue sky. */
-.stage.art-phase-day:not(.videoMode) .header .brand,
-.stage.art-phase-day:not(.videoMode) .header .brand .rsvp {
-  color: #172238;
+/* Identity is stable from night to day: ivory RSVP / gold RADIO.
+   Dark plum feather behind the left corner provides contrast on daylight. */
+.stage.art-phase-day:not(.videoMode) .header .brand {
+  color: #EFC48A;
   -webkit-text-stroke: 0;
-  text-shadow: 0 1px 2px rgba(255,246,220,.85), 0 0 12px rgba(255,241,205,.45);
+  text-shadow: 0 1px 2px rgba(23,10,39,.26);
+}
+.stage.art-phase-day:not(.videoMode) .header .brand .rsvp {
+  color: #F6EFE5;
+  -webkit-text-stroke: 0;
+  text-shadow: 0 1px 2px rgba(23,10,39,.26);
 }
 /* Bold daytime weather is ink, without a distracting outline. */
 .stage.art-phase-day:not(.videoMode) .weatherWidget,
 .stage.art-phase-day:not(.videoMode) .localClock,
-.stage.art-phase-day:not(.videoMode) .weatherSummary {
+.stage.art-phase-day:not(.videoMode) .weatherSummary,
+.stage.art-phase-day:not(.videoMode) .weatherTemp,
+.stage.art-phase-day:not(.videoMode) .weatherCondition {
   color: #172238;
   -webkit-text-stroke: 0;
-  text-shadow: 0 1px 3px rgba(255,248,223,.60);
+  text-shadow: 0 1px 3px rgba(255,248,223,.35);
 }
 .stage.art-phase-day:not(.videoMode) .nowCard .meta,
 .stage.art-phase-day:not(.videoMode) .nowCard .tTitle,
@@ -603,9 +644,6 @@
   transition: color .65s ease, background-color .65s ease;
 }
 
-/* Day-only queue label uses an anchored dark material, not an image-wide mask.
-   On night art the queue labels remain freely over the dark waterfront. */
-
 /* DAYTIME ATMOSPHERE, not a UI panel.
    The 54vw player boundary permits long titles to reach the vinyl rim.
    This full text-column-length feather extends behind those titles; it is
@@ -621,33 +659,33 @@
   position: absolute;
   z-index: -1;
   pointer-events: none;
-  left: -5.5vw;
-  right: 12.5vw;
-  top: -3.8vh;
-  bottom: -3.8vh;
+  left: -8.5vw;
+  right: 10vw;
+  top: -2.5vh;
+  bottom: -2.5vh;
   background: radial-gradient(
-    ellipse 73% 70% at 64% 51%,
-    rgba(255,249,225,.52) 0%,
-    rgba(255,247,219,.32) 42%,
-    rgba(255,246,220,.14) 65%,
+    ellipse 77% 69% at 47% 50%,
+    rgba(255,249,225,.24) 0%,
+    rgba(255,247,219,.145) 43%,
+    rgba(255,246,220,.06) 65%,
     rgba(255,246,220,0) 100%
   );
-  filter: blur(1.4vw);
+  filter: blur(1.75vw);
 }
 .stage.art-phase-day:not(.videoMode) .upNext::before {
   content: "";
   position: absolute;
   z-index: -1;
   pointer-events: none;
-  left: -5vw;
-  width: 29vw;
-  top: -4.5vh;
-  bottom: -4vh;
+  left: -7vw;
+  width: 34vw;
+  top: -3.5vh;
+  bottom: -3.5vh;
   background: radial-gradient(
-    ellipse 71% 62% at 53% 53%,
-    rgba(255,248,222,.38) 0%,
-    rgba(255,246,215,.20) 49%,
+    ellipse 75% 64% at 49% 50%,
+    rgba(255,248,222,.18) 0%,
+    rgba(255,246,215,.09) 49%,
     rgba(255,246,215,0) 100%
   );
-  filter: blur(1.25vw);
+  filter: blur(1.5vw);
 }
