@@ -19,21 +19,11 @@
 .drawerHead .drawerWordmark { cursor: default; }
 .stage.drawer-open .header .brand { visibility: hidden; }
 
-/* BACKGROUND-ONLY IDLE STATE
-   Old RSVP Radio hid its player whenever no track was loaded. New TV art
-   restores that rule: no header/clock/weather, main player, progress, or
-   queued sleeves while the station is genuinely idle. This is NOT video
-   styling and does not darken or mask the approved images.
-   The invisible top-left brand hit area remains clickable to open the
-   existing four-part drawer even when the idle screen is artwork-only. */
-.header .brand,
-.header .weatherWidget {
-  transition: opacity .4s ease;
-}
-.stage.radio-idle .header .brand,
-.stage.radio-idle .header .weatherWidget {
-  opacity: 0;
-}
+/* MUSIC-ONLY IDLE STATE
+   When playback has no loaded track, hide only the music-specific parts:
+   cover, song details, progress and upcoming queue/signature. The RSVP RADIO
+   logo (which opens the menu), clock and weather remain visible at all times.
+   Keep the approved art uncovered. Paused tracks retain music information. */
 .stage.radio-idle .nowCard,
 .stage.radio-idle .nowExtras,
 .stage.radio-idle .upNext {
@@ -44,7 +34,7 @@
 .stage.radio-idle .upNext {
   transform: translateY(16px);
 }
-/* Keep menu and scrim functional when opened from the invisible logo area. */
+/* The visible header logo retains its normal slide-out menu control. */
 
 .header .brand:focus-visible { outline: 2px solid var(--rsvp-gold); outline-offset: 7px; }
 .weatherWidget {
