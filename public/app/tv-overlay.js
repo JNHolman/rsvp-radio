@@ -5,11 +5,9 @@
   const title = $("nextTitle"), artist = $("nextArtist"), featured = $("nextCoverImg"), strip = $("nextStrip");
   const upNext = $("upNext"), progress = $("nowExtras");
   const fill = $("playFill"), elapsed = $("playElapsed"), duration = $("playDuration");
-  const bars = $("soundBars");
   const clock = $("localClock"), weather = $("weatherSummary");
   const timeZone = "America/Kentucky/Louisville";
   let lastRatingKey = "", visibleAudio = false, paused = true, baselineMs = 0, baselineAt = 0, lengthMs = 0;
-  let bass = 0, energy = 0;
   let queueLoading = false, queueFetchedAt = 0;
 
   function formatTime(ms) {
@@ -47,7 +45,7 @@
     const available = payload?.available === true;
     const first = tracks[0];
     title.textContent = first?.title || (available ? "Nothing queued" : "Queue unavailable");
-    artist.textContent = first?.artist || "";
+    artist.textContent = ""; // Compact queue shows title only for the first upcoming track.
     const url = safeArt(first?.artUrl);
     if (url) {
       featured.src = url;
@@ -57,25 +55,21 @@
       featured.hidden = true;
     }
     strip.replaceChildren();
+    // Exactly four more album sleeves; no distracting captions.
     for (const track of tracks.slice(1, 5)) {
       const item = document.createElement("div");
       item.className = "nextStripItem";
+      item.title = [track.title, track.artist].filter(Boolean).join(" — ");
+      const img = document.createElement("img");
       const coverUrl = safeArt(track.artUrl);
       if (coverUrl) {
-        const img = document.createElement("img");
         img.src = coverUrl;
-        img.alt = "Cover for " + (track.title || "upcoming song");
-        item.appendChild(img);
+        img.alt = "Upcoming: " + (track.title || "song");
+      } else {
+        img.alt = "Album artwork unavailable";
+        item.classList.add("missingCover");
       }
-      const name = document.createElement("span");
-      name.textContent = track.title || "—";
-      name.title = [track.title, track.artist].filter(Boolean).join(" — ");
-      item.appendChild(name);
-      if (track.artist) {
-        const sub = document.createElement("small");
-        sub.textContent = track.artist;
-        item.appendChild(sub);
-      }
+      item.appendChild(img);
       strip.appendChild(item);
     }
   }
@@ -122,8 +116,6 @@
     baselineMs = Math.max(0, Number(m.viewOffsetMs) || 0);
     baselineAt = Date.now();
     lengthMs = Math.max(0, Number(m.durationMs) || 0);
-    bass = Math.max(0, Math.min(1, Number(state?.features?.bass) || 0));
-    energy = Math.max(0, Math.min(1, Number(state?.features?.energy) || 0));
     updateProgress();
     const key = String(m.ratingKey || "");
     if (key !== lastRatingKey) {
@@ -134,17 +126,6 @@
     }
   };
 
-  for (let i = 0; i < 64; i++) bars.appendChild(document.createElement("span"));
-  let tick = 0;
-  setInterval(() => {
-    if (!visibleAudio) return;
-    tick += 0.23;
-    Array.from(bars.children).forEach((bar, i) => {
-      const rhythm = .25 + .75 * Math.pow(Math.sin(tick + i * .43), 2);
-      const amplitude = paused ? .09 : Math.min(.96, .10 + .36 * energy * rhythm + .39 * bass * Math.sin(i * .2 + tick) ** 2);
-      bar.style.transform = "scaleY(" + Math.max(.1, amplitude).toFixed(3) + ")";
-    });
-  }, 140);
   setInterval(updateProgress, 400);
   setInterval(() => updateQueue(), 2000);
   setInterval(updateClock, 15000);
