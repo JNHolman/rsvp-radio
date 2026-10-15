@@ -500,6 +500,17 @@
   letter-spacing: -.01em;
 }
 
+.nextStripItem small {
+  display: block;
+  max-width: 100%;
+  margin-top: 1px;
+  font-size: clamp(8px, .66vw, 14px);
+  color: rgba(255,255,255,.67);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* Stacked, gold-accented TECH/MUSIC/ART maker's mark on the far right. */
 .signature {
   display: flex;
