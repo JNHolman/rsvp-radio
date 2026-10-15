@@ -31,16 +31,33 @@ test("Up Next has four real sleeves, a raised queue and matching signature", () 
   assert.match(css, /\.upNext\s+\.signature\s*\{[^}]*7\.6vw;/s);
 });
 
-test("daytime soft glows are restrained and brand owns the plum corner, not a box", () => {
-  assert.match(css, /\.stage\.art-phase-day:not\(\.videoMode\)\s+\.header\s+\.brand::before\s*\{[^}]*radial-gradient\(/s);
-  assert.match(css, /rgba\(38,17,56,\.47\)/);
-  assert.match(css, /\.stage\.art-phase-day:not\(\.videoMode\)\s+\.nowCard::before\s*\{[^}]*rgba\(255,249,225,\.24\)/s);
-  assert.match(css, /\.stage\.art-phase-day:not\(\.videoMode\)\s+\.upNext::before\s*\{[^}]*rgba\(255,248,222,\.18\)/s);
-  assert.match(css, /\.stage\.art-phase-day:not\(\.videoMode\)\s+\.header\s+\.brand\s*\{[^}]*color:\s*#EFC48A;/s);
+test("daylight uses exactly three directional washes with no leftover radial halos", () => {
+  const directional = css.match(/background:\s*linear-gradient\(to right,/g) || [];
+  assert.equal(directional.length, 3);
+  assert.doesNotMatch(css, /radial-gradient\(/);
+  for (const selector of [
+    ".stage.art-phase-day:not(.videoMode) .header .brand::before",
+    ".stage.art-phase-day:not(.videoMode) .nowCard::before",
+    ".stage.art-phase-day:not(.videoMode) .upNext::before",
+  ]) {
+    const start = css.indexOf(selector + " {");
+    assert.ok(start > -1, selector + " exists");
+    const rule = css.slice(start, css.indexOf("}", start));
+    assert.match(rule, /background:\s*linear-gradient\(to right,/);
+    assert.match(rule, /mask-image:\s*linear-gradient\(to bottom,/);
+  }
   assert.match(css, /\.stage\.art-phase-day:not\(\.videoMode\)\s+\.upNext\s+\.nextFeatured\s+\.nextMeta\s*\{[^}]*background:\s*transparent;/s);
-  assert.doesNotMatch(css, /background:\s*rgba\(12,10,30,\.80\)/);
   assert.doesNotMatch(css, /(?:\.ui::before|\.ui::after)\s*\{/);
   assert.doesNotMatch(html, /<div class="(?:vignette|topFade|bottomFade)">/);
+});
+
+test("station identity is gold RSVP and white RADIO in both header and drawer", () => {
+  assert.match(css, /\.header\s+\.brand\s*\{[^}]*color:\s*#F6EFE5;/s);
+  assert.match(css, /\.header\s+\.brand\s+\.rsvp\s*\{\s*color:\s*var\(--rsvp-gold\);/s);
+  assert.match(css, /\.drawerHead\s+\.drawerWordmark\s*\{[^}]*white-space:\s*nowrap;/s);
+  assert.match(css, /\.drawerHead\s+\.drawerWordmark\s*\{[^}]*font-size:\s*clamp\(19px, 1\.45vw, 28px\)/s);
+  assert.match(css, /\.drawerHead\s+\.drawerWordmark\s+\.rsvp\s*\{\s*color:\s*var\(--rsvp-gold\);/s);
+  assert.match(css, /\.stage\.art-phase-day:not\(\.videoMode\)\s+\.header\s+\.brand\s*\{[^}]*color:\s*#F6EFE5;/s);
 });
 
 test("couch readability: bold artist and cover rounding are unmissable", () => {
