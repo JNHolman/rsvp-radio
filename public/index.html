@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>RSVP Radio</title>
   <link rel="stylesheet" href="/styles.css" />
+  <link rel="stylesheet" href="/tv-overlay.css" />
 </head>
 <body>
 
@@ -16,6 +17,7 @@
     <img id="artNight" class="artBg" alt="" aria-hidden="true" />
     <div id="blackHold" class="blackHold"></div>
     <video id="musicVideo" class="musicVideo" playsinline></video>
+    <div class="artFx" aria-hidden="true"></div>
     <div class="vignette"></div>
     <div class="topFade"></div>
     <div class="bottomFade"></div>
@@ -24,6 +26,11 @@
 
       <div class="header">
         <div id="brand" class="brand"><span class="rsvp">RSVP</span> RADIO</div>
+        <div id="weatherWidget" class="weatherWidget" aria-label="Louisville local time and weather">
+          <span class="weatherCity">LOUISVILLE, KY</span>
+          <span id="localClock" class="localClock">--:--</span>
+          <span id="weatherSummary" class="weatherSummary">WEATHER UNAVAILABLE</span>
+        </div>
         <div class="status" aria-label="status">
           <div class="dot"></div>
           <div id="statusText">IDLE</div>
@@ -59,6 +66,30 @@
         </div>
       </div>
 
+      <!-- Live playback extras: actual elapsed time, no invented metadata. -->
+      <div id="nowExtras" class="nowExtras" aria-label="Playback progress">
+        <div class="progressTimes">
+          <span id="playElapsed">0:00</span>
+          <span id="playDuration">0:00</span>
+        </div>
+        <div class="progressTrack"><div id="playFill" class="progressFill"></div></div>
+        <div id="soundBars" class="soundBars" aria-hidden="true"></div>
+      </div>
+
+      <!-- Always-visible Up Next, featured track + the remaining album covers. -->
+      <section id="upNext" class="upNext" aria-label="Upcoming songs">
+        <h2>UP NEXT</h2>
+        <div class="nextFeatured">
+          <div id="nextCover" class="nextCover"><img id="nextCoverImg" alt="" hidden /></div>
+          <div class="nextMeta">
+            <div id="nextTitle" class="nextTitle">Queue unavailable</div>
+            <div id="nextArtist" class="nextArtist"></div>
+          </div>
+        </div>
+        <div id="nextStrip" class="nextStrip" aria-label="Later songs"></div>
+      </section>
+
+      <div class="signature">TECH. MUSIC. ART.</div>
       <button id="exitBtn" class="exitBtn" aria-label="Exit">×</button>
 
     </div>
@@ -87,6 +118,7 @@
   <script src="/app/constants.js"></script>
   <script src="/app/background.js"></script>
   <script src="/app/lights.js"></script>
+  <script src="/app/tv-overlay.js"></script>
   <script src="/app/player.js"></script>
   <script src="/app/main.js"></script>
 
