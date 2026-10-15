@@ -58,13 +58,14 @@
 
 .sideNav { display: none !important; }
 
-/* Couch-safe player. The portrait/vinyl artwork ends near the 58% line:
-   keep the entire player in the right-hand 40% of the TV at 16:9.
-   Text cannot expand LEFT into the record, even for lengthy titles. */
+/* Couch view: the OWNER approved some song-title overlap with the outer
+   vinyl rim. Give text breathing room; keep the album sleeve fixed at right.
+   The title stays right aligned and long Plex titles shrink within this
+   bounded area rather than extending over the portrait. */
 .nowCard {
-  left: 60vw;
+  left: 54vw;
   right: 3.8vw;
-  width: 36.2vw;
+  width: 42.2vw;
   top: 25.5vh;
   bottom: auto;
   height: 36vh;
@@ -491,7 +492,7 @@
 @media (max-width: 900px) {
   .header { left: 3vw; right: 3vw; }
   .drawerHead { padding-left: 3vw; }
-  .nowCard { left: 58.5vw; right: 3vw; width: 38.5vw; top: 26vh; gap: 1vw; }
+  .nowCard { left: 53vw; right: 3vw; width: 44vw; top: 26vh; gap: 1vw; }
   .nowCard .cover { width: 17vw; height: 17vw; }
   .nowCard .tTitle { font-size: clamp(24px, 3vw, 34px); }
   .nowCard .tTitle.title-long { font-size: clamp(22px, 2.6vw, 29px); }
@@ -505,7 +506,7 @@
 @media (max-width: 620px) {
   .header .brand { font-size: 23px; }
   .weatherWidget { gap: 8px; font-size: 12px; }
-  .nowCard { left: 57vw; right: 2vw; width: 41vw; top: 30vh; height: 30vh; }
+  .nowCard { left: 54vw; right: 2vw; width: 44vw; top: 30vh; height: 30vh; }
   .nowCard .tTitle { font-size: 20px; }
   .nowCard .tTitle.title-long { font-size: 18px; }
   .nowCard .tTitle.title-very-long { font-size: 16px; }
@@ -531,8 +532,23 @@
 .stage.art-phase-day:not(.videoMode) .ui {
   color: #19283D;
 }
-.stage.art-phase-day:not(.videoMode) .header .brand,
-.stage.art-phase-day:not(.videoMode) .header .brand .rsvp,
+/* The day logo crosses blue sky, black hair and warm highlights.
+   Navy-alone disappeared in the hair; gold-alone disappeared in the sky.
+   Use the SAME white RSVP / gold RADIO brand as night, but a crisp navy
+   edge (not a blurred shadow or rectangle) to make both readable. */
+.stage.art-phase-day:not(.videoMode) .header .brand {
+  color: #EFC48A;
+  -webkit-text-stroke: 1.1px #19283D;
+  paint-order: stroke fill;
+  text-shadow: none;
+}
+.stage.art-phase-day:not(.videoMode) .header .brand .rsvp {
+  color: #F6EFE5;
+  -webkit-text-stroke: 1.1px #19283D;
+  paint-order: stroke fill;
+  text-shadow: none;
+}
+/* Clock and weather live on reliably blue sky; dark ink already works. */
 .stage.art-phase-day:not(.videoMode) .weatherWidget,
 .stage.art-phase-day:not(.videoMode) .localClock,
 .stage.art-phase-day:not(.videoMode) .weatherSummary {
@@ -546,11 +562,30 @@
   color: #19283D;
   text-shadow: none;
 }
-.stage.art-phase-day:not(.videoMode) .progressTimes,
-.stage.art-phase-day:not(.videoMode) .upNext,
-.stage.art-phase-day:not(.videoMode) .upNext .nextTitle,
-.stage.art-phase-day:not(.videoMode) .upNext .nextArtist {
+.stage.art-phase-day:not(.videoMode) .progressTimes {
   color: #19283D;
+  text-shadow: none;
+}
+/* Small LOCAL queue-label treatment, not a bottom-of-screen shading band.
+   Bottom water reflections contain every value from near-white to navy:
+   plain dark text failed on pale reflections. Match the signature's
+   dark-purple material for ONLY the first queue track's text area.
+   The five square tiles and the approved artwork are never filtered. */
+.stage.art-phase-day:not(.videoMode) .upNext .nextFeatured .nextMeta {
+  box-sizing: border-box;
+  padding: clamp(6px, .65vw, 14px) clamp(8px, .75vw, 16px);
+  background: rgba(12,10,30,.80);
+  border: 1px solid rgba(239,196,138,.38);
+  border-radius: 3px;
+  color: #F6EFE5;
+  text-shadow: none;
+}
+.stage.art-phase-day:not(.videoMode) .upNext .nextTitle {
+  color: #F6EFE5;
+  text-shadow: none;
+}
+.stage.art-phase-day:not(.videoMode) .upNext .nextArtist {
+  color: rgba(246,239,229,.88);
   text-shadow: none;
 }
 .stage.art-phase-day:not(.videoMode) .progressTrack {
@@ -561,7 +596,7 @@
   box-shadow: none;
 }
 .stage.art-phase-day:not(.videoMode) .upNext .nextFeatured .nextMeta > h2 {
-  color: #19283D; /* Day labels share the same readable navy, not extra accent colors. */
+  color: #EFC48A; /* Deliberate shared gold brand accent against a dark tile. */
   text-shadow: none;
 }
 /* The TECH/MUSIC/ART tile remains ivory on its existing dark square. */
@@ -577,3 +612,6 @@
 .upNext .nextMeta h2, .upNext .nextTitle, .upNext .nextArtist {
   transition: color .65s ease, background-color .65s ease;
 }
+
+/* Day-only queue label uses an anchored dark material, not an image-wide mask.
+   On night art the queue labels remain freely over the dark waterfront. */
