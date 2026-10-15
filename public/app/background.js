@@ -17,6 +17,28 @@ let _back       = _bgB;
 let _currentSrc = null;
 let _lastReload = Date.now();
 
+let _lastSolarPhase = null;
+let _solarWarned = false;
+
+// Sun times are computed by the Pi using its configured Louisville timezone.
+// Keep the last confirmed value on a temporary server error; fixed hours are
+// used only if the solar endpoint has never returned a valid response.
+async function _desiredBackground() {
+  try {
+    const response = await fetch("/api/solar-state", { cache: "no-store" });
+    if (!response.ok) throw new Error("HTTP " + response.status);
+    const solar = await response.json();
+    if (solar.phase !== "day" && solar.phase !== "night") throw new Error("Invalid phase");
+    _lastSolarPhase = solar.phase;
+    _solarWarned = false;
+  } catch (err) {
+    if (!_solarWarned) console.warn("[bg] Solar phase unavailable; retaining last known phase:", err.message);
+    _solarWarned = true;
+  }
+  const day = _lastSolarPhase === null ? isDayTime() : _lastSolarPhase === "day";
+  return day ? BG_DAY : BG_NIGHT;
+}
+
 // ── Internals ─────────────────────────────────────────────────────────────────
 
 function _setSrc(video, src) {
@@ -55,7 +77,7 @@ async function _crossfadeTo(src) {
 // ── Public API ────────────────────────────────────────────────────────────────
 
 async function bootBackground() {
-  _currentSrc = isDayTime() ? BG_DAY : BG_NIGHT;
+  _currentSrc = await _desiredBackground();
   _setSrc(_front, _currentSrc);
   _front.classList.add("on");
   try { await _front.play(); } catch (_) {}
@@ -65,7 +87,7 @@ async function bootBackground() {
 async function swapBackgroundIfNeeded(force = false) {
   // Never swap ambient background while music video is active
   if (_inMusicMode) return;
-  const want = isDayTime() ? BG_DAY : BG_NIGHT;
+  const want = await _desiredBackground();
   if (!force && want === _currentSrc) return;
   await _crossfadeTo(want);
 }
