@@ -134,6 +134,8 @@ async function poll() {
       (playerState === "playing" || playerState === "paused")
     );
 
+    if (typeof window.renderTvOverlayState === "function") window.renderTvOverlayState(state);
+
     if (!activeMedia) {
       _setStatus("idle");
       _showCard(false);
