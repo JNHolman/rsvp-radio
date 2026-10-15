@@ -6,7 +6,7 @@
   <title>RSVP Radio</title>
   <link rel="stylesheet" href="/styles.css" />
   <link rel="stylesheet" href="/tv-overlay.css" />
-  <link rel="stylesheet" href="/tv-refined.css?v=daylight-feather-5" />
+  <link rel="stylesheet" href="/tv-refined.css?v=final-couch-6" />
 </head>
 <body>
 
@@ -33,9 +33,12 @@
 
       <div class="header">
         <div id="brand" class="brand" role="button" tabindex="0" aria-label="Open RSVP controls" aria-expanded="false" aria-controls="menu" title="Open RSVP controls"><span class="rsvp">RSVP</span> RADIO</div>
-        <div id="weatherWidget" class="weatherWidget" aria-label="Louisville local time and weather">
+        <div id="weatherWidget" class="weatherWidget" aria-label="Louisville weather and local time">
+          <span id="weatherSummary" class="weatherSummary">
+            <span id="weatherTemp" class="weatherTemp">--°F</span>
+            <span id="weatherCondition" class="weatherCondition">WEATHER UNAVAILABLE</span>
+          </span>
           <span id="localClock" class="localClock">--:--</span>
-          <span id="weatherSummary" class="weatherSummary">WEATHER UNAVAILABLE</span>
         </div>
         <div class="status" aria-label="status">
           <div class="dot"></div>
@@ -155,6 +158,8 @@
     lights.js      exports: explicit human controls only; the server owns
                             all automatic Hue timing and reactive behavior
 
+    title-fit.js   measures real text width and chooses 1–3 balanced lines
+
     player.js      uses:   STATE_URL, POLL_MS, POLL_TIMEOUT
                    exports: startPolling()
 
@@ -166,6 +171,7 @@
   <script src="/app/background.js"></script>
   <script src="/app/lights.js"></script>
   <script src="/app/tv-overlay.js"></script>
+  <script src="/app/title-fit.js"></script>
   <script src="/app/player.js"></script>
   <script src="/app/main.js"></script>
 
