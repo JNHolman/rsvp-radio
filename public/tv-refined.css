@@ -65,7 +65,7 @@
   bottom: auto;
   height: 30vh;
   padding: 0;
-  gap: 1.7vw;
+  gap: 1.0vw;
   display: flex;
   flex-direction: row;
   justify-content: flex-end;
@@ -79,6 +79,11 @@
 }
 .nowCard .meta {
   flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  text-align: right;
   min-width: 0;
   max-width: none;
   padding: 0;
@@ -95,6 +100,7 @@
   font-weight: 750;
   line-height: 1.12;
   letter-spacing: -.018em;
+  text-align: right;
   overflow-wrap: anywhere;
 }
 .nowCard .tArtist {
@@ -123,14 +129,19 @@
   border-radius: 3px;
   box-shadow: 0 15px 40px rgba(0,0,0,.48), 0 0 14px rgba(237,191,121,.09);
 }
-.nowExtras {
-  position: absolute;
+/* Progress is part of the metadata column, not a separately positioned box.
+   This fixes the long-title and song-cover vertical-centering mismatch. */
+.nowCard .meta .nowExtras {
+  position: relative;
   z-index: 19;
-  left: 53.2vw;
+  left: auto;
   right: auto;
-  top: 59vh;
-  width: 25.1vw;
+  top: auto;
+  bottom: auto;
+  width: 100%;
   min-width: 0;
+  margin-top: clamp(11px, 1.9vh, 24px);
+  text-align: right;
 }
 .progressTimes {
   margin: 0 0 6px;
@@ -157,7 +168,7 @@
   left: auto;
   right: 3.8vw;
   bottom: 4vh;
-  width: 52.2vw;
+  width: 56.6vw;
   height: 15vh;
   min-height: 0;
   padding: 0;
@@ -175,27 +186,27 @@
   z-index: 19;
 }
 .upNext.on { transform: translateY(0); }
-.upNext h2 {
-  position: absolute;
-  left: 0;
-  top: -.2vh;
-  font-size: clamp(11px, .91vw, 18px);
-  line-height: 1;
+.upNext .nextMeta h2 {
+  position: static;
+  flex: none;
+  font-size: clamp(10px, .80vw, 16px);
+  line-height: 1.15;
   font-weight: 750;
-  letter-spacing: .12em;
+  letter-spacing: .11em;
   color: var(--rsvp-gold);
   white-space: nowrap;
-  margin: 0;
+  margin: 0 0 .38vw;
+  text-align: right;
 }
 .nextFeatured {
-  flex: 0 0 15.7vw;
-  width: 15.7vw;
+  flex: 0 0 19.2vw;
+  width: 19.2vw;
   min-width: 0;
   min-height: 0;
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: .65vw;
+  gap: .55vw;
 }
 .nextCover {
   flex: 0 0 auto;
@@ -209,18 +220,42 @@
   overflow: hidden;
 }
 .nextCover img { width: 100%; height: 100%; display: block; object-fit: cover; }
-.nextMeta { flex: 1 1 auto; min-width: 0; }
+.nextMeta {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  text-align: right;
+}
 .nextTitle {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
   font-size: clamp(12px, 1.04vw, 21px);
-  font-weight: 690;
-  line-height: 1.27;
-  max-height: 3.81em;
+  font-weight: 700;
+  line-height: 1.22;
+  max-height: 3.66em;
   white-space: normal;
   overflow: hidden;
   overflow-wrap: anywhere;
+  text-align: right;
   text-shadow: 0 2px 10px #000b;
 }
-.nextArtist { display: none !important; }
+.nextArtist {
+  display: block;
+  color: rgba(255,255,255,.74);
+  font-size: clamp(10px, .82vw, 17px);
+  font-weight: 530;
+  line-height: 1.2;
+  margin-top: .28vw;
+  text-align: right;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
 .nextStrip {
   display: flex;
   flex: 0 0 auto;
@@ -414,9 +449,8 @@
   .nowCard { left: 50vw; width: 47vw; top: 27vh; gap: 1.5vw; }
   .nowCard .cover { width: 17vw; height: 17vw; }
   .nowCard .tTitle { font-size: clamp(21px, 2.65vw, 30px); }
-  .nowExtras { left: 50vw; width: 27.5vw; top: 60vh; }
-  .upNext { right: 3vw; width: 56.5vw; }
-  .nextFeatured { flex-basis: 17.2vw; width: 17.2vw; }
+  .upNext { right: 3vw; width: 61vw; }
+  .nextFeatured { flex-basis: 21.5vw; width: 21.5vw; }
   .nextCover, .nextStripItem, .nextStripItem img { width: 7vw; height: 7vw; }
   .upNext .signature { flex-basis: 7vw; width: 7vw; height: 7vw; font-size: 9px; }
   .menu, .menu.on { width: min(380px, 62vw); }
@@ -429,9 +463,8 @@
   .nowCard .tArtist { font-size: 13px; }
   .nowCard .tAlbum { font-size: 10px; }
   .nowCard .cover { width: 18vw; height: 18vw; min-width: 0; min-height: 0; }
-  .nowExtras { left: 45vw; width: 30vw; top: 56vh; }
-  .upNext { right: 2vw; bottom: 5vh; width: 70vw; }
-  .nextFeatured { flex-basis: 20vw; width: 20vw; }
+  .upNext { right: 2vw; bottom: 5vh; width: 72vw; }
+  .nextFeatured { flex-basis: 25vw; width: 25vw; }
   .nextCover, .nextStripItem, .nextStripItem img { width: 8vw; height: 8vw; }
   .nextTitle { font-size: 10px; }
   .upNext .signature { flex-basis: 8vw; width: 8vw; height: 8vw; font-size: 7px; padding: 1vw; }
