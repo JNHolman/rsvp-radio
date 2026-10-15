@@ -6,11 +6,13 @@
   <title>RSVP Radio</title>
   <link rel="stylesheet" href="/styles.css" />
   <link rel="stylesheet" href="/tv-overlay.css" />
-  <link rel="stylesheet" href="/tv-refined.css?v=couch-tv-pass-2" />
+  <link rel="stylesheet" href="/tv-refined.css?v=art-only-idle-1" />
 </head>
 <body>
 
-  <div class="stage">
+  <!-- Boot in art-only mode. First valid /state poll reveals the radio UI
+       only when a track is loaded; avoids flashing stale information. -->
+  <div class="stage radio-idle">
     <video id="bgA" class="bgVideo" autoplay muted loop playsinline></video>
     <video id="bgB" class="bgVideo" autoplay muted loop playsinline></video>
     <!-- Approved daytime/nighttime artwork; the old videos remain fallback. -->
