@@ -153,8 +153,8 @@
   background: rgba(255,255,255,.38);
 }
 .progressFill {
-  background: linear-gradient(90deg, #b281e9, #ebc49d);
-  box-shadow: 0 0 9px rgba(226,155,234,.65);
+  background: #E9BE83; /* One quiet gold accent at night, matching RADIO/UP NEXT. */
+  box-shadow: none;
   transition: width .24s linear;
 }
 .soundBars { display: none !important; }
@@ -543,7 +543,7 @@
   box-shadow: none;
 }
 .stage.art-phase-day:not(.videoMode) .upNext .nextFeatured .nextMeta > h2 {
-  color: #5B3B2A; /* Quiet bronze matches warm skyline details. */
+  color: #19283D; /* Day labels share the same readable navy, not extra accent colors. */
   text-shadow: none;
 }
 /* The TECH/MUSIC/ART tile remains ivory on its existing dark square. */
