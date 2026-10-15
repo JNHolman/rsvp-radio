@@ -3,44 +3,51 @@
    Never changes the approved day/night artwork, media, or Hue.
    Use the application's normal inherited font (no custom font-family overrides). */
 :root { --rsvp-gold:#edbf79;--rsvp-ivory:#f6f3ec; }
-/* Reintroduce only subtle *lighting* movement over the fixed approved art.
-   The portrait, vinyl, skyline, and day/night source images never transform. */
+/* Low-water reflection only: intentionally visible but not distracting.
+   All portrait, vinyl and skyline image pixels remain stationary. */
 .artFx {display:none;}
 .stage.art-phase-day:not(.videoMode) .artFx,
 .stage.art-phase-night:not(.videoMode) .artFx {
-  display:block;position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:0;
+  display:block;position:absolute;inset:0;overflow:hidden;
+  pointer-events:none;z-index:1;
 }
 .artFx::before,.artFx::after {
-  content:"";position:absolute;pointer-events:none;
-  border-radius:50%;will-change:transform,opacity;
+  content:"";position:absolute;pointer-events:none;will-change:transform,opacity;
+  -webkit-mask-image:linear-gradient(to bottom,transparent 0%,black 36%,black 100%);
+  mask-image:linear-gradient(to bottom,transparent 0%,black 36%,black 100%);
 }
 .artFx::before {
-  left:8vw;bottom:2vh;width:56vw;height:23vh;
-  background:radial-gradient(ellipse 75% 39% at 50% 55%,
-    rgba(255,234,191,.20) 0%,rgba(255,220,174,.10) 43%,transparent 76%);
-  opacity:.52;filter:blur(13px);
-  animation:rsvp-water-glint 24s ease-in-out infinite alternate;
+  left:11vw;bottom:0;width:69vw;height:25vh;
+  background:
+    repeating-linear-gradient(to bottom,
+      transparent 0 19px,rgba(255,226,178,.11) 20px 21px,transparent 22px 36px),
+    radial-gradient(ellipse 58% 47% at 52% 66%,
+      rgba(255,226,171,.21),rgba(255,226,171,.06) 55%,transparent 100%);
+  filter:blur(2px);
+  animation:rsvp-water-glint 12s ease-in-out infinite alternate;
 }
 .artFx::after {
-  left:22vw;bottom:5vh;width:44vw;height:17vh;
-  background:radial-gradient(ellipse 71% 36% at 50% 50%,
-    rgba(174,144,252,.16) 0%,rgba(125,164,245,.08) 48%,transparent 80%);
-  opacity:.38;filter:blur(16px);
-  animation:rsvp-water-glint-back 31s ease-in-out infinite alternate;
+  left:30vw;bottom:0;width:52vw;height:20vh;
+  background:
+    repeating-linear-gradient(to bottom,
+      transparent 0 24px,rgba(170,166,255,.12) 25px 26px,transparent 27px 42px),
+    radial-gradient(ellipse 66% 49% at 50% 63%,
+      rgba(149,142,247,.15),transparent 86%);
+  filter:blur(2px);
+  animation:rsvp-water-glint-back 17s ease-in-out infinite alternate;
 }
-.stage.art-phase-night .artFx::before {opacity:.31;}
-.stage.art-phase-night .artFx::after {opacity:.44;}
+.stage.art-phase-night .artFx::before {filter:blur(2px) brightness(.85);}
 .stage.videoMode .artFx {display:none!important;}
 @keyframes rsvp-water-glint {
-  from {transform:translate3d(-2.2vw,0,0) scaleX(.96);opacity:.36;}
-  to {transform:translate3d(2.2vw,0,0) scaleX(1.05);opacity:.57;}
+  from {transform:translate3d(-3vw,0,0) scaleX(.96);opacity:.44;}
+  to {transform:translate3d(3vw,0,0) scaleX(1.04);opacity:.82;}
 }
 @keyframes rsvp-water-glint-back {
-  from {transform:translate3d(2vw,0,0);opacity:.25;}
-  to {transform:translate3d(-2vw,0,0);opacity:.43;}
+  from {transform:translate3d(2.8vw,0,0);opacity:.27;}
+  to {transform:translate3d(-2.8vw,0,0);opacity:.66;}
 }
 @media (prefers-reduced-motion:reduce) {
-  .artFx::before,.artFx::after {animation:none;will-change:auto;}
+  .artFx::before,.artFx::after {animation:none;will-change:auto;opacity:.4;}
 }
 .header {
   top:4.2vh;left:auto;right:3vw;
@@ -85,38 +92,29 @@
 .weatherWidget .weatherCondition {font-weight:470;}
 .weatherWidget .weatherCondition:not(:empty)::before {content:"·";padding-right:.4vw;opacity:.8;}
 .weatherCity {display:none!important;}
-/* Borderless twilight feather occupying the former glass footprint.
-   Stronger at the MAIN song text, readable below at Up Next.
-   No frosted blur, border, rectangular shadow, or shade above 61vh. */
+/* Edge-free radial shading: no rectangular element to reveal a seam.
+   Strongest at the main song title and progress, with a second pocket behind
+   Up Next. Reach uses the former glass area without drawing its silhouette. */
 .ui::before {
-  content:"";position:absolute;z-index:0;pointer-events:none;
-  left:50vw;right:1.6vw;top:61vh;bottom:2.8vh;
-  border:0;border-radius:28px;box-shadow:none;
-  -webkit-backdrop-filter:none;backdrop-filter:none;
+  content:"";position:absolute;inset:0;z-index:0;pointer-events:none;
   background:
-    radial-gradient(ellipse 51% 43% at 57% 29%,
-      rgba(23,19,49,.82) 0%,
-      rgba(23,19,49,.63) 46%,
+    radial-gradient(ellipse 36vw 24vh at 80vw 77vh,
+      rgba(23,19,49,.69) 0%,
+      rgba(23,19,49,.56) 31%,
+      rgba(23,19,49,.30) 62%,
       rgba(23,19,49,0) 100%),
-    radial-gradient(ellipse 50% 31% at 30% 85%,
-      rgba(16,27,61,.54) 0%,
-      rgba(16,27,61,.33) 52%,
+    radial-gradient(ellipse 31vw 15vh at 73vw 88vh,
+      rgba(16,27,61,.52) 0%,
+      rgba(16,27,61,.37) 39%,
+      rgba(16,27,61,.16) 68%,
       rgba(16,27,61,0) 100%),
-    linear-gradient(to right,
-      rgba(48,36,82,.25) 0%,
-      rgba(48,36,82,.32) 25%,
-      rgba(23,19,49,.38) 59%,
-      rgba(16,27,61,.36) 84%,
-      rgba(16,27,61,.23) 100%);
-  /* Blur ONLY the colored shading, never the artwork underneath.
-     This feathers the rectangle's perimeter while preserving interior
-     contrast and the exact previous glass-tested bounds. */
-  filter:blur(30px);
-  -webkit-mask-image:linear-gradient(to right,transparent 0%,rgba(0,0,0,.7) 5%,black 11%,black 100%);
-  mask-image:linear-gradient(to right,transparent 0%,rgba(0,0,0,.7) 5%,black 11%,black 100%);
+    radial-gradient(ellipse 25vw 17vh at 96vw 82vh,
+      rgba(48,36,82,.27) 0%,
+      rgba(48,36,82,.13) 55%,
+      rgba(48,36,82,0) 100%);
   opacity:1;transition:opacity .25s ease;
 }
-.stage.art-phase-night .ui::before {opacity:.9;}
+.stage.art-phase-night .ui::before {opacity:.94;}
 .stage.radio-idle .ui::before,.stage.videoMode .ui::before {opacity:0;}
 .nowCard {
   left:auto;right:3vw;top:63.5vh;bottom:auto;
