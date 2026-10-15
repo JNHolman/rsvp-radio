@@ -21,16 +21,6 @@
 .localClock { font-weight: 750; color: #fff; letter-spacing: .012em; }
 .weatherSummary { color: var(--rsvp-gold); opacity: 1; font-size: .90em; }
 
-/* Day/night artwork already has its own lighting, skyline and contrast.
-   Disable BOTH custom UI shading overlays. Earlier TV CSS also defines a
-   .ui::before, so content:none is intentional (prevents old style leaking).
-   Use existing per-text shadow for readability; no rectangular or oval mask. */
-.ui::before,
-.ui::after {
-  content: none;
-  display: none;
-}
-
 .sideNav { display: none !important; }
 
 /* Integrated player: metadata LEFT, album sleeve on the RIGHT. */
