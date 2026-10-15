@@ -185,7 +185,7 @@
   top: auto;
   left: auto;
   right: 3.8vw;
-  bottom: 5.2vh;
+  bottom: 7vh;
   width: 54vw;
   height: 16.5vh;
   min-height: 0;
@@ -513,7 +513,7 @@
   .nowCard .tArtist { font-size: 15px; }
   .nowCard .tAlbum { font-size: 12px; }
   .nowCard .cover { width: 18vw; height: 18vw; min-width: 0; min-height: 0; }
-  .upNext { right: 2vw; bottom: 6vh; width: 83vw; }
+  .upNext { right: 2vw; bottom: 7vh; width: 83vw; }
   .nextFeatured { flex-basis: 35vw; width: 35vw; }
   .nextCover, .nextStripItem, .nextStripItem img { width: 9.4vw; height: 9.4vw; }
   .nextTitle { font-size: 12px; }
@@ -522,11 +522,13 @@
 }
 
 /* -------------------------------------------------------------------
-   SINGLE DAYLIGHT PALETTE — Midnight navy #19283D for all readable text,
-   deep blue progress, restrained bronze for UP NEXT.
-   The DAY art is bright/gold/blue; light text and large shadows washed out.
-   The NIGHT art remains ivory + a small warm-gold accent.
-   No overlays, shaded panels, or permanent gradient masks.
+   TV DAYLIGHT PALETTE — Midnight navy #19283D for primary track data,
+   weather, clock and progress. The bright art has mixed backgrounds:
+   the header logo uses crisp edge-outlined ivory/gold lettering, and the
+   SMALL Up Next text column gets a matching dark square material for
+   consistent readability against the high-contrast waterfront.
+   Night remains ivory/gold without that queue-text plate. No image-wide
+   masks, vignettes, or gradients. The approved art remains untouched.
    background.js sets art-phase-day only after the DAY WebP has loaded.
    ------------------------------------------------------------------- */
 .stage.art-phase-day:not(.videoMode) .ui {
