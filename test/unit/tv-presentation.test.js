@@ -13,8 +13,8 @@ test("couch TV layout keeps text to the right with permitted outer-record overla
   assert.match(css, /\.nowCard\s*\{\s*left:\s*54vw;/);
   assert.match(css, /\.nowCard\s*\{[^}]*width:\s*42\.2vw;/s);
   assert.match(css, /\.nowCard\s+\.tTitle\s*\{[^}]*-webkit-line-clamp:\s*3;/s);
-  assert.match(css, /\.tTitle\.title-long\s*\{/);
-  assert.match(css, /\.tTitle\.title-very-long\s*\{/);
+  assert.match(html, /<script src="\/app\/title-fit\.js"><\/script>/);
+  assert.doesNotMatch(css, /\.tTitle\.title-very-long\s*\{/);
 });
 
 test("progress stays short/thick with elapsed and total below the bar", () => {
@@ -31,20 +31,32 @@ test("Up Next has four real sleeves, a raised queue and matching signature", () 
   assert.match(css, /\.upNext\s+\.signature\s*\{[^}]*7\.6vw;/s);
 });
 
-test("daytime titles and queue use feathered glow instead of text boxes or strokes", () => {
-  assert.match(css, /\.stage\.art-phase-day:not\(\.videoMode\)\s+\.nowCard::before\s*\{[^}]*radial-gradient\(/s);
-  assert.match(css, /\.stage\.art-phase-day:not\(\.videoMode\)\s+\.upNext::before\s*\{[^}]*radial-gradient\(/s);
-  assert.match(css, /\.stage\.art-phase-day:not\(\.videoMode\)\s+\.header\s+\.brand,[^}]*-webkit-text-stroke:\s*0;/s);
+test("daytime soft glows are restrained and brand owns the plum corner, not a box", () => {
+  assert.match(css, /\.stage\.art-phase-day:not\(\.videoMode\)\s+\.header\s+\.brand::before\s*\{[^}]*radial-gradient\(/s);
+  assert.match(css, /rgba\(38,17,56,\.47\)/);
+  assert.match(css, /\.stage\.art-phase-day:not\(\.videoMode\)\s+\.nowCard::before\s*\{[^}]*rgba\(255,249,225,\.24\)/s);
+  assert.match(css, /\.stage\.art-phase-day:not\(\.videoMode\)\s+\.upNext::before\s*\{[^}]*rgba\(255,248,222,\.18\)/s);
+  assert.match(css, /\.stage\.art-phase-day:not\(\.videoMode\)\s+\.header\s+\.brand\s*\{[^}]*color:\s*#EFC48A;/s);
   assert.match(css, /\.stage\.art-phase-day:not\(\.videoMode\)\s+\.upNext\s+\.nextFeatured\s+\.nextMeta\s*\{[^}]*background:\s*transparent;/s);
-  assert.match(css, /\.nowCard\s+\.tTitle\s*\{[^}]*font-weight:\s*800;/s);
-  assert.match(css, /\.nextTitle\s*\{[^}]*font-weight:\s*800;/s);
-  assert.match(css, /\.nextArtist\s*\{[^}]*font-weight:\s*700;/s);
-  assert.match(css, /\.nowCard\s+\.cover\s*\{[^}]*border-radius:\s*9px;/s);
-  assert.match(css, /\.nextCover\s*\{[^}]*border-radius:\s*6px;/s);
-  assert.match(css, /\.upNext\s+\.signature\s*\{[^}]*border-radius:\s*6px;/s);
   assert.doesNotMatch(css, /background:\s*rgba\(12,10,30,\.80\)/);
   assert.doesNotMatch(css, /(?:\.ui::before|\.ui::after)\s*\{/);
   assert.doesNotMatch(html, /<div class="(?:vignette|topFade|bottomFade)">/);
+});
+
+test("couch readability: bold artist and cover rounding are unmissable", () => {
+  assert.match(css, /\.nowCard\s+\.tTitle\s*\{[^}]*font-weight:\s*800;/s);
+  assert.match(css, /\.nextTitle\s*\{[^}]*font-weight:\s*800;/s);
+  assert.match(css, /\.nextArtist\s*\{[^}]*font-weight:\s*700;/s);
+  assert.match(css, /\.nowCard\s+\.cover\s*\{[^}]*border-radius:\s*16px;/s);
+  assert.match(css, /\.nextCover\s*\{[^}]*border-radius:\s*10px;/s);
+  assert.match(css, /\.upNext\s+\.signature\s*\{[^}]*border-radius:\s*10px;/s);
+});
+
+test("weather and temperature come BEFORE the time, with the clock anchored right", () => {
+  assert.ok(html.indexOf('id="weatherTemp"') < html.indexOf('id="localClock"'));
+  assert.ok(html.indexOf('id="weatherCondition"') < html.indexOf('id="localClock"'));
+  assert.match(css, /\.weatherWidget\s+\.weatherTemp\s*\{[^}]*font-size:\s*clamp\(21px, 1\.9vw, 38px\)/s);
+  assert.match(css, /\.weatherWidget\s+\.localClock\s*\{[^}]*font-size:\s*clamp\(24px, 2\.15vw, 43px\)/s);
 });
 
 test("when idle only music interface hides, logo and weather remain available", () => {
