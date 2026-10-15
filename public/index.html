@@ -71,7 +71,7 @@
             </div>
           </div>
           <div class="drawerPanel" data-panel="vibe" hidden>
-            <p>These are the four programming modes currently connected to RSVP. Your existing scheduled handoff ends manual selections automatically.</p>
+            <p>Choose your sound.</p>
             <div class="menuGrid two">
               <button class="menuBtn" data-vibe="lounge">LOUNGE</button>
               <button class="menuBtn" data-vibe="rnb">R&amp;B</button>
@@ -102,21 +102,19 @@
           <h1 id="tTitle" class="tTitle">—</h1>
           <div id="tArtist" class="tArtist">—</div>
           <div id="tAlbum" class="tAlbum">—</div>
+          <!-- Keep progress physically anchored to the song metadata. -->
+          <div id="nowExtras" class="nowExtras" aria-label="Playback progress">
+            <div class="progressTimes">
+              <span id="playElapsed">0:00</span>
+              <span id="playDuration">0:00</span>
+            </div>
+            <div class="progressTrack"><div id="playFill" class="progressFill"></div></div>
+          </div>
         </div>
         <div class="cover">
           <div class="placeholder" id="ph">RSVP<br/>RADIO</div>
           <img id="artImg" alt="" style="display:none" />
         </div>
-      </div>
-
-      <!-- Live playback extras: actual elapsed time, no invented metadata. -->
-      <div id="nowExtras" class="nowExtras" aria-label="Playback progress">
-        <div class="progressTimes">
-          <span id="playElapsed">0:00</span>
-          <span id="playDuration">0:00</span>
-        </div>
-        <div class="progressTrack"><div id="playFill" class="progressFill"></div></div>
-
       </div>
 
       <!-- Compact queue in the right-hand gradient; 5 covers plus one square mark. -->
