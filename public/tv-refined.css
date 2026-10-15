@@ -52,7 +52,7 @@
    No frosted blur, border, rectangular shadow, or shade above 61vh. */
 .ui::before {
   content:"";position:absolute;z-index:0;pointer-events:none;
-  left:50vw;right:3vw;top:61vh;bottom:2.8vh;
+  left:50vw;right:1.6vw;top:61vh;bottom:2.8vh;
   border:0;border-radius:0;box-shadow:none;
   -webkit-backdrop-filter:none;backdrop-filter:none;
   background:
@@ -72,12 +72,12 @@
       rgba(16,27,61,.23) 100%);
   /* Intersect horizontal and vertical feathers to prevent a hard top edge. */
   -webkit-mask-image:
-    linear-gradient(to right,transparent 0%,black 12%,black 100%),
-    linear-gradient(to bottom,transparent 0%,rgba(0,0,0,.82) 15%,black 27%,black 100%);
+    linear-gradient(to right,rgba(0,0,0,.22) 0%,black 12%,black 100%),
+    linear-gradient(to bottom,rgba(0,0,0,.46) 0%,rgba(0,0,0,.87) 8%,black 15%,black 100%);
   -webkit-mask-composite:source-in;
   mask-image:
-    linear-gradient(to right,transparent 0%,black 12%,black 100%),
-    linear-gradient(to bottom,transparent 0%,rgba(0,0,0,.82) 15%,black 27%,black 100%);
+    linear-gradient(to right,rgba(0,0,0,.22) 0%,black 12%,black 100%),
+    linear-gradient(to bottom,rgba(0,0,0,.46) 0%,rgba(0,0,0,.87) 8%,black 15%,black 100%);
   mask-composite:intersect;
   opacity:1;transition:opacity .25s ease;
 }
