@@ -38,7 +38,8 @@ function previewPlexConfig() {
     return {
       token,
       base: vars.PLEX_BASE || "http://127.0.0.1:32400",
-      clientId: vars.PLEX_TARGET_CLIENT_IDENTIFIER || "",
+      clientId: vars.PLEXAMP_CLIENT_IDENTIFIER || vars.PLEX_TARGET_CLIENT_IDENTIFIER || "",
+      plexampBase: vars.PLEXAMP_BASE || "http://127.0.0.1:32500",
     };
   } catch (_) { return null; }
 }
@@ -54,8 +55,18 @@ async function previewQueue() {
     const sessionsUrl = new URL("/status/sessions", cfg.base);
     sessionsUrl.searchParams.set("X-Plex-Token", cfg.token);
     const sessions = await fetch(sessionsUrl, { signal: AbortSignal.timeout(3000) });
-    if (!sessions.ok) return none("sessions_unavailable");
-    const context = plexQueue.parseCurrentQueueContext(await sessions.text(), cfg.clientId);
+    let context = sessions.ok ? plexQueue.parseCurrentQueueContext(await sessions.text(), cfg.clientId) : null;
+    if ((!context || context.ratingKey !== currentKey) && cfg.clientId) {
+      try {
+        const localUrl = new URL("/player/timeline/poll", cfg.plexampBase);
+        localUrl.searchParams.set("wait", "0");
+        localUrl.searchParams.set("commandID", String(Date.now()));
+        localUrl.searchParams.set("X-Plex-Client-Identifier", "rsvp-radio");
+        localUrl.searchParams.set("X-Plex-Target-Client-Identifier", cfg.clientId);
+        const local = await fetch(localUrl, { signal: AbortSignal.timeout(1800) });
+        if (local.ok) context = plexQueue.parseTimelineQueueContext(await local.text());
+      } catch (_) {}
+    }
     if (!context || context.ratingKey !== currentKey) return none("play_queue_not_reported");
     const queueUrl = new URL("/playQueues/" + context.queueId, cfg.base);
     queueUrl.searchParams.set("X-Plex-Token", cfg.token);
