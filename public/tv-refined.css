@@ -3,52 +3,64 @@
    Never changes the approved day/night artwork, media, or Hue.
    Use the application's normal inherited font (no custom font-family overrides). */
 :root { --rsvp-gold:#edbf79;--rsvp-ivory:#f6f3ec; }
-/* Low-water reflection only: intentionally visible but not distracting.
-   All portrait, vinyl and skyline image pixels remain stationary. */
+/* The water itself now moves: a cropped copy of the approved artwork
+   drifts gently across only the lower waterfront. Portrait, vinyl, skyline,
+   and all UI elements remain completely still. */
 .artFx {display:none;}
 .stage.art-phase-day:not(.videoMode) .artFx,
 .stage.art-phase-night:not(.videoMode) .artFx {
   display:block;position:absolute;inset:0;overflow:hidden;
   pointer-events:none;z-index:1;
 }
+.stage.art-phase-day .artFx {--rsvp-water-image:url("/assets/bg/rsvp_day_art.webp");}
+.stage.art-phase-night .artFx {--rsvp-water-image:url("/assets/bg/rsvp_night_art.webp");}
 .artFx::before,.artFx::after {
-  content:"";position:absolute;pointer-events:none;will-change:transform,opacity;
-  -webkit-mask-image:linear-gradient(to bottom,transparent 0%,black 36%,black 100%);
-  mask-image:linear-gradient(to bottom,transparent 0%,black 36%,black 100%);
+  content:"";position:absolute;pointer-events:none;
+  will-change:transform,opacity;
 }
 .artFx::before {
-  left:11vw;bottom:0;width:69vw;height:25vh;
-  background:
-    repeating-linear-gradient(to bottom,
-      transparent 0 19px,rgba(255,226,178,.11) 20px 21px,transparent 22px 36px),
-    radial-gradient(ellipse 58% 47% at 52% 66%,
-      rgba(255,226,171,.21),rgba(255,226,171,.06) 55%,transparent 100%);
-  filter:blur(2px);
-  animation:rsvp-water-glint 12s ease-in-out infinite alternate;
+  left:-2vw;bottom:0;width:104vw;height:34vh;
+  background-image:var(--rsvp-water-image);
+  background-repeat:no-repeat;
+  background-size:100vw 100vh;
+  background-position:center bottom;
+  -webkit-mask-image:linear-gradient(to bottom,transparent 0%,rgba(0,0,0,.35) 23%,black 54%,black 87%,transparent 100%);
+  mask-image:linear-gradient(to bottom,transparent 0%,rgba(0,0,0,.35) 23%,black 54%,black 87%,transparent 100%);
+  opacity:.40;
+  animation:rsvp-ripple-drift 7s ease-in-out infinite alternate;
 }
 .artFx::after {
-  left:30vw;bottom:0;width:52vw;height:20vh;
+  left:9vw;bottom:1vh;width:68vw;height:22vh;
   background:
     repeating-linear-gradient(to bottom,
-      transparent 0 24px,rgba(170,166,255,.12) 25px 26px,transparent 27px 42px),
-    radial-gradient(ellipse 66% 49% at 50% 63%,
-      rgba(149,142,247,.15),transparent 86%);
-  filter:blur(2px);
-  animation:rsvp-water-glint-back 17s ease-in-out infinite alternate;
+      transparent 0 12px,
+      rgba(255,224,169,.18) 13px 15px,
+      transparent 16px 29px),
+    radial-gradient(ellipse 65% 35% at 50% 72%,
+      rgba(255,224,169,.17),transparent 100%);
+  -webkit-mask-image:radial-gradient(ellipse 78% 65% at 50% 72%,black 10%,transparent 100%);
+  mask-image:radial-gradient(ellipse 78% 65% at 50% 72%,black 10%,transparent 100%);
+  opacity:.48;
+  animation:rsvp-water-shimmer 9s ease-in-out infinite alternate;
 }
-.stage.art-phase-night .artFx::before {filter:blur(2px) brightness(.85);}
+.stage.art-phase-night .artFx::after {
+  filter:hue-rotate(78deg);
+  opacity:.42;
+}
 .stage.videoMode .artFx {display:none!important;}
-@keyframes rsvp-water-glint {
-  from {transform:translate3d(-3vw,0,0) scaleX(.96);opacity:.44;}
-  to {transform:translate3d(3vw,0,0) scaleX(1.04);opacity:.82;}
+@keyframes rsvp-ripple-drift {
+  from {transform:translate3d(-1.1vw,0,0) scaleX(1.008);opacity:.34;}
+  to {transform:translate3d(1.1vw,0,0) scaleX(.992);opacity:.55;}
 }
-@keyframes rsvp-water-glint-back {
-  from {transform:translate3d(2.8vw,0,0);opacity:.27;}
-  to {transform:translate3d(-2.8vw,0,0);opacity:.66;}
+@keyframes rsvp-water-shimmer {
+  from {transform:translate3d(1.8vw,0,0);opacity:.35;}
+  to {transform:translate3d(-1.8vw,0,0);opacity:.62;}
 }
 @media (prefers-reduced-motion:reduce) {
-  .artFx::before,.artFx::after {animation:none;will-change:auto;opacity:.4;}
+  .artFx::before,.artFx::after {animation:none;will-change:auto;}
 }
+/* Keep all typography and queue art above the animated water layer. */
+.ui {z-index:2;}
 .header {
   top:4.2vh;left:auto;right:3vw;
   width:auto;
