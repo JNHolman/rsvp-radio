@@ -57,8 +57,9 @@
       featured.hidden = true;
     }
     strip.replaceChildren();
-    // Exactly four more album sleeves; no distracting captions.
-    for (const track of tracks.slice(1, 5)) {
+    // Three more sleeves after the identified next track: four covers total.
+    // Preserve the real Plex play queue order; no playlist guessing.
+    for (const track of tracks.slice(1, 4)) {
       const item = document.createElement("div");
       item.className = "nextStripItem";
       item.title = [track.title, track.artist].filter(Boolean).join(" — ");
