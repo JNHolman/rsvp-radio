@@ -47,23 +47,34 @@
 .weatherWidget .weatherCondition {font-weight:470;}
 .weatherWidget .weatherCondition:not(:empty)::before {content:"·";padding-right:.4vw;opacity:.8;}
 .weatherCity {display:none!important;}
-/* Clearly positioned blue glass beneath Now Playing and Up Next.
-   Its left boundary is 50vw, BEFORE the first queue text; the full portrait
-   remains above this lower-right treatment. */
+/* Borderless twilight feather occupying the former glass footprint.
+   Stronger at the MAIN song text, readable below at Up Next.
+   No frosted blur, border, rectangular shadow, or shade above 61vh. */
 .ui::before {
   content:"";position:absolute;z-index:0;pointer-events:none;
-  left:50vw;right:1.6vw;top:61vh;bottom:2.8vh;
-  border:1px solid rgba(223,239,255,.28);
-  border-radius:18px;
-  background:linear-gradient(to right,
-    rgba(16,67,145,.24) 0%,
-    rgba(14,65,144,.35) 38%,
-    rgba(12,55,128,.47) 75%,
-    rgba(14,52,117,.56) 100%);
-  -webkit-backdrop-filter:blur(11px) saturate(115%);
-  backdrop-filter:blur(11px) saturate(115%);
-  box-shadow:0 10px 34px rgba(3,19,48,.13),inset 0 1px 0 rgba(255,255,255,.16);
-  transition:opacity .25s ease;
+  left:50vw;right:3vw;top:61vh;bottom:2.8vh;
+  border:0;border-radius:0;box-shadow:none;
+  -webkit-backdrop-filter:none;backdrop-filter:none;
+  background:
+    radial-gradient(ellipse 51% 43% at 57% 29%,
+      rgba(23,19,49,.76) 0%,
+      rgba(23,19,49,.57) 46%,
+      rgba(23,19,49,0) 100%),
+    radial-gradient(ellipse 50% 31% at 30% 85%,
+      rgba(16,27,61,.54) 0%,
+      rgba(16,27,61,.33) 52%,
+      rgba(16,27,61,0) 100%),
+    linear-gradient(to right,
+      rgba(48,36,82,.25) 0%,
+      rgba(48,36,82,.32) 25%,
+      rgba(23,19,49,.38) 59%,
+      rgba(16,27,61,.36) 84%,
+      rgba(16,27,61,.23) 100%);
+  -webkit-mask-image:
+    linear-gradient(to right,transparent 0%,black 12%,black 100%);
+  mask-image:
+    linear-gradient(to right,transparent 0%,black 12%,black 100%);
+  opacity:1;transition:opacity .25s ease;
 }
 .stage.art-phase-night .ui::before {opacity:.9;}
 .stage.radio-idle .ui::before,.stage.videoMode .ui::before {opacity:0;}
