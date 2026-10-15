@@ -254,16 +254,6 @@
 .weatherWidget { font-size: clamp(12px, .92vw, 20px); }
 .weatherCity { color: var(--rsvp-muted); }
 .weatherSummary { color: var(--rsvp-metal); }
-.ui::before {
-  content: "";
-  position: absolute;
-  top: 13%;
-  left: 37%;
-  width: 63%;
-  height: 65%;
-  background: linear-gradient(90deg, transparent, rgba(5,5,15,.16) 24%, rgba(5,5,18,.37) 100%);
-  pointer-events: none;
-}
 /* A genuine, persistent menu column like the reference.
    Buttons open the functional menu instead of being decorative labels. */
 .sideNav {
@@ -552,7 +542,6 @@
 .stage.videoMode .signature,
 .stage.videoMode .upNext,
 .stage.videoMode .nowExtras { opacity: 0 !important; visibility: hidden; }
-.stage.videoMode .ui::before { display: none; }
 
 /* A smaller laptop window keeps the same basic TV geometry. */
 @media (max-width: 900px) {
