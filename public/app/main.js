@@ -91,6 +91,23 @@ function _showMenuPanel(panel) {
   if (panel === "tv") _refreshMenuVideos();
 }
 
+// The always-visible sidebar mirrors the approved mockup, but each item
+// opens a real section of the existing functional controls panel.
+document.getElementById("sideNav")?.addEventListener("pointerdown", e => {
+  const button = e.target.closest("[data-sidebar]");
+  if (!button) return;
+  e.preventDefault();
+  const target = button.dataset.sidebar;
+  for (const item of document.querySelectorAll(".sideNavItem")) {
+    item.classList.toggle("selected", item === button);
+  }
+  if (target === "playing") {
+    _toggleMenu(false);
+  } else {
+    _showMenuPanel(target);
+  }
+});
+
 _brand.addEventListener("pointerdown", e => { e.preventDefault(); _toggleMenu(); });
 _menuClose.addEventListener("pointerdown", e => { e.preventDefault(); _toggleMenu(false); });
 
