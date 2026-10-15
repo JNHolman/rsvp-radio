@@ -144,7 +144,7 @@ const server = http.createServer(async (req, res) => {
     return res.end();
   }
   if (pathname === "/runtime-config.js") {
-    return send(res, 200, "text/javascript; charset=utf-8", "window.RSVP_RUNTIME_CONFIG={pollMs:2000,pollTimeoutMs:2000};");
+    return send(res, 200, "text/javascript; charset=utf-8", "window.RSVP_PREVIEW_MODE=true; window.RSVP_RUNTIME_CONFIG={pollMs:2000,pollTimeoutMs:2000};");
   }
   if (pathname === "/state" || pathname === "/art") {
     try {
@@ -156,6 +156,15 @@ const server = http.createServer(async (req, res) => {
       return pathname === "/state"
         ? send(res, 200, "application/json", JSON.stringify({ media: { type: "idle", playerState: "" } }))
         : send(res, 404, "text/plain", "Artwork unavailable");
+    }
+  }
+  if (pathname === "/admin/video-playlists") {
+    // Read-only playlist listing. Control POSTs are never forwarded by preview.
+    try {
+      const live = await liveGet("/admin/video-playlists");
+      return send(res, 200, "application/json", await live.text());
+    } catch (_) {
+      return send(res, 200, "application/json", JSON.stringify({ok:true, playlists:[]}));
     }
   }
   if (pathname === "/api/up-next") {
