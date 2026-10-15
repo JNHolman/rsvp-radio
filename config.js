@@ -34,6 +34,9 @@ const cfg = {
   PUBLIC_DIR: existingDir(process.env.PUBLIC_DIR, LOCAL_PUBLIC_DIR),
   BG_DAY,
   BG_NIGHT,
+  // Venue coordinates for automatic sunrise / civil-dusk TV backgrounds.
+  SOLAR_LATITUDE:  Number(process.env.SOLAR_LATITUDE ?? "38.2527"),
+  SOLAR_LONGITUDE: Number(process.env.SOLAR_LONGITUDE ?? "-85.7585"),
 
   EXIT_API_TOKEN: process.env.EXIT_API_TOKEN || "",
 
