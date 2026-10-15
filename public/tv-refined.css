@@ -47,21 +47,22 @@
 .weatherWidget .weatherCondition {font-weight:470;}
 .weatherWidget .weatherCondition:not(:empty)::before {content:"·";padding-right:.4vw;opacity:.8;}
 .weatherCity {display:none!important;}
-/* A single transparent player with a smooth feather into sky and water. */
-/* Shared feathered navy/black shading supports the full lower-right composition. */
+/* Lower-right blue feather: protect the portrait/vinyl, then gently tint
+   the song and queue area. No navy/black wall or full-frame darkening. */
 .ui::before {
   content:"";position:absolute;z-index:0;pointer-events:none;
-  right:0;top:49vh;bottom:0;width:58vw;
+  left:0;right:0;top:59vh;bottom:0;
   background:linear-gradient(to right,
-    rgba(5,14,33,0) 0%,
-    rgba(5,14,33,.16) 13%,
-    rgba(5,14,33,.45) 33%,
-    rgba(5,14,33,.63) 67%,
-    rgba(5,14,33,.60) 100%);
-  -webkit-mask-image:linear-gradient(to bottom,transparent 0%,black 19%,black 88%,transparent 100%);
-  mask-image:linear-gradient(to bottom,transparent 0%,black 19%,black 88%,transparent 100%);
+    rgba(26,88,197,0) 0%,
+    rgba(26,88,197,0) 32%,
+    rgba(26,88,197,.10) 44%,
+    rgba(26,88,197,.18) 60%,
+    rgba(26,88,197,.30) 80%,
+    rgba(26,88,197,.43) 100%);
+  -webkit-mask-image:linear-gradient(to bottom,transparent 0%,rgba(0,0,0,.33) 18%,rgba(0,0,0,.85) 43%,black 72%);
+  mask-image:linear-gradient(to bottom,transparent 0%,rgba(0,0,0,.33) 18%,rgba(0,0,0,.85) 43%,black 72%);
 }
-.stage.art-phase-night .ui::before {opacity:.75;}
+.stage.art-phase-night .ui::before {opacity:.82;}
 .nowCard {
   left:auto;right:3vw;top:63.5vh;bottom:auto;
   width:44vw;height:20.5vh;min-height:0;
@@ -74,7 +75,7 @@
   position:relative;z-index:1;
   flex:1 1 0;min-width:0;max-width:none;
   display:flex;flex-direction:column;align-items:flex-end;
-  justify-content:flex-start;text-align:right;padding:0;
+  justify-content:flex-start;text-align:right;padding:2.5vh 0 0;
   color:var(--rsvp-ivory);text-shadow:0 1px 3px rgba(5,16,36,.7);
 }
 .nowCard .tTitle {
@@ -108,7 +109,7 @@
 .nowCard .meta .nowExtras {
   position:relative;z-index:1;left:auto;right:auto;top:auto;bottom:auto;
   display:flex;flex-direction:column;gap:0;
-  align-self:flex-end;width:74%;min-width:0;max-width:none;
+  align-self:flex-end;width:52%;min-width:0;max-width:none;
   margin-top:1.25vh;opacity:0;transition:opacity .23s ease;
 }
 .nowCard .meta .nowExtras.on {opacity:1;}
