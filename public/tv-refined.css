@@ -12,7 +12,10 @@
   letter-spacing: -.025em;
   -webkit-tap-highlight-color: transparent;
 }
-.header .brand { cursor: pointer; }
+.header .brand {
+  cursor: pointer;
+  text-shadow: 0 1px 3px rgba(0,0,0,.55);
+}
 .drawerHead .drawerWordmark { cursor: default; }
 .stage.drawer-open .header .brand { visibility: hidden; }
 .header .brand:focus-visible { outline: 2px solid var(--rsvp-gold); outline-offset: 7px; }
@@ -20,6 +23,7 @@
   gap: clamp(15px, 1.35vw, 30px);
   font-size: clamp(15px, 1.3vw, 25px);
   align-items: baseline;
+  text-shadow: 0 1px 3px rgba(0,0,0,.58);
 }
 .weatherWidget .localClock {
   font-size: clamp(24px, 2.15vw, 43px);
@@ -69,9 +73,10 @@
   min-width: 0;
   max-width: none;
   padding: 0;
-  text-shadow: 0 3px 15px rgba(0,0,0,.75);
+  text-shadow: 0 1px 3px rgba(0,0,0,.62);
 }
 .nowCard .tTitle {
+  color: #F6EFE5;
   display: -webkit-box;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
@@ -90,13 +95,13 @@
 .nowCard .tTitle.title-long { font-size: clamp(28px, 2.45vw, 49px); }
 .nowCard .tTitle.title-very-long { font-size: clamp(25px, 2.08vw, 41px); }
 .nowCard .tArtist {
-  color: rgba(255,255,255,.93);
+  color: #F6EFE5;
   font-size: clamp(23px, 1.98vw, 39px);
   font-weight: 600;
   margin-top: clamp(6px, .9vh, 14px);
 }
 .nowCard .tAlbum {
-  color: rgba(255,255,255,.77);
+  color: rgba(246,239,229,.86);
   font-size: clamp(17px, 1.39vw, 28px);
   margin-top: 7px;
   white-space: normal;
@@ -137,7 +142,7 @@
   margin: 0;
   display: flex;
   justify-content: space-between;
-  color: rgba(255,255,255,.90);
+  color: #F6EFE5;
   font-size: clamp(16px, 1.25vw, 25px);
   font-weight: 560;
 }
@@ -249,11 +254,11 @@
   overflow: hidden;
   overflow-wrap: anywhere;
   text-align: right;
-  text-shadow: 0 2px 10px #000b;
+  text-shadow: 0 1px 3px rgba(0,0,0,.60);
 }
 .nextArtist {
   display: block;
-  color: rgba(255,255,255,.74);
+  color: rgba(246,239,229,.87);
   font-size: clamp(15px, 1.14vw, 23px);
   font-weight: 530;
   line-height: 1.2;
@@ -468,96 +473,82 @@
 @media (max-width: 900px) {
   .header { left: 3vw; right: 3vw; }
   .drawerHead { padding-left: 3vw; }
-  .nowCard { left: 50vw; width: 47vw; top: 27vh; gap: 1.5vw; }
+  .nowCard { left: 58.5vw; right: 3vw; width: 38.5vw; top: 26vh; gap: 1vw; }
   .nowCard .cover { width: 17vw; height: 17vw; }
-  .nowCard .tTitle { font-size: clamp(21px, 2.65vw, 30px); }
-  .upNext { right: 3vw; width: 61vw; }
-  .nextFeatured { flex-basis: 21.5vw; width: 21.5vw; }
-  .nextCover, .nextStripItem, .nextStripItem img { width: 7vw; height: 7vw; }
-  .upNext .signature { flex-basis: 7vw; width: 7vw; height: 7vw; font-size: 9px; }
+  .nowCard .tTitle { font-size: clamp(24px, 3vw, 34px); }
+  .nowCard .tTitle.title-long { font-size: clamp(22px, 2.6vw, 29px); }
+  .nowCard .tTitle.title-very-long { font-size: clamp(20px, 2.2vw, 25px); }
+  .upNext { right: 3vw; width: 62vw; }
+  .nextFeatured { flex-basis: 25.5vw; width: 25.5vw; }
+  .nextCover, .nextStripItem, .nextStripItem img { width: 7.6vw; height: 7.6vw; }
+  .upNext .signature { flex-basis: 7.6vw; width: 7.6vw; height: 7.6vw; font-size: clamp(11px, 1vw, 15px); }
   .menu, .menu.on { width: min(380px, 62vw); }
 }
 @media (max-width: 620px) {
   .header .brand { font-size: 23px; }
   .weatherWidget { gap: 8px; font-size: 12px; }
-  .nowCard { left: 45vw; width: 51vw; top: 34vh; height: 21vh; }
-  .nowCard .tTitle { font-size: 16px; }
-  .nowCard .tArtist { font-size: 13px; }
-  .nowCard .tAlbum { font-size: 10px; }
+  .nowCard { left: 57vw; right: 2vw; width: 41vw; top: 30vh; height: 30vh; }
+  .nowCard .tTitle { font-size: 20px; }
+  .nowCard .tTitle.title-long { font-size: 18px; }
+  .nowCard .tTitle.title-very-long { font-size: 16px; }
+  .nowCard .tArtist { font-size: 15px; }
+  .nowCard .tAlbum { font-size: 12px; }
   .nowCard .cover { width: 18vw; height: 18vw; min-width: 0; min-height: 0; }
-  .upNext { right: 2vw; bottom: 5vh; width: 72vw; }
-  .nextFeatured { flex-basis: 25vw; width: 25vw; }
-  .nextCover, .nextStripItem, .nextStripItem img { width: 8vw; height: 8vw; }
-  .nextTitle { font-size: 10px; }
-  .upNext .signature { flex-basis: 8vw; width: 8vw; height: 8vw; font-size: 7px; padding: 1vw; }
+  .upNext { right: 2vw; bottom: 6vh; width: 83vw; }
+  .nextFeatured { flex-basis: 35vw; width: 35vw; }
+  .nextCover, .nextStripItem, .nextStripItem img { width: 9.4vw; height: 9.4vw; }
+  .nextTitle { font-size: 12px; }
+  .upNext .signature { flex-basis: 9.4vw; width: 9.4vw; height: 9.4vw; font-size: 8px; padding: 1vw; }
   .menu, .menu.on { width: 86vw; }
 }
 
 /* -------------------------------------------------------------------
-   DAYLIGHT TYPOGRAPHY — Approved art stays untouched.
-   The golden daytime skyline is bright enough that white lettering and
-   large black text shadows BOTH lose legibility. Switch to ink colors
-   derived from the purple vinyl/wave accents instead of darkening the art.
-   The JS applies art-phase-day ONLY when the actual daytime WebP is loaded.
-   NIGHT uses the unchanged warm-white/gold design above; VIDEO is excluded.
+   SINGLE DAYLIGHT PALETTE — Midnight navy #19283D for all readable text,
+   deep blue progress, restrained bronze for UP NEXT.
+   The DAY art is bright/gold/blue; light text and large shadows washed out.
+   The NIGHT art remains ivory + a small warm-gold accent.
+   No overlays, shaded panels, or permanent gradient masks.
+   background.js sets art-phase-day only after the DAY WebP has loaded.
    ------------------------------------------------------------------- */
 .stage.art-phase-day:not(.videoMode) .ui {
-  color: #241631;
+  color: #19283D;
 }
 .stage.art-phase-day:not(.videoMode) .header .brand,
-.stage.art-phase-day:not(.videoMode) .header .brand .rsvp {
-  color: #241631;
-  text-shadow: none;
-}
-.stage.art-phase-day:not(.videoMode) .header .brand {
-  color: #55283d;
-}
+.stage.art-phase-day:not(.videoMode) .header .brand .rsvp,
 .stage.art-phase-day:not(.videoMode) .weatherWidget,
 .stage.art-phase-day:not(.videoMode) .localClock,
 .stage.art-phase-day:not(.videoMode) .weatherSummary {
-  color: #241631;
+  color: #19283D;
   text-shadow: none;
 }
-.stage.art-phase-day:not(.videoMode) .nowCard .meta {
-  color: #241631;
-  text-shadow: none;
-}
-.stage.art-phase-day:not(.videoMode) .nowCard .tTitle {
-  color: #241631;
-}
-.stage.art-phase-day:not(.videoMode) .nowCard .tArtist {
-  color: #302040;
-}
+.stage.art-phase-day:not(.videoMode) .nowCard .meta,
+.stage.art-phase-day:not(.videoMode) .nowCard .tTitle,
+.stage.art-phase-day:not(.videoMode) .nowCard .tArtist,
 .stage.art-phase-day:not(.videoMode) .nowCard .tAlbum {
-  color: #44304f;
+  color: #19283D;
+  text-shadow: none;
 }
-.stage.art-phase-day:not(.videoMode) .progressTimes {
-  color: #352441;
-}
-.stage.art-phase-day:not(.videoMode) .progressTrack {
-  background: rgba(48,28,67,.30);
-}
-.stage.art-phase-day:not(.videoMode) .progressFill {
-  background: #572b6f;
-  box-shadow: none;
-}
+.stage.art-phase-day:not(.videoMode) .progressTimes,
 .stage.art-phase-day:not(.videoMode) .upNext,
-.stage.art-phase-day:not(.videoMode) .upNext .nextMeta {
-  color: #241631;
-  text-shadow: none;
-}
-.stage.art-phase-day:not(.videoMode) .upNext .nextFeatured .nextMeta > h2 {
-  color: #832950; /* Distinct deep raspberry against gold/blue water. */
-  text-shadow: none;
-}
 .stage.art-phase-day:not(.videoMode) .upNext .nextTitle,
 .stage.art-phase-day:not(.videoMode) .upNext .nextArtist {
-  color: #241631;
+  color: #19283D;
   text-shadow: none;
 }
-/* The square maker's tile keeps its own dark background and white text. */
+.stage.art-phase-day:not(.videoMode) .progressTrack {
+  background: rgba(25,40,61,.35);
+}
+.stage.art-phase-day:not(.videoMode) .progressFill {
+  background: #24537F;
+  box-shadow: none;
+}
+.stage.art-phase-day:not(.videoMode) .upNext .nextFeatured .nextMeta > h2 {
+  color: #5B3B2A; /* Quiet bronze matches warm skyline details. */
+  text-shadow: none;
+}
+/* The TECH/MUSIC/ART tile remains ivory on its existing dark square. */
 .stage.art-phase-day:not(.videoMode) .upNext .signature {
-  color: white;
+  color: #F6EFE5;
   text-shadow: none;
 }
 /* No full-screen fades or soft halos. Small color fades only on phase change. */
