@@ -6,12 +6,13 @@
   <title>RSVP Radio</title>
   <link rel="stylesheet" href="/styles.css" />
   <link rel="stylesheet" href="/tv-overlay.css" />
-  <link rel="stylesheet" href="/tv-refined.css?v=art-only-idle-1" />
+  <link rel="stylesheet" href="/tv-refined.css?v=music-idle-2" />
 </head>
 <body>
 
-  <!-- Boot in art-only mode. First valid /state poll reveals the radio UI
-       only when a track is loaded; avoids flashing stale information. -->
+  <!-- Boot without stale song artwork, progress or queue. Logo, clock and
+       weather always remain visible; the first valid /state poll controls
+       when playback-specific information appears. -->
   <div class="stage radio-idle">
     <video id="bgA" class="bgVideo" autoplay muted loop playsinline></video>
     <video id="bgB" class="bgVideo" autoplay muted loop playsinline></video>
