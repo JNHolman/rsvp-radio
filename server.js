@@ -46,6 +46,7 @@ const plexArt     = require("./intelligence/plex-art");
 const requestAuth = require("./intelligence/request-auth");
 const runtimeState = require("./intelligence/runtime-state");
 const timeblocks  = require("./shared/timeblocks");
+const solarPhase = require("./shared/solar-phase");
 const _persistedRuntime = runtimeState.load();
 
 // ── Express setup ─────────────────────────────────────────────────────────────
@@ -1831,6 +1832,26 @@ app.get("/runtime-config.js", (_req, res) => {
 });
 
 app.use("/", express.static(cfg.PUBLIC_DIR));
+
+// The server owns the solar clock. Browser/system time cannot drift into
+// competing day/night schedules, and the phase is independent of music blocks.
+app.get("/api/solar-state", (_req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  try {
+    const now = new Date();
+    const state = solarPhase.getSolarPhase(now, cfg.SOLAR_LATITUDE, cfg.SOLAR_LONGITUDE);
+    if (!state.phase) return res.status(503).json({ error: "solar_phase_unavailable" });
+    return res.json({
+      phase: state.phase,
+      sunrise: state.sunrise.toISOString(),
+      dusk: state.dusk.toISOString(),
+      nextTransition: state.nextTransition?.toISOString() || null,
+    });
+  } catch (err) {
+    console.warn("[solar] Cannot calculate solar phase:", err.message);
+    return res.status(503).json({ error: "solar_phase_unavailable" });
+  }
+});
 
 app.get("/state",  (_req, res) => {
   // Include config health so admin can surface critical configuration errors.
