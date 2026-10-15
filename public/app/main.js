@@ -1,57 +1,80 @@
 /**
- * RSVP TV kiosk controls. Scheduling and ownership remain server-side.
- * Opening the menu never changes the active media or Hue scene by itself.
+ * RSVP controls. The logo opens a LEFT drawer with four sections.
+ * Music/lighting scheduling remains owned by the existing server.
+ * In the isolated preview, all write controls are intentionally disabled.
  */
 const _brand = document.getElementById("brand");
 const _menu = document.getElementById("menu");
 const _menuClose = document.getElementById("menuClose");
+const _menuScrim = document.getElementById("menuScrim");
 const _menuFeedback = document.getElementById("menuFeedback");
+const _drawerHome = document.getElementById("drawerHome");
+const _drawerDetails = document.getElementById("drawerDetails");
+const _drawerBack = document.getElementById("drawerBack");
+const _drawerTitle = document.getElementById("drawerTitle");
+const _menuPreview = window.RSVP_PREVIEW_MODE === true;
 let _menuTimer = null;
+
+const _drawerNames = Object.freeze({
+  radio: "RSVP RADIO",
+  tv: "RSVP TV",
+  vibe: "VIBE",
+  lighting: "LIGHTING",
+});
+
+function _menuMessage(message, error = false) {
+  _menuFeedback.textContent = message;
+  _menuFeedback.classList.toggle("error", !!error);
+}
 
 function _toggleMenu(force) {
   const on = typeof force === "boolean" ? force : !_menu.classList.contains("on");
   _menu.classList.toggle("on", on);
   _menu.setAttribute("aria-hidden", String(!on));
+  _menuScrim.classList.toggle("on", on);
+  _brand.setAttribute("aria-expanded", String(on));
   clearTimeout(_menuTimer);
-  if (on) _menuTimer = setTimeout(() => _toggleMenu(false), 25000);
-}
-function _menuMessage(message, error = false) {
-  _menuFeedback.textContent = message;
-  _menuFeedback.classList.toggle("error", !!error);
-}
-async function _menuPost(endpoint) {
-  try {
-    const response = await fetch(endpoint, { method: "POST" });
-    if (!response.ok) throw new Error("HTTP " + response.status);
-    _menuMessage("Command accepted.");
-    return true;
-  } catch (error) {
-    _menuMessage("Command failed: " + error.message, true);
-    return false;
-  }
+  // The drawer remains responsive without being left open indefinitely.
+  if (on) _menuTimer = setTimeout(() => _toggleMenu(false), 60000);
 }
 
-async function _refreshMenuQueue() {
-  const host = document.getElementById("menuQueueList");
-  host.textContent = "Checking queue…";
+function _resetDrawer() {
+  _drawerHome.hidden = false;
+  _drawerDetails.hidden = true;
+  for (const panel of _menu.querySelectorAll(".drawerPanel")) panel.hidden = true;
+  _menuMessage("");
+}
+function _showDrawerPanel(panel) {
+  if (!_drawerNames[panel]) return;
+  _drawerTitle.textContent = _drawerNames[panel];
+  _drawerHome.hidden = true;
+  _drawerDetails.hidden = false;
+  for (const pane of _menu.querySelectorAll(".drawerPanel")) {
+    pane.hidden = pane.dataset.panel !== panel;
+  }
+  _menuMessage(_menuPreview ? "Preview only — no changes will be sent." : "");
+  _toggleMenu(true);
+  if (panel === "tv") _refreshMenuVideos();
+}
+
+async function _menuPost(endpoint) {
+  if (_menuPreview) {
+    _menuMessage("Preview only — no changes sent to your live system.");
+    return false;
+  }
   try {
-    const response = await fetch("/api/up-next", { cache: "no-store" });
-    if (!response.ok) throw new Error("Queue unavailable");
-    const data = await response.json();
-    const items = Array.isArray(data.tracks) ? data.tracks : [];
-    host.replaceChildren();
-    if (!data.available || !items.length) {
-      host.textContent = data.available ? "Nothing queued" : "Queue unavailable";
-      return;
-    }
-    for (const [index, item] of items.entries()) {
-      const row = document.createElement("div");
-      row.className = "menuQueueTrack";
-      row.textContent = (index + 1) + ". " + (item.title || "—") + (item.artist ? " — " + item.artist : "");
-      host.appendChild(row);
-    }
-  } catch (_) {
-    host.textContent = "Queue unavailable";
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{}",
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || data?.ok === false) throw new Error(data.error || "HTTP " + response.status);
+    _menuMessage("Applied.");
+    return true;
+  } catch (err) {
+    _menuMessage("Unable to apply: " + err.message, true);
+    return false;
   }
 }
 
@@ -60,93 +83,87 @@ async function _refreshMenuVideos() {
   host.textContent = "Loading playlists…";
   try {
     const response = await fetch("/admin/video-playlists", { cache: "no-store" });
-    if (!response.ok) throw new Error("Video playlists unavailable");
-    const payload = await response.json();
+    if (!response.ok) throw new Error("Unavailable");
+    const data = await response.json();
     host.replaceChildren();
-    for (const item of payload.playlists || []) {
-      const key = String(item.ratingKey || "");
-      if (!/^\d+$/.test(key)) continue;
+    for (const playlist of data.playlists || []) {
+      const id = String(playlist.ratingKey || "");
+      if (!/^\d+$/.test(id)) continue;
       const button = document.createElement("button");
       button.className = "menuBtn";
-      button.dataset.videoPlaylist = key;
-      button.textContent = item.title || "RSVP TV";
+      button.type = "button";
+      button.dataset.videoPlaylist = id;
+      button.textContent = playlist.title || "RSVP TV";
       host.appendChild(button);
     }
     if (!host.children.length) host.textContent = "No RSVP TV playlists configured.";
   } catch (_) {
-    host.textContent = "Video playlists unavailable";
+    host.textContent = "Playlist list unavailable in this preview.";
   }
 }
 
-function _showMenuPanel(panel) {
-  for (const button of _menu.querySelectorAll("[data-panel-target]")) {
-    button.classList.toggle("active", button.dataset.panelTarget === panel);
-  }
-  for (const pane of _menu.querySelectorAll("[data-panel]")) {
-    pane.classList.toggle("on", pane.dataset.panel === panel);
-  }
-  _menuMessage("");
-  _toggleMenu(true);
-  if (panel === "queue") _refreshMenuQueue();
-  if (panel === "tv") _refreshMenuVideos();
-}
-
-// The always-visible sidebar mirrors the approved mockup, but each item
-// opens a real section of the existing functional controls panel.
-document.getElementById("sideNav")?.addEventListener("pointerdown", e => {
-  const button = e.target.closest("[data-sidebar]");
-  if (!button) return;
-  e.preventDefault();
-  const target = button.dataset.sidebar;
-  for (const item of document.querySelectorAll(".sideNavItem")) {
-    item.classList.toggle("selected", item === button);
-  }
-  if (target === "playing") {
+_brand.addEventListener("click", () => {
+  if (_menu.classList.contains("on")) {
     _toggleMenu(false);
   } else {
-    _showMenuPanel(target);
+    _resetDrawer();
+    _toggleMenu(true);
   }
 });
-
-_brand.addEventListener("pointerdown", e => { e.preventDefault(); _toggleMenu(); });
-_menuClose.addEventListener("pointerdown", e => { e.preventDefault(); _toggleMenu(false); });
-
-_menu.addEventListener("pointerdown", async e => {
-  const tab = e.target.closest("[data-panel-target]");
-  if (tab) { e.preventDefault(); _showMenuPanel(tab.dataset.panelTarget); return; }
-  const btn = e.target.closest(".menuBtn");
-  if (!btn) return;
-  e.preventDefault();
+_brand.addEventListener("keydown", e => {
+  if (e.key === "Enter" || e.key === " ") {
+    e.preventDefault();
+    _brand.click();
+  }
+});
+_menuClose.addEventListener("click", () => _toggleMenu(false));
+_menuScrim.addEventListener("click", () => _toggleMenu(false));
+_drawerBack.addEventListener("click", () => {
+  _resetDrawer();
   _toggleMenu(true);
-
-  if (btn.dataset.fx) {
-    const off = btn.dataset.fx === "off";
-    document.querySelector(".stage").classList.toggle("fxOff", off);
-    _menuMessage(off ? "Artwork effects off." : "Artwork effects on.");
-    return;
-  }
-  if (btn.dataset.videoPlaylist) {
-    await _menuPost("/admin/video/play/" + btn.dataset.videoPlaylist);
-    return;
-  }
-  if (btn.dataset.api) {
-    await _menuPost(btn.dataset.api);
-    return;
-  }
-  let ok = false;
-  if (btn.dataset.action === "on") ok = await setLightsOn();
-  else if (btn.dataset.action === "off") ok = await setLightsOff();
-  else if (btn.dataset.mode) ok = await setLightsMode(btn.dataset.mode);
-  _menuMessage(ok ? "Lighting command accepted." : "Lighting command failed.", !ok);
 });
 
-// Exit is explicitly requested by the operator, never a timer/navigation side effect.
-document.getElementById("exitBtn").addEventListener("pointerdown", async e => {
-  e.preventDefault();
+_menu.addEventListener("click", async (e) => {
+  const option = e.target.closest("[data-drawer-section]");
+  if (option) {
+    _showDrawerPanel(option.dataset.drawerSection);
+    return;
+  }
+  const button = e.target.closest(".menuBtn");
+  if (!button) return;
+  _toggleMenu(true);
+  if (button.dataset.videoPlaylist) {
+    await _menuPost("/admin/video/play/" + button.dataset.videoPlaylist);
+  } else if (button.dataset.vibe) {
+    const mode = button.dataset.vibe;
+    if (["lounge", "rnb", "rap", "lofi"].includes(mode)) await _menuPost("/mode/" + mode);
+  } else if (button.dataset.api) {
+    await _menuPost(button.dataset.api);
+  } else if (button.dataset.action || button.dataset.mode) {
+    if (_menuPreview) {
+      _menuMessage("Preview only — lighting hasn't been changed.");
+      return;
+    }
+    let ok = false;
+    if (button.dataset.action === "on") ok = await setLightsOn();
+    else if (button.dataset.action === "off") ok = await setLightsOff();
+    else if (button.dataset.mode) ok = await setLightsMode(button.dataset.mode);
+    _menuMessage(ok ? "Lighting command applied." : "Lighting command failed.", !ok);
+  }
+});
+
+if (_menuPreview) {
+  const foot = document.getElementById("drawerFoot");
+  if (foot) foot.textContent = "RSVP RADIO · PREVIEW ONLY";
+}
+
+// Preserve the original kiosk's explicit exit action (button is hidden on TV).
+document.getElementById("exitBtn").addEventListener("click", async () => {
+  if (_menuPreview) return;
   try { await fetch("/api/exit", { method: "POST" }); } catch (_) {}
 });
 
-// Boot the existing background/polling pipeline. No second scheduling clock.
+// Boot the existing display pipeline; NO extra media/Hue/schedule engine.
 (async function boot() {
   await bootBackground();
   startBackgroundTimers();
