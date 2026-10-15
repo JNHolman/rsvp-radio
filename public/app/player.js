@@ -84,9 +84,17 @@ function _setArt(url) {
 }
 
 function _setMeta(title, artist, album) {
-  _el.title.textContent  = _decode(title)  || "—";
+  const readableTitle = _decode(title) || "—";
+  _el.title.textContent  = readableTitle;
   _el.artist.textContent = _decode(artist) || "—";
-  _el.album.textContent  = _decode(album)  || "—";
+  _el.album.textContent  = _decode(album) || "—";
+
+  // The approved vinyl artwork occupies the left portion of the TV.
+  // Keep the metadata INSIDE its fixed right-hand column; long Plex titles
+  // shrink within that column instead of growing toward the record.
+  const n = readableTitle.length;
+  _el.title.classList.toggle("title-long", n > 24 && n <= 43);
+  _el.title.classList.toggle("title-very-long", n > 43);
 }
 
 function _setSurface(isVideo) {
