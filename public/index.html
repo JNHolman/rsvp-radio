@@ -37,6 +37,16 @@
         </div>
       </div>
 
+      <!-- Reference TV composition: quiet left-side navigation, with real actions. -->
+      <nav id="sideNav" class="sideNav" aria-label="RSVP TV sections">
+        <button class="sideNavItem selected" data-sidebar="playing"><span class="sideDot"></span>NOW PLAYING</button>
+        <button class="sideNavItem" data-sidebar="radio">RSVP RADIO</button>
+        <button class="sideNavItem" data-sidebar="tv">MUSIC VIDEO</button>
+        <button class="sideNavItem" data-sidebar="visuals">VISUALS</button>
+        <button class="sideNavItem" data-sidebar="queue">QUEUE</button>
+        <button class="sideNavItem" data-sidebar="lights">LIGHTS</button>
+      </nav>
+
       <!-- Functional navigation; stays collapsed until RSVP logo is opened. -->
       <nav id="menu" class="menu" aria-label="RSVP controls" aria-hidden="true">
         <div class="menuTop">
@@ -126,7 +136,7 @@
         <div id="nextStrip" class="nextStrip" aria-label="Later songs"></div>
       </section>
 
-      <div class="signature">TECH. MUSIC. ART.</div>
+      <div class="signature" aria-label="Tech. Music. Art."><span>TECH.</span><span>MUSIC.</span><span>ART.<i></i></span></div>
       <button id="exitBtn" class="exitBtn" aria-label="Exit">×</button>
 
     </div>
