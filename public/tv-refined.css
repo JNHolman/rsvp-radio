@@ -70,10 +70,15 @@
       rgba(23,19,49,.38) 59%,
       rgba(16,27,61,.36) 84%,
       rgba(16,27,61,.23) 100%);
+  /* Intersect horizontal and vertical feathers to prevent a hard top edge. */
   -webkit-mask-image:
-    linear-gradient(to right,transparent 0%,black 12%,black 100%);
+    linear-gradient(to right,transparent 0%,black 12%,black 100%),
+    linear-gradient(to bottom,transparent 0%,rgba(0,0,0,.82) 15%,black 27%,black 100%);
+  -webkit-mask-composite:source-in;
   mask-image:
-    linear-gradient(to right,transparent 0%,black 12%,black 100%);
+    linear-gradient(to right,transparent 0%,black 12%,black 100%),
+    linear-gradient(to bottom,transparent 0%,rgba(0,0,0,.82) 15%,black 27%,black 100%);
+  mask-composite:intersect;
   opacity:1;transition:opacity .25s ease;
 }
 .stage.art-phase-night .ui::before {opacity:.9;}
