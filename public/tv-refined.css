@@ -19,22 +19,30 @@
   font-family: "DejaVu Sans", system-ui, sans-serif;
   font-weight: 840;
   letter-spacing: -.042em;
-  text-shadow: 0 1px 3px rgba(0,0,0,.35);
+  white-space: nowrap;
+  color: #F6EFE5; /* RADIO is white; RSVP is gold, both day and night. */
+  text-shadow: 0 1px 3px rgba(0,0,0,.25);
 }
-/* Natural upper-left lighting: visible only with day art, behind the mark.
-   Night retains the existing illustration with no extra tint. */
+.header .brand .rsvp { color: var(--rsvp-gold); }
+/* Day only: a full, horizontal plum-to-transparent atmospheric wash.
+   Starts at the screen's left edge, fades into original sky well before
+   the portrait, and softly feathers vertically — NOT a radial/oval patch. */
 .stage.art-phase-day:not(.videoMode) .header .brand::before {
   content: "";
   position: absolute;
-  inset: -4.5vh -5vw -3vh -3vw;
   z-index: -1;
   pointer-events: none;
-  background: radial-gradient(ellipse 67% 61% at 37% 43%,
-    rgba(38,17,56,.47) 0%,
-    rgba(45,22,63,.30) 31%,
-    rgba(52,29,73,.11) 64%,
-    rgba(52,29,73,0) 100%);
-  filter: blur(1.35vw);
+  left: -4vw;
+  top: -5.8vh;
+  width: 33vw;
+  height: 17vh;
+  background: linear-gradient(to right,
+    rgba(39,17,58,.66) 0%,
+    rgba(43,21,61,.40) 36%,
+    rgba(46,23,64,.15) 69%,
+    rgba(46,23,64,0) 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 23%, black 69%, transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0%, black 23%, black 69%, transparent 100%);
 }
 .drawerHead .drawerWordmark { cursor: default; }
 .stage.drawer-open .header .brand { visibility: hidden; }
@@ -284,7 +292,8 @@
   min-width: 0;
   min-height: 0;
   border-radius: 10px;
-  border: 1px solid rgba(237,191,121,.62);
+  border: 1px solid rgba(255,255,255,.25);
+  box-shadow: 0 5px 14px rgba(0,0,0,.30);
   background: rgba(14,11,27,.45);
   overflow: hidden;
 }
@@ -348,9 +357,9 @@
   height: 7.6vw;
   max-width: none;
   object-fit: cover;
-  border: 1px solid rgba(255,255,255,.30);
+  border: 1px solid rgba(255,255,255,.25);
   border-radius: 10px;
-  box-shadow: 0 5px 14px rgba(0,0,0,.36);
+  box-shadow: 0 5px 14px rgba(0,0,0,.30);
 }
 .nextStripItem span, .nextStripItem small { display: none !important; }
 .nextStripItem.missingCover {
@@ -460,8 +469,20 @@
   padding: 4.4vh 4vw 2.5vh;
   border-bottom: 1px solid rgba(255,255,255,.12);
 }
-.drawerHead .drawerWordmark { color: var(--rsvp-gold); }
-.drawerHead .drawerWordmark .rsvp { color: #fff; }
+/* Drawer has much less horizontal room than the full-screen header.
+   Keep the same identity on ONE line, with the close button alongside. */
+.drawerHead .drawerWordmark {
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: nowrap;
+  font-family: "DejaVu Sans", system-ui, sans-serif;
+  font-size: clamp(19px, 1.45vw, 28px);
+  font-weight: 800;
+  letter-spacing: -.045em;
+  color: #F6EFE5;
+}
+.drawerHead .drawerWordmark .rsvp { color: var(--rsvp-gold); }
+.drawerHead .drawerClose { flex: 0 0 44px; margin-left: 8px; }
 .drawerClose {
   appearance: none; border: 0; background: transparent; color: #fff;
   width: 44px; height: 44px; font: 300 32px/1 system-ui,sans-serif; cursor: pointer;
@@ -574,17 +595,17 @@
 .stage.art-phase-day:not(.videoMode) .ui {
   color: #19283D;
 }
-/* Identity is stable from night to day: ivory RSVP / gold RADIO.
-   Dark plum feather behind the left corner provides contrast on daylight. */
+/* Stable station identity: gold RSVP / white RADIO, both day and night.
+   Horizontal plum fade provides daylight contrast without any outline. */
 .stage.art-phase-day:not(.videoMode) .header .brand {
-  color: #EFC48A;
-  -webkit-text-stroke: 0;
-  text-shadow: 0 1px 2px rgba(23,10,39,.26);
-}
-.stage.art-phase-day:not(.videoMode) .header .brand .rsvp {
   color: #F6EFE5;
   -webkit-text-stroke: 0;
-  text-shadow: 0 1px 2px rgba(23,10,39,.26);
+  text-shadow: 0 1px 2px rgba(23,10,39,.25);
+}
+.stage.art-phase-day:not(.videoMode) .header .brand .rsvp {
+  color: var(--rsvp-gold);
+  -webkit-text-stroke: 0;
+  text-shadow: 0 1px 2px rgba(23,10,39,.25);
 }
 /* Bold daytime weather is ink, without a distracting outline. */
 .stage.art-phase-day:not(.videoMode) .weatherWidget,
@@ -607,8 +628,7 @@
   color: #19283D;
   text-shadow: none;
 }
-/* Day queue remains printed directly on the watercolor reflections.
-   Heavier ink is supported by an ambient bloom, not a boxed backing. */
+/* Day queue uses heavier ink over the broad, low-opacity footer wash. */
 .stage.art-phase-day:not(.videoMode) .upNext .nextFeatured .nextMeta {
   padding: 0;
   background: transparent;
@@ -635,7 +655,7 @@
   color: #F6EFE5;
   text-shadow: none;
 }
-/* No full-screen fades or soft halos. Small color fades only on phase change. */
+/* No full-screen fades. Text color transitions remain local to the phase. */
 .header .brand, .header .brand .rsvp,
 .localClock, .weatherSummary,
 .nowCard .tTitle, .nowCard .tArtist, .nowCard .tAlbum,
@@ -644,48 +664,49 @@
   transition: color .65s ease, background-color .65s ease;
 }
 
-/* DAYTIME ATMOSPHERE, not a UI panel.
-   The 54vw player boundary permits long titles to reach the vinyl rim.
-   This full text-column-length feather extends behind those titles; it is
-   deliberately larger than the shortest song and never requires per-song
-   tweaking. Transparent at all edges, including the record-side start.
-   These glows render behind the text; the approved images remain unchanged. */
+/* DAYLIGHT COMPOSITION WASHES — replaces BOTH previous radial halos.
+   Horizontal rectangular gradients may extend behind the covers all the way
+   to the screen's right edge. Vertical feathering prevents visible top/bottom
+   seams. No full-screen vignette, cover plate, or night filter. */
 .stage.art-phase-day:not(.videoMode) .nowCard,
 .stage.art-phase-day:not(.videoMode) .upNext {
   isolation: isolate;
 }
+/* Main: the original art on the left blends toward subtle warm ivory on
+   the right, supporting long-title ink; no cut-off before the album cover. */
 .stage.art-phase-day:not(.videoMode) .nowCard::before {
   content: "";
   position: absolute;
   z-index: -1;
   pointer-events: none;
-  left: -8.5vw;
-  right: 10vw;
-  top: -2.5vh;
-  bottom: -2.5vh;
-  background: radial-gradient(
-    ellipse 77% 69% at 47% 50%,
-    rgba(255,249,225,.24) 0%,
-    rgba(255,247,219,.145) 43%,
-    rgba(255,246,220,.06) 65%,
-    rgba(255,246,220,0) 100%
-  );
-  filter: blur(1.75vw);
+  left: -6vw;
+  right: -3.8vw;
+  top: -3.0vh;
+  bottom: -3.0vh;
+  background: linear-gradient(to right,
+    rgba(255,244,217,0) 0%,
+    rgba(255,244,217,.10) 31%,
+    rgba(255,244,217,.23) 64%,
+    rgba(255,244,217,.19) 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 24%, black 73%, transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0%, black 24%, black 73%, transparent 100%);
 }
+/* Footer: a lighter companion wash spans all of Up Next, including the
+   album row; it starts invisibly in the water and tapers vertically. */
 .stage.art-phase-day:not(.videoMode) .upNext::before {
   content: "";
   position: absolute;
   z-index: -1;
   pointer-events: none;
-  left: -7vw;
-  width: 34vw;
-  top: -3.5vh;
-  bottom: -3.5vh;
-  background: radial-gradient(
-    ellipse 75% 64% at 49% 50%,
-    rgba(255,248,222,.18) 0%,
-    rgba(255,246,215,.09) 49%,
-    rgba(255,246,215,0) 100%
-  );
-  filter: blur(1.5vw);
+  left: -9vw;
+  right: -3.8vw;
+  top: -3.8vh;
+  bottom: -3.8vh;
+  background: linear-gradient(to right,
+    rgba(255,247,224,0) 0%,
+    rgba(255,247,224,.11) 23%,
+    rgba(255,247,224,.21) 44%,
+    rgba(255,247,224,.12) 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 29%, black 75%, transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0%, black 29%, black 75%, transparent 100%);
 }
