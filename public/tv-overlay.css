@@ -227,3 +227,350 @@
   .menuTabs { gap: 2px; }
   .menuTab { font-size: 10px; letter-spacing: 0; }
 }
+
+
+/* ===================================================================
+   Approved TV composition v2 — based on the owner-selected mockup.
+   The original v1 floating-card rules above are intentionally overridden.
+   Backgrounds stay separate and unmodified.
+   =================================================================== */
+:root {
+  --rsvp-metal: #edbf79;
+  --rsvp-muted: rgba(255,255,255,.79);
+}
+.brand {
+  color: var(--rsvp-metal);
+  font-size: clamp(23px, 2.25vw, 44px);
+  font-weight: 500;
+  letter-spacing: -.014em;
+}
+.brand .rsvp {
+  color: #fff;
+  font-weight: 850;
+  letter-spacing: -.035em;
+  margin-right: .17em;
+}
+.header { top: 4.0vh; left: 4vw; right: 4vw; }
+.weatherWidget { font-size: clamp(12px, .92vw, 20px); }
+.weatherCity { color: var(--rsvp-muted); }
+.weatherSummary { color: var(--rsvp-metal); }
+.ui::before {
+  content: "";
+  position: absolute;
+  top: 13%;
+  left: 37%;
+  width: 63%;
+  height: 65%;
+  background: linear-gradient(90deg, transparent, rgba(5,5,15,.16) 24%, rgba(5,5,18,.37) 100%);
+  pointer-events: none;
+}
+/* A genuine, persistent menu column like the reference.
+   Buttons open the functional menu instead of being decorative labels. */
+.sideNav {
+  position: absolute;
+  z-index: 21;
+  left: 4vw;
+  top: 33vh;
+  width: 16.5vw;
+  max-width: 290px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: clamp(8px, 1.25vh, 18px);
+}
+.sideNavItem {
+  position: relative;
+  appearance: none;
+  width: 100%;
+  border: 0;
+  background: none;
+  color: rgba(255,255,255,.65);
+  padding: 3px 0 3px 15px;
+  font: 550 clamp(11px, 1.04vw, 22px)/1.25 ui-sans-serif,system-ui,sans-serif;
+  text-align: left;
+  letter-spacing: .085em;
+  text-shadow: 0 2px 7px rgba(0,0,0,.65);
+  cursor: pointer;
+}
+.sideNavItem:hover, .sideNavItem:focus-visible { color: #fff; }
+.sideNavItem.selected { color: #fff; font-weight: 750; }
+.sideDot {
+  display: none;
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  border-radius: 50%;
+  background: #e5a8fb;
+  box-shadow: 0 0 10px #ed91ff;
+}
+.selected .sideDot { display: block; }
+
+/* Now Playing: one integrated editorial composition — NO glass panel. */
+.nowCard {
+  left: 24.0vw;
+  right: 4vw;
+  top: 20.5vh;
+  bottom: auto;
+  width: 72vw;
+  height: 43.5vh;
+  min-height: 0;
+  padding: 0;
+  gap: 3vw;
+  align-items: center;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  backdrop-filter: none;
+  box-shadow: none;
+  overflow: visible;
+}
+.nowCard .cover {
+  position: relative;
+  z-index: 2;
+  flex: none;
+  width: min(25vw, 41vh);
+  height: min(25vw, 41vh);
+  border-radius: 2px;
+  border: 2px solid rgba(249,193,122,.7);
+  box-shadow: 0 15px 42px #0009, 0 0 22px rgba(238,171,110,.13);
+  overflow: hidden;
+}
+.nowCard .cover::before { /* subtle sleeve-edge highlight */
+  content: "";
+  position: absolute;
+  z-index: 3;
+  inset: 0;
+  box-shadow: inset 0 0 0 3px rgba(0,0,0,.13);
+  pointer-events: none;
+}
+.nowCard .meta {
+  z-index: 2;
+  min-width: 0;
+  max-width: none;
+  flex: 1 1 0;
+  padding: 0 0 3vh;
+  text-shadow: 0 2px 15px rgba(0,0,0,.7);
+}
+.nowCard .tTitle {
+  color: #fff;
+  font-size: clamp(28px, 3.1vw, 60px);
+  line-height: 1.13;
+  font-weight: 760;
+  letter-spacing: -.025em;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  -webkit-line-clamp: 2;
+  max-height: 2.32em;
+}
+.nowCard .tArtist {
+  color: rgba(255,255,255,.93);
+  font-size: clamp(20px, 1.70vw, 37px);
+  font-weight: 570;
+  margin-top: clamp(7px, 1.1vh, 16px);
+}
+.nowCard .tAlbum {
+  color: var(--rsvp-muted);
+  font-size: clamp(13px, 1.10vw, 24px);
+  margin-top: 7px;
+}
+
+/* Progress / waveform align with song text to form a single player. */
+.nowExtras {
+  left: 52.2vw;
+  right: auto;
+  top: 60.6vh;
+  width: 42.6vw;
+  min-width: 0;
+}
+.progressTimes {
+  color: rgba(255,255,255,.90);
+  font-size: clamp(11px, .91vw, 20px);
+  margin: 0 0 7px;
+}
+.progressTrack {
+  height: 5px;
+  margin-top: 0;
+  background: rgba(255,255,255,.42);
+}
+.progressFill {
+  background: linear-gradient(90deg, #9b6bee, #db99fa);
+  box-shadow: 0 0 12px #b786f8;
+}
+.soundBars {
+  display: flex;
+  width: 100%;
+  height: clamp(16px, 3.0vh, 40px);
+  gap: clamp(2px, .23vw, 5px);
+  align-items: center;
+  margin-top: 16px;
+}
+.soundBars span {
+  flex: 1 1 0;
+  width: auto;
+  max-width: 6px;
+  background: linear-gradient(180deg, #feb486, #d99df5 53%, #8b70ed);
+}
+
+/* Entire bottom ticker is ONE continuous Up Next composition. */
+.upNext {
+  box-sizing: border-box;
+  top: auto;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  width: 100vw;
+  height: 22vh;
+  padding: 1.5vh 17.2vw 1.6vh 4.2vw;
+  display: grid;
+  grid-template-columns: 9.5vw 23vw minmax(0,1fr);
+  align-items: center;
+  gap: 1.1vw;
+  border-top: 1px solid rgba(255,255,255,.17);
+  background: linear-gradient(90deg, rgba(5,5,15,.86), rgba(5,5,17,.72) 52%, rgba(5,5,18,.84));
+  backdrop-filter: blur(9px);
+  text-shadow: 0 1px 7px #000a;
+  transform: translateY(12px);
+  overflow: hidden;
+}
+.upNext.on { transform: translateY(0); }
+.upNext h2 {
+  color: var(--rsvp-metal);
+  font-size: clamp(12px, 1.15vw, 24px);
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: .095em;
+  margin: 0;
+  align-self: center;
+}
+.nextFeatured {
+  min-height: 0;
+  gap: clamp(9px, 1.0vw, 19px);
+  width: 100%;
+}
+.nextCover {
+  flex: none;
+  width: clamp(60px, 7.15vw, 140px);
+  height: clamp(60px, 7.15vw, 140px);
+  background: rgba(18,13,26,.5);
+  border: 1px solid rgba(249,193,122,.55);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.nextCover img { width: 100%; height: 100%; object-fit: cover; }
+.nextMeta { flex: 1; min-width: 0; }
+.nextTitle {
+  font-size: clamp(13px, 1.20vw, 24px);
+  line-height: 1.25;
+  max-height: 2.5em;
+  overflow: hidden;
+  font-weight: 700;
+}
+.nextArtist {
+  font-size: clamp(11px, .93vw, 19px);
+  color: rgba(255,255,255,.75);
+  margin-top: 5px;
+}
+.nextStrip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0,1fr));
+  gap: 1.2vw;
+  margin: 0;
+  min-width: 0;
+  width: 100%;
+  align-items: center;
+}
+.nextStripItem { width: 100%; min-width: 0; }
+.nextStripItem img {
+  width: clamp(49px, 6.0vw, 125px);
+  max-width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border: 1px solid rgba(255,255,255,.28);
+  border-radius: 1px;
+  box-shadow: 0 5px 15px rgba(0,0,0,.37);
+}
+.nextStripItem span {
+  display: block;
+  margin-top: clamp(3px, .55vh, 8px);
+  font-size: clamp(9px, .80vw, 17px);
+  color: rgba(255,255,255,.90);
+  letter-spacing: -.01em;
+}
+
+/* Stacked, gold-accented TECH/MUSIC/ART maker's mark on the far right. */
+.signature {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  right: 3.3vw;
+  bottom: 4.5vh;
+  width: 11.6vw;
+  max-width: 205px;
+  min-width: 100px;
+  padding: clamp(8px, .9vw, 18px) clamp(10px, 1.35vw, 26px);
+  gap: 3px;
+  background: rgba(7,7,16,.38);
+  border: 1px solid rgba(239,185,105,.72);
+  border-radius: 2px;
+  color: white;
+  font-size: clamp(11px, .93vw, 20px);
+  font-weight: 570;
+  text-align: left;
+  line-height: 1.13;
+  letter-spacing: .085em;
+  text-shadow: 0 1px 8px #000a;
+  pointer-events: none;
+}
+.signature span { display: block; }
+.signature i {
+  display: inline-block;
+  width: clamp(11px, 1.6vw, 28px);
+  height: 2px;
+  background: var(--rsvp-metal);
+  vertical-align: middle;
+  margin-left: 8px;
+}
+.exitBtn { visibility: hidden; }
+
+/* Video owns its own full-frame canvas, not this audio-navigation system. */
+.stage.videoMode .sideNav, 
+.stage.videoMode .nowCard,
+.stage.videoMode .signature,
+.stage.videoMode .upNext,
+.stage.videoMode .nowExtras { opacity: 0 !important; visibility: hidden; }
+.stage.videoMode .ui::before { display: none; }
+
+/* A smaller laptop window keeps the same basic TV geometry. */
+@media (max-width: 900px) {
+  .sideNav { left: 3vw; top: 31vh; width: 17vw; }
+  .sideNavItem { font-size: 11px; }
+  .nowCard { left: 21vw; width: 76vw; top: 20vh; gap: 2vw; }
+  .nowCard .cover { width: min(26vw,41vh); height: min(26vw,41vh); }
+  .nowExtras { left: 50vw; width: 45vw; top: 60vh; }
+  .upNext { padding-left: 3vw; padding-right: 17vw; grid-template-columns: 9vw 25vw minmax(0,1fr); }
+  .nextStrip { gap: .6vw; }
+  .signature { right: 2vw; }
+}
+@media (max-width: 700px) {
+  .weatherCity { display: none; }
+  .header { left: 4vw; right: 4vw; }
+  .sideNav { top: 26vh; left: 3vw; width: 19vw; gap: 1vh; }
+  .sideNavItem { font-size: 9px; padding-left: 9px; }
+  .nowCard { left: 22vw; top: 26vh; width: 75vw; height: 33vh; gap: 2.3vw; }
+  .nowCard .cover { width: 27vw; height: 27vw; }
+  .nowCard .tTitle { font-size: clamp(16px, 3.0vw, 23px); }
+  .nowCard .tArtist { font-size: clamp(13px, 2.2vw, 18px); }
+  .nowCard .tAlbum { font-size: 11px; }
+  .nowExtras { left: 52vw; width: 43vw; top: 61vh; }
+  .upNext { bottom: 0; left: 0; width: 100vw; height: 23vh; padding: 1vh 17vw 1vh 3vw; grid-template-columns: 8vw 29vw minmax(0,1fr); gap: 1vw; }
+  .upNext h2 { font-size: 10px; }
+  .nextCover { width: 9vw; height: 9vw; min-width: 0; min-height: 0; }
+  .nextTitle { font-size: 10px; }
+  .nextArtist { font-size: 9px; }
+  .nextStripItem img { width: 100%; }
+  .nextStripItem span { font-size: 8px; }
+  .signature { bottom: 5vh; right: 1.6vw; width: 14vw; min-width: 0; padding: 5px; font-size: 9px; }
+}
