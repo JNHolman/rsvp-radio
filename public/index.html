@@ -19,9 +19,12 @@
     <div id="blackHold" class="blackHold"></div>
     <video id="musicVideo" class="musicVideo" playsinline></video>
     <div class="artFx" aria-hidden="true"></div>
-    <div class="vignette"></div>
-    <div class="topFade"></div>
-    <div class="bottomFade"></div>
+    <!-- The old ambient-video demo used full-screen vignette and top/bottom
+         shading masks. Those layers darkened the approved day/night artwork,
+         even though RSVP TV/video presentation has not been designed yet.
+         They were removed rather than hidden conditionally. When we design
+         RSVP TV, choose any video-specific treatment deliberately; do not
+         reinstate global shading across Radio's approved artwork. -->
 
     <div class="ui">
 
