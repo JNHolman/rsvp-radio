@@ -12,6 +12,66 @@ const http = require("node:http");
 const fs = require("node:fs");
 const path = require("node:path");
 const { getSolarPhase } = require("../shared/solar-phase");
+let plexQueue = null, plexArt = null, dotenv = null;
+try {
+  plexQueue = require("../intelligence/plex-queue");
+  plexArt = require("../intelligence/plex-art");
+  dotenv = require("dotenv");
+} catch (_) {
+  console.warn("[solar-preview] Run npm ci in the test worktree to enable read-only queue lookup.");
+}
+
+async function liveGet(pathname) {
+  const response = await fetch("http://127.0.0.1:3000" + pathname, { signal: AbortSignal.timeout(3000) });
+  if (!response.ok) throw new Error("Live RSVP GET failed: " + response.status);
+  return response;
+}
+
+function previewPlexConfig() {
+  if (!dotenv) return null;
+  try {
+    // Only read the original Pi's local .env; never send its token to the browser.
+    const envPath = path.resolve(__dirname, "../../rsvp-radio/.env");
+    const vars = dotenv.parse(fs.readFileSync(envPath));
+    const token = vars.PLEX_TOKEN || "";
+    if (!token) return null;
+    return {
+      token,
+      base: vars.PLEX_BASE || "http://127.0.0.1:32400",
+      clientId: vars.PLEX_TARGET_CLIENT_IDENTIFIER || "",
+    };
+  } catch (_) { return null; }
+}
+
+async function previewQueue() {
+  const none = (reason) => ({available:false, tracks:[], reason});
+  const cfg = previewPlexConfig();
+  if (!cfg || !plexQueue || !plexArt) return none("plex_config_unavailable");
+  try {
+    const live = await (await liveGet("/state")).json();
+    const currentKey = String(live?.media?.ratingKey || "");
+    if (live?.media?.type !== "audio" || !currentKey) return none("not_playing");
+    const sessionsUrl = new URL("/status/sessions", cfg.base);
+    sessionsUrl.searchParams.set("X-Plex-Token", cfg.token);
+    const sessions = await fetch(sessionsUrl, { signal: AbortSignal.timeout(3000) });
+    if (!sessions.ok) return none("sessions_unavailable");
+    const context = plexQueue.parseCurrentQueueContext(await sessions.text(), cfg.clientId);
+    if (!context || context.ratingKey !== currentKey) return none("play_queue_not_reported");
+    const queueUrl = new URL("/playQueues/" + context.queueId, cfg.base);
+    queueUrl.searchParams.set("X-Plex-Token", cfg.token);
+    queueUrl.searchParams.set("window", "8");
+    if (context.itemId) queueUrl.searchParams.set("center", context.itemId);
+    const response = await fetch(queueUrl, { signal: AbortSignal.timeout(3000), headers:{Accept:"application/json"} });
+    if (!response.ok) return none("queue_unavailable");
+    const queue = plexQueue.parseUpcomingQueue(await response.json(), context);
+    if (!queue.available) return queue;
+    return { available:true, reason:"", tracks:queue.tracks.map(t => {
+      const art = plexArt.browserSafeSourceUrl(t.thumb, cfg.base);
+      return { title:t.title, artist:t.artist, album:t.album, artUrl:art ? "/art?url=" + encodeURIComponent(art) : "" };
+    }) };
+  } catch (_) { return none("queue_unavailable"); }
+}
+
 
 const ROOT = path.resolve(__dirname, "../public");
 const PORT = Number(process.env.PREVIEW_PORT || 3001);
@@ -40,7 +100,7 @@ function controlsPage() {
   return '<!doctype html><html><meta name="viewport" content="width=device-width, initial-scale=1"><title>RSVP Solar Preview Controls</title><body style="font:20px system-ui;background:#111;color:white;padding:28px"><h1>RSVP Solar Preview</h1><p>Current test setting: <strong>' + selected.toUpperCase() + '</strong></p><p>Open the viewer in another tab or on the TV. Changing the setting below will update its background within 20 seconds, using the real crossfade.</p>' + link("day", "Force DAY") + link("night", "Force NIGHT") + link("auto", "Follow sunrise/dusk") + '<p><a style="color:#aaf" href="/">Open preview viewer</a></p><p>Preview only — no music, Plexamp, or Hue controls.</p></body></html>';
 }
 
-const server = http.createServer((req, res) => {
+const server = http.createServer(async (req, res) => {
   if (req.method !== "GET" && req.method !== "HEAD") return send(res, 405, "text/plain", "GET only");
 
   let url;
@@ -75,8 +135,31 @@ const server = http.createServer((req, res) => {
   if (pathname === "/runtime-config.js") {
     return send(res, 200, "text/javascript; charset=utf-8", "window.RSVP_RUNTIME_CONFIG={pollMs:2000,pollTimeoutMs:2000};");
   }
-  if (pathname === "/state") {
-    return send(res, 200, "application/json", JSON.stringify({ media: { type: "idle", playerState: "" } }));
+  if (pathname === "/state" || pathname === "/art") {
+    try {
+      const upstream = await liveGet(pathname + url.search);
+      const body = Buffer.from(await upstream.arrayBuffer());
+      const type = pathname === "/state" ? "application/json" : (upstream.headers.get("content-type") || "image/jpeg");
+      return send(res, 200, type, body);
+    } catch (_) {
+      return pathname === "/state"
+        ? send(res, 200, "application/json", JSON.stringify({ media: { type: "idle", playerState: "" } }))
+        : send(res, 404, "text/plain", "Artwork unavailable");
+    }
+  }
+  if (pathname === "/api/up-next") {
+    return send(res, 200, "application/json", JSON.stringify(await previewQueue()));
+  }
+  if (pathname === "/api/weather") {
+    try {
+      const api = "https://api.open-meteo.com/v1/forecast?latitude=38.2527&longitude=-85.7585&current=temperature_2m,weather_code&temperature_unit=fahrenheit&timezone=America%2FKentucky%2FLouisville";
+      const result = await fetch(api, { signal: AbortSignal.timeout(4000) });
+      if (!result.ok) throw new Error("Weather unavailable");
+      const json = await result.json();
+      const temp = Number(json?.current?.temperature_2m);
+      if (!Number.isFinite(temp)) throw new Error("Temperature unavailable");
+      return send(res, 200, "application/json", JSON.stringify({available:true,temperatureF:temp,description:"Louisville"}));
+    } catch (_) { return send(res, 200, "application/json", JSON.stringify({available:false})); }
   }
 
   // Serve only public/ and never expose .env or other local files.
