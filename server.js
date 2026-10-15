@@ -1899,6 +1899,7 @@ async function _loadUpNext(currentKey) {
       tracks: parsed.tracks.map(track => {
         const original = buildPlexArtUrl(track.thumb);
         return {
+          ratingKey: track.ratingKey,
           title: track.title,
           artist: track.artist,
           album: track.album,
