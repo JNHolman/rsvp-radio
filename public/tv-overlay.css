@@ -177,3 +177,53 @@
   .nextStrip { margin-top: 8px; }
   .signature { right: 4vw; bottom: 2vh; }
 }
+
+
+/* Functional slide-out menu; the primary TV canvas stays clean until opened. */
+.stage.fxOff .artFx { display: none; }
+.menu {
+  width: min(570px, 92vw);
+  min-width: 0;
+  max-height: 78vh;
+  overflow-y: auto;
+  padding: 20px;
+  top: 10vh;
+  left: 4.4vw;
+  border-radius: 12px;
+  background: rgba(10, 10, 25, .88);
+  backdrop-filter: blur(18px);
+  box-shadow: 0 20px 70px rgba(0,0,0,.5);
+}
+.menuTitle { font-size: 16px; letter-spacing: .15em; }
+.menuClose { appearance: none; font: inherit; font-size: 25px; }
+.menuTabs { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; margin-bottom: 20px; }
+.menuTab {
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  color: rgba(255,255,255,.68);
+  background: transparent;
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: .08em;
+  padding: 10px 3px;
+  cursor: pointer;
+}
+.menuTab.active { color: white; border-bottom-color: #e6bee8; }
+.menuPanel { display: none; color: white; }
+.menuPanel.on { display: block; }
+.menuPanel p { color: rgba(255,255,255,.78); font-size: 14px; line-height: 1.45; margin: 0 0 18px; }
+.menuGrid { margin: 0 0 10px; }
+.menuGrid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.menuGrid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.menuBtn { padding: 13px 10px; min-height: 48px; letter-spacing: .06em; font-size: 12px; text-align: center; }
+.menuFeedback { min-height: 21px; color: #d4f8d5; font-size: 13px; margin-top: 10px; }
+.menuFeedback.error { color: #f6bcbc; }
+.menuQueueList { max-height: 35vh; overflow-y: auto; }
+.menuQueueTrack { font-size: 14px; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,.1); }
+.menu button:focus-visible, .brand:focus-visible { outline: 2px solid white; outline-offset: 3px; }
+@media (max-width: 700px) {
+  .menu { left: 4vw; top: 10vh; width: 92vw; }
+  .menuTabs { gap: 2px; }
+  .menuTab { font-size: 10px; letter-spacing: 0; }
+}
