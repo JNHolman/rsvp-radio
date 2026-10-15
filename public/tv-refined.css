@@ -3,7 +3,45 @@
    Never changes the approved day/night artwork, media, or Hue.
    Use the application's normal inherited font (no custom font-family overrides). */
 :root { --rsvp-gold:#edbf79;--rsvp-ivory:#f6f3ec; }
-.artFx {display:none;} /* Retires original waterfront shimmer gradients. */
+/* Reintroduce only subtle *lighting* movement over the fixed approved art.
+   The portrait, vinyl, skyline, and day/night source images never transform. */
+.artFx {display:none;}
+.stage.art-phase-day:not(.videoMode) .artFx,
+.stage.art-phase-night:not(.videoMode) .artFx {
+  display:block;position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:0;
+}
+.artFx::before,.artFx::after {
+  content:"";position:absolute;pointer-events:none;
+  border-radius:50%;will-change:transform,opacity;
+}
+.artFx::before {
+  left:8vw;bottom:2vh;width:56vw;height:23vh;
+  background:radial-gradient(ellipse 75% 39% at 50% 55%,
+    rgba(255,234,191,.20) 0%,rgba(255,220,174,.10) 43%,transparent 76%);
+  opacity:.52;filter:blur(13px);
+  animation:rsvp-water-glint 24s ease-in-out infinite alternate;
+}
+.artFx::after {
+  left:22vw;bottom:5vh;width:44vw;height:17vh;
+  background:radial-gradient(ellipse 71% 36% at 50% 50%,
+    rgba(174,144,252,.16) 0%,rgba(125,164,245,.08) 48%,transparent 80%);
+  opacity:.38;filter:blur(16px);
+  animation:rsvp-water-glint-back 31s ease-in-out infinite alternate;
+}
+.stage.art-phase-night .artFx::before {opacity:.31;}
+.stage.art-phase-night .artFx::after {opacity:.44;}
+.stage.videoMode .artFx {display:none!important;}
+@keyframes rsvp-water-glint {
+  from {transform:translate3d(-2.2vw,0,0) scaleX(.96);opacity:.36;}
+  to {transform:translate3d(2.2vw,0,0) scaleX(1.05);opacity:.57;}
+}
+@keyframes rsvp-water-glint-back {
+  from {transform:translate3d(2vw,0,0);opacity:.25;}
+  to {transform:translate3d(-2vw,0,0);opacity:.43;}
+}
+@media (prefers-reduced-motion:reduce) {
+  .artFx::before,.artFx::after {animation:none;will-change:auto;}
+}
 .header {
   top:4.2vh;left:auto;right:3vw;
   width:auto;
@@ -57,8 +95,8 @@
   -webkit-backdrop-filter:none;backdrop-filter:none;
   background:
     radial-gradient(ellipse 51% 43% at 57% 29%,
-      rgba(23,19,49,.76) 0%,
-      rgba(23,19,49,.57) 46%,
+      rgba(23,19,49,.82) 0%,
+      rgba(23,19,49,.63) 46%,
       rgba(23,19,49,0) 100%),
     radial-gradient(ellipse 50% 31% at 30% 85%,
       rgba(16,27,61,.54) 0%,
@@ -74,6 +112,8 @@
      This feathers the rectangle's perimeter while preserving interior
      contrast and the exact previous glass-tested bounds. */
   filter:blur(30px);
+  -webkit-mask-image:linear-gradient(to right,transparent 0%,rgba(0,0,0,.7) 5%,black 11%,black 100%);
+  mask-image:linear-gradient(to right,transparent 0%,rgba(0,0,0,.7) 5%,black 11%,black 100%);
   opacity:1;transition:opacity .25s ease;
 }
 .stage.art-phase-night .ui::before {opacity:.9;}
