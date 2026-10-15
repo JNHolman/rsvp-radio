@@ -523,38 +523,33 @@
 
 /* -------------------------------------------------------------------
    TV DAYLIGHT PALETTE — Midnight navy #19283D for primary track data,
-   weather, clock and progress. The bright art has mixed backgrounds:
-   the header logo uses crisp edge-outlined ivory/gold lettering, and the
-   SMALL Up Next text column gets a matching dark square material for
-   consistent readability against the high-contrast waterfront.
-   Night remains ivory/gold without that queue-text plate. No image-wide
-   masks, vignettes, or gradients. The approved art remains untouched.
+   weather, clock and progress. The day logo and Up Next labels are also
+   NAVY-filled, with very thin cream strokes for local legibility.
+   The UP NEXT text has no box or shading plate. Night remains ivory/gold.
+   No image-wide masks, vignettes, or gradients; approved art stays intact.
    background.js sets art-phase-day only after the DAY WebP has loaded.
    ------------------------------------------------------------------- */
 .stage.art-phase-day:not(.videoMode) .ui {
   color: #19283D;
 }
-/* The day logo crosses blue sky, black hair and warm highlights.
-   Navy-alone disappeared in the hair; gold-alone disappeared in the sky.
-   Use the SAME white RSVP / gold RADIO brand as night, but a crisp navy
-   edge (not a blurred shadow or rectangle) to make both readable. */
-.stage.art-phase-day:not(.videoMode) .header .brand {
-  color: #EFC48A;
-  -webkit-text-stroke: 1.1px #19283D;
-  paint-order: stroke fill;
-  text-shadow: none;
-}
+/* Solid daylight navy lettering with a THIN cream edge (not pale fill).
+   Ivory/gold fill became illegible on the sunny daytime TV artwork.
+   The edge carries dark-hair contrast without any dark backing plate. */
+.stage.art-phase-day:not(.videoMode) .header .brand,
 .stage.art-phase-day:not(.videoMode) .header .brand .rsvp {
-  color: #F6EFE5;
-  -webkit-text-stroke: 1.1px #19283D;
+  color: #19283D;
+  -webkit-text-stroke: 1.15px #F6EFE5;
   paint-order: stroke fill;
   text-shadow: none;
 }
-/* Clock and weather live on reliably blue sky; dark ink already works. */
+/* Keep clock and weather dark in blue sky, with a hairline light edge so
+   the weather text stays legible from the couch in bright scenes. */
 .stage.art-phase-day:not(.videoMode) .weatherWidget,
 .stage.art-phase-day:not(.videoMode) .localClock,
 .stage.art-phase-day:not(.videoMode) .weatherSummary {
   color: #19283D;
+  -webkit-text-stroke: .65px #F6EFE5;
+  paint-order: stroke fill;
   text-shadow: none;
 }
 .stage.art-phase-day:not(.videoMode) .nowCard .meta,
@@ -568,26 +563,23 @@
   color: #19283D;
   text-shadow: none;
 }
-/* Small LOCAL queue-label treatment, not a bottom-of-screen shading band.
-   Bottom water reflections contain every value from near-white to navy:
-   plain dark text failed on pale reflections. Match the signature's
-   dark-purple material for ONLY the first queue track's text area.
-   The five square tiles and the approved artwork are never filtered. */
+/* Daytime queue MUST stay printed directly on the water, not boxed off.
+   The previous opaque-looking text plate obscured the approved artwork.
+   Give navy lettering a narrow cream outline for local contrast ONLY. */
 .stage.art-phase-day:not(.videoMode) .upNext .nextFeatured .nextMeta {
-  box-sizing: border-box;
-  padding: clamp(6px, .65vw, 14px) clamp(8px, .75vw, 16px);
-  background: rgba(12,10,30,.80);
-  border: 1px solid rgba(239,196,138,.38);
-  border-radius: 3px;
-  color: #F6EFE5;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  color: #19283D;
   text-shadow: none;
 }
-.stage.art-phase-day:not(.videoMode) .upNext .nextTitle {
-  color: #F6EFE5;
-  text-shadow: none;
-}
-.stage.art-phase-day:not(.videoMode) .upNext .nextArtist {
-  color: rgba(246,239,229,.88);
+.stage.art-phase-day:not(.videoMode) .upNext .nextTitle,
+.stage.art-phase-day:not(.videoMode) .upNext .nextArtist,
+.stage.art-phase-day:not(.videoMode) .upNext .nextFeatured .nextMeta > h2 {
+  color: #19283D;
+  -webkit-text-stroke: 1.05px #F6EFE5;
+  paint-order: stroke fill;
   text-shadow: none;
 }
 .stage.art-phase-day:not(.videoMode) .progressTrack {
@@ -596,10 +588,6 @@
 .stage.art-phase-day:not(.videoMode) .progressFill {
   background: #24537F;
   box-shadow: none;
-}
-.stage.art-phase-day:not(.videoMode) .upNext .nextFeatured .nextMeta > h2 {
-  color: #EFC48A; /* Deliberate shared gold brand accent against a dark tile. */
-  text-shadow: none;
 }
 /* The TECH/MUSIC/ART tile remains ivory on its existing dark square. */
 .stage.art-phase-day:not(.videoMode) .upNext .signature {
