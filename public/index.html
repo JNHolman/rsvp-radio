@@ -37,21 +37,58 @@
         </div>
       </div>
 
-      <!-- Light menu — opens on RSVP RADIO click -->
-      <div id="menu" class="menu" aria-hidden="true">
+      <!-- Functional navigation; stays collapsed until RSVP logo is opened. -->
+      <nav id="menu" class="menu" aria-label="RSVP controls" aria-hidden="true">
         <div class="menuTop">
-          <div class="menuTitle">LIGHTS</div>
-          <div id="menuClose" class="menuClose">×</div>
+          <div class="menuTitle">RSVP CONTROLS</div>
+          <button id="menuClose" class="menuClose" type="button" aria-label="Close menu">×</button>
         </div>
-        <div class="menuGrid">
-          <button class="menuBtn" data-mode="lounge">LOUNGE</button>
-          <button class="menuBtn" data-mode="lofi">LOFI</button>
-          <button class="menuBtn" data-mode="rap">RAP</button>
-          <button class="menuBtn" data-mode="rnb">R&amp;B</button>
-          <button class="menuBtn" data-action="on">ON</button>
-          <button class="menuBtn" data-action="off">OFF</button>
+        <div class="menuTabs">
+          <button class="menuTab active" data-panel-target="radio">RADIO</button>
+          <button class="menuTab" data-panel-target="tv">TV</button>
+          <button class="menuTab" data-panel-target="queue">QUEUE</button>
+          <button class="menuTab" data-panel-target="lights">LIGHTS</button>
+          <button class="menuTab" data-panel-target="visuals">VISUALS</button>
         </div>
-      </div>
+        <div class="menuPanel on" data-panel="radio">
+          <p>Automated RSVP Radio programming</p>
+          <div class="menuGrid two">
+            <button class="menuBtn" data-api="/admin/automation/start">RESUME AUTO</button>
+            <button class="menuBtn" data-api="/admin/force-timeblock-sync">SYNC TO SCHEDULE</button>
+          </div>
+        </div>
+        <div class="menuPanel" data-panel="tv">
+          <p>Select a real RSVP TV playlist or control playback.</p>
+          <div id="menuVideoList" class="menuGrid two"></div>
+          <div class="menuGrid three">
+            <button class="menuBtn" data-api="/admin/video/prev">PREV</button>
+            <button class="menuBtn" data-api="/admin/video/next">NEXT</button>
+            <button class="menuBtn" data-api="/admin/video/stop">STOP TV</button>
+          </div>
+        </div>
+        <div class="menuPanel" data-panel="queue">
+          <p>Actual upcoming tracks reported by the Plexamp play queue.</p>
+          <div id="menuQueueList" class="menuQueueList">Checking queue…</div>
+        </div>
+        <div class="menuPanel" data-panel="lights">
+          <div class="menuGrid three">
+            <button class="menuBtn" data-mode="lounge">LOUNGE</button>
+            <button class="menuBtn" data-mode="lofi">LOFI</button>
+            <button class="menuBtn" data-mode="rap">RAP</button>
+            <button class="menuBtn" data-mode="rnb">R&amp;B</button>
+            <button class="menuBtn" data-action="on">ON</button>
+            <button class="menuBtn" data-action="off">OFF</button>
+          </div>
+        </div>
+        <div class="menuPanel" data-panel="visuals">
+          <p>Artwork follows Louisville sunrise and civil dusk automatically.</p>
+          <div class="menuGrid two">
+            <button class="menuBtn" data-fx="on">FX ON</button>
+            <button class="menuBtn" data-fx="off">FX OFF</button>
+          </div>
+        </div>
+        <div id="menuFeedback" class="menuFeedback" aria-live="polite"></div>
+      </nav>
 
       <!-- Now Playing card -->
       <div id="nowCard" class="nowCard">
