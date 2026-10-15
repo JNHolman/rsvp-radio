@@ -274,7 +274,7 @@
 .drawerHead .drawerClose { flex: 0 0 44px; margin-left: 8px; }
 .drawerClose {
   appearance: none; border: 0; background: transparent; color: #fff;
-  width: 44px; height: 44px; font: 300 32px/1 system-ui,sans-serif; cursor: pointer;
+  width: 44px; height: 44px; font-weight:300;font-size:32px;line-height:1; cursor: pointer;
 }
 .drawerHome { padding: 30px 24px 15px; overflow-y: auto; flex: 1; }
 .drawerEyebrow { font-size: 11px; letter-spacing: .20em; font-weight: 600; color: var(--rsvp-gold); margin: 5px 0 25px; }
@@ -298,7 +298,7 @@
 .drawerChoice > i { grid-column: 2; grid-row: 1 / 3; align-self: center; font-size: 28px; color: var(--rsvp-gold); font-style: normal; }
 .drawerChoice:hover > span, .drawerChoice:focus-visible > span { color: var(--rsvp-gold); }
 .drawerDetails { padding: 21px 24px 26px; overflow-y: auto; flex: 1; }
-.drawerBack { color: var(--rsvp-gold); font: 650 12px system-ui,sans-serif; letter-spacing: .1em; border:0; background:none; padding:8px 0 20px; cursor:pointer; }
+.drawerBack { color: var(--rsvp-gold); font-weight:650;font-size:12px; letter-spacing: .1em; border:0; background:none; padding:8px 0 20px; cursor:pointer; }
 .drawerDetails h2 { font-size: 24px; margin: 0 0 18px; font-weight: 700; letter-spacing: .045em; }
 .drawerPanel p { margin: 0 0 22px; color: rgba(255,255,255,.73); font-size: 13px; line-height: 1.6; }
 .drawerPanel .menuGrid { display: grid; gap: 9px; margin: 0 0 10px; }
