@@ -18,7 +18,7 @@ test("couch TV layout keeps text to the right with permitted outer-record overla
 });
 
 test("progress stays short/thick with elapsed and total below the bar", () => {
-  assert.match(css, /\.nowCard\s+\.meta\s+\.nowExtras\s*\{[^}]*17\.4vw;/s);
+  assert.match(css, /\.nowCard\s+\.meta\s+\.nowExtras\s*\{[^}]*17\.4vw\)/s);
   assert.match(css, /\.progressTrack\s*\{[^}]*height:\s*6px;/s);
   assert.ok(html.indexOf('class="progressTrack"') < html.indexOf('class="progressTimes"'));
 });
