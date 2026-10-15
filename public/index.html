@@ -6,7 +6,7 @@
   <title>RSVP Radio</title>
   <link rel="stylesheet" href="/styles.css" />
   <link rel="stylesheet" href="/tv-overlay.css" />
-  <link rel="stylesheet" href="/tv-refined.css?v=tv-queue-accent-2" />
+  <link rel="stylesheet" href="/tv-refined.css?v=couch-tv-pass-1" />
 </head>
 <body>
 
@@ -107,11 +107,11 @@
           <div id="tAlbum" class="tAlbum">—</div>
           <!-- Keep progress physically anchored to the song metadata. -->
           <div id="nowExtras" class="nowExtras" aria-label="Playback progress">
+            <div class="progressTrack"><div id="playFill" class="progressFill"></div></div>
             <div class="progressTimes">
               <span id="playElapsed">0:00</span>
               <span id="playDuration">0:00</span>
             </div>
-            <div class="progressTrack"><div id="playFill" class="progressFill"></div></div>
           </div>
         </div>
         <div class="cover">
@@ -120,8 +120,8 @@
         </div>
       </div>
 
-      <!-- Compact queue in the right-hand gradient; 5 covers plus one square mark. -->
-      <section id="upNext" class="upNext" aria-label="Next five songs">
+      <!-- TV-size queue: four album covers (first track named) and one square signature. No full-screen gradients. -->
+      <section id="upNext" class="upNext" aria-label="Next four songs">
         <div class="nextFeatured">
           <div class="nextMeta">
             <h2>UP NEXT</h2>
@@ -130,7 +130,7 @@
           </div>
           <div id="nextCover" class="nextCover"><img id="nextCoverImg" alt="" hidden /></div>
         </div>
-        <div id="nextStrip" class="nextStrip" aria-label="Four later album covers"></div>
+        <div id="nextStrip" class="nextStrip" aria-label="Three later album covers"></div>
         <div class="signature" aria-label="Tech. Music. Art."><span>TECH.</span><span>MUSIC.</span><span>ART.</span></div>
       </section>
 
