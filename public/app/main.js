@@ -30,6 +30,7 @@ function _menuMessage(message, error = false) {
 function _toggleMenu(force) {
   const on = typeof force === "boolean" ? force : !_menu.classList.contains("on");
   _menu.classList.toggle("on", on);
+  document.querySelector(".stage")?.classList.toggle("drawer-open", on);
   _menu.setAttribute("aria-hidden", String(!on));
   _menuScrim.classList.toggle("on", on);
   _brand.setAttribute("aria-expanded", String(on));
