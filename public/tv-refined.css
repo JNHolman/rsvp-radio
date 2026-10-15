@@ -171,6 +171,7 @@
   margin: 0 0 .38vw;
   padding: 0;
   text-align: right;
+  transform: translateY(-4px); /* Small lift without shifting title/artist. */
 }
 .nextFeatured {
   flex: 0 0 19.2vw;
@@ -519,7 +520,7 @@
   text-shadow: none;
 }
 .stage.art-phase-day:not(.videoMode) .upNext .nextFeatured .nextMeta > h2 {
-  color: #542858;
+  color: #832950; /* Distinct deep raspberry against gold/blue water. */
   text-shadow: none;
 }
 .stage.art-phase-day:not(.videoMode) .upNext .nextTitle,
