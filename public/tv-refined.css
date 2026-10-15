@@ -464,3 +464,79 @@
   .upNext .signature { flex-basis: 8vw; width: 8vw; height: 8vw; font-size: 7px; padding: 1vw; }
   .menu, .menu.on { width: 86vw; }
 }
+
+/* -------------------------------------------------------------------
+   DAYLIGHT TYPOGRAPHY — Approved art stays untouched.
+   The golden daytime skyline is bright enough that white lettering and
+   large black text shadows BOTH lose legibility. Switch to ink colors
+   derived from the purple vinyl/wave accents instead of darkening the art.
+   The JS applies art-phase-day ONLY when the actual daytime WebP is loaded.
+   NIGHT uses the unchanged warm-white/gold design above; VIDEO is excluded.
+   ------------------------------------------------------------------- */
+.stage.art-phase-day:not(.videoMode) .ui {
+  color: #241631;
+}
+.stage.art-phase-day:not(.videoMode) .header .brand,
+.stage.art-phase-day:not(.videoMode) .header .brand .rsvp {
+  color: #241631;
+  text-shadow: none;
+}
+.stage.art-phase-day:not(.videoMode) .header .brand {
+  color: #55283d;
+}
+.stage.art-phase-day:not(.videoMode) .weatherWidget,
+.stage.art-phase-day:not(.videoMode) .localClock,
+.stage.art-phase-day:not(.videoMode) .weatherSummary {
+  color: #241631;
+  text-shadow: none;
+}
+.stage.art-phase-day:not(.videoMode) .nowCard .meta {
+  color: #241631;
+  text-shadow: none;
+}
+.stage.art-phase-day:not(.videoMode) .nowCard .tTitle {
+  color: #241631;
+}
+.stage.art-phase-day:not(.videoMode) .nowCard .tArtist {
+  color: #302040;
+}
+.stage.art-phase-day:not(.videoMode) .nowCard .tAlbum {
+  color: #44304f;
+}
+.stage.art-phase-day:not(.videoMode) .progressTimes {
+  color: #352441;
+}
+.stage.art-phase-day:not(.videoMode) .progressTrack {
+  background: rgba(48,28,67,.30);
+}
+.stage.art-phase-day:not(.videoMode) .progressFill {
+  background: #572b6f;
+  box-shadow: none;
+}
+.stage.art-phase-day:not(.videoMode) .upNext,
+.stage.art-phase-day:not(.videoMode) .upNext .nextMeta {
+  color: #241631;
+  text-shadow: none;
+}
+.stage.art-phase-day:not(.videoMode) .upNext .nextFeatured .nextMeta > h2 {
+  color: #542858;
+  text-shadow: none;
+}
+.stage.art-phase-day:not(.videoMode) .upNext .nextTitle,
+.stage.art-phase-day:not(.videoMode) .upNext .nextArtist {
+  color: #241631;
+  text-shadow: none;
+}
+/* The square maker's tile keeps its own dark background and white text. */
+.stage.art-phase-day:not(.videoMode) .upNext .signature {
+  color: white;
+  text-shadow: none;
+}
+/* No full-screen fades or soft halos. Small color fades only on phase change. */
+.header .brand, .header .brand .rsvp,
+.localClock, .weatherSummary,
+.nowCard .tTitle, .nowCard .tArtist, .nowCard .tAlbum,
+.progressTimes, .progressTrack, .progressFill,
+.upNext .nextMeta h2, .upNext .nextTitle, .upNext .nextArtist {
+  transition: color .65s ease, background-color .65s ease;
+}
