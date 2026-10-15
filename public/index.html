@@ -6,6 +6,7 @@
   <title>RSVP Radio</title>
   <link rel="stylesheet" href="/styles.css" />
   <link rel="stylesheet" href="/tv-overlay.css" />
+  <link rel="stylesheet" href="/tv-refined.css" />
 </head>
 <body>
 
@@ -25,9 +26,8 @@
     <div class="ui">
 
       <div class="header">
-        <div id="brand" class="brand"><span class="rsvp">RSVP</span> RADIO</div>
+        <div id="brand" class="brand" role="button" tabindex="0" aria-label="Open RSVP controls" aria-expanded="false" aria-controls="menu" title="Open RSVP controls"><span class="rsvp">RSVP</span> RADIO</div>
         <div id="weatherWidget" class="weatherWidget" aria-label="Louisville local time and weather">
-          <span class="weatherCity">LOUISVILLE, KY</span>
           <span id="localClock" class="localClock">--:--</span>
           <span id="weatherSummary" class="weatherSummary">WEATHER UNAVAILABLE</span>
         </div>
@@ -37,79 +37,75 @@
         </div>
       </div>
 
-      <!-- Reference TV composition: quiet left-side navigation, with real actions. -->
-      <nav id="sideNav" class="sideNav" aria-label="RSVP TV sections">
-        <button class="sideNavItem selected" data-sidebar="playing"><span class="sideDot"></span>NOW PLAYING</button>
-        <button class="sideNavItem" data-sidebar="radio">RSVP RADIO</button>
-        <button class="sideNavItem" data-sidebar="tv">MUSIC VIDEO</button>
-        <button class="sideNavItem" data-sidebar="visuals">VISUALS</button>
-        <button class="sideNavItem" data-sidebar="queue">QUEUE</button>
-        <button class="sideNavItem" data-sidebar="lights">LIGHTS</button>
-      </nav>
-
-      <!-- Functional navigation; stays collapsed until RSVP logo is opened. -->
+      <!-- Logo opens this four-section left drawer. No persistent nav or icon. -->
+      <div id="menuScrim" class="menuScrim" aria-hidden="true"></div>
       <nav id="menu" class="menu" aria-label="RSVP controls" aria-hidden="true">
-        <div class="menuTop">
-          <div class="menuTitle">RSVP CONTROLS</div>
-          <button id="menuClose" class="menuClose" type="button" aria-label="Close menu">×</button>
+        <div class="drawerHead">
+          <div class="drawerWordmark"><b>RSVP</b> RADIO</div>
+          <button id="menuClose" type="button" class="drawerClose" aria-label="Close controls">×</button>
         </div>
-        <div class="menuTabs">
-          <button class="menuTab active" data-panel-target="radio">RADIO</button>
-          <button class="menuTab" data-panel-target="tv">TV</button>
-          <button class="menuTab" data-panel-target="queue">QUEUE</button>
-          <button class="menuTab" data-panel-target="lights">LIGHTS</button>
-          <button class="menuTab" data-panel-target="visuals">VISUALS</button>
+        <div id="drawerHome" class="drawerHome">
+          <div class="drawerEyebrow">YOUR ROOM. YOUR SOUND.</div>
+          <button class="drawerChoice" data-drawer-section="radio" type="button"><span>RSVP RADIO</span><small>Return to the station</small><i>›</i></button>
+          <button class="drawerChoice" data-drawer-section="tv" type="button"><span>RSVP TV</span><small>Music videos</small><i>›</i></button>
+          <button class="drawerChoice" data-drawer-section="vibe" type="button"><span>VIBE</span><small>Choose the mood</small><i>›</i></button>
+          <button class="drawerChoice" data-drawer-section="lighting" type="button"><span>LIGHTING</span><small>Control the atmosphere</small><i>›</i></button>
         </div>
-        <div class="menuPanel on" data-panel="radio">
-          <p>Automated RSVP Radio programming</p>
-          <div class="menuGrid two">
-            <button class="menuBtn" data-api="/admin/automation/start">RESUME AUTO</button>
-            <button class="menuBtn" data-api="/admin/force-timeblock-sync">SYNC TO SCHEDULE</button>
+        <div id="drawerDetails" class="drawerDetails" hidden>
+          <button id="drawerBack" class="drawerBack" type="button">← MENU</button>
+          <h2 id="drawerTitle">RSVP RADIO</h2>
+          <div class="drawerPanel" data-panel="radio">
+            <p>Return to RSVP Radio or rejoin your scheduled programming.</p>
+            <div class="menuGrid one">
+              <button class="menuBtn" data-api="/admin/video/stop">SWITCH TO RADIO</button>
+              <button class="menuBtn" data-api="/mode/clear">RETURN TO SCHEDULE</button>
+            </div>
           </div>
-        </div>
-        <div class="menuPanel" data-panel="tv">
-          <p>Select a real RSVP TV playlist or control playback.</p>
-          <div id="menuVideoList" class="menuGrid two"></div>
-          <div class="menuGrid three">
-            <button class="menuBtn" data-api="/admin/video/prev">PREV</button>
-            <button class="menuBtn" data-api="/admin/video/next">NEXT</button>
-            <button class="menuBtn" data-api="/admin/video/stop">STOP TV</button>
+          <div class="drawerPanel" data-panel="tv" hidden>
+            <p>Choose an available RSVP TV playlist.</p>
+            <div id="menuVideoList" class="menuGrid two"></div>
+            <div class="menuGrid three">
+              <button class="menuBtn" data-api="/admin/video/prev">PREV</button>
+              <button class="menuBtn" data-api="/admin/video/next">NEXT</button>
+              <button class="menuBtn" data-api="/admin/video/stop">STOP TV</button>
+            </div>
           </div>
-        </div>
-        <div class="menuPanel" data-panel="queue">
-          <p>Actual upcoming tracks reported by the Plexamp play queue.</p>
-          <div id="menuQueueList" class="menuQueueList">Checking queue…</div>
-        </div>
-        <div class="menuPanel" data-panel="lights">
-          <div class="menuGrid three">
-            <button class="menuBtn" data-mode="lounge">LOUNGE</button>
-            <button class="menuBtn" data-mode="lofi">LOFI</button>
-            <button class="menuBtn" data-mode="rap">RAP</button>
-            <button class="menuBtn" data-mode="rnb">R&amp;B</button>
-            <button class="menuBtn" data-action="on">ON</button>
-            <button class="menuBtn" data-action="off">OFF</button>
+          <div class="drawerPanel" data-panel="vibe" hidden>
+            <p>These are the four programming modes currently connected to RSVP. Your existing scheduled handoff ends manual selections automatically.</p>
+            <div class="menuGrid two">
+              <button class="menuBtn" data-vibe="lounge">LOUNGE</button>
+              <button class="menuBtn" data-vibe="rnb">R&amp;B</button>
+              <button class="menuBtn" data-vibe="rap">HIP-HOP</button>
+              <button class="menuBtn" data-vibe="lofi">LO-FI</button>
+            </div>
+            <button class="menuBtn drawerWide" data-api="/mode/clear">RETURN TO AUTOMATIC</button>
           </div>
-        </div>
-        <div class="menuPanel" data-panel="visuals">
-          <p>Artwork follows Louisville sunrise and civil dusk automatically.</p>
-          <div class="menuGrid two">
-            <button class="menuBtn" data-fx="on">FX ON</button>
-            <button class="menuBtn" data-fx="off">FX OFF</button>
+          <div class="drawerPanel" data-panel="lighting" hidden>
+            <p>Use the existing Philips Hue controls.</p>
+            <div class="menuGrid two">
+              <button class="menuBtn" data-mode="lounge">LOUNGE</button>
+              <button class="menuBtn" data-mode="lofi">LO-FI</button>
+              <button class="menuBtn" data-mode="rap">RAP</button>
+              <button class="menuBtn" data-mode="rnb">R&amp;B</button>
+              <button class="menuBtn" data-action="on">LIGHTS ON</button>
+              <button class="menuBtn" data-action="off">LIGHTS OFF</button>
+            </div>
           </div>
         </div>
         <div id="menuFeedback" class="menuFeedback" aria-live="polite"></div>
+        <div class="drawerFoot">RSVP RADIO <span>·</span> PRIVATE PREVIEW</div>
       </nav>
 
-      <!-- Now Playing card -->
+      <!-- Main track information reads left to right, album cover stays on far right. -->
       <div id="nowCard" class="nowCard">
+        <div class="meta">
+          <h1 id="tTitle" class="tTitle">—</h1>
+          <div id="tArtist" class="tArtist">—</div>
+          <div id="tAlbum" class="tAlbum">—</div>
+        </div>
         <div class="cover">
           <div class="placeholder" id="ph">RSVP<br/>RADIO</div>
           <img id="artImg" alt="" style="display:none" />
-        </div>
-        <div class="meta">
-          <h1  id="tTitle"  class="tTitle">—</h1>
-          <div id="tArtist" class="tArtist">—</div>
-          <div id="tAlbum"  class="tAlbum">—</div>
         </div>
       </div>
 
@@ -120,11 +116,11 @@
           <span id="playDuration">0:00</span>
         </div>
         <div class="progressTrack"><div id="playFill" class="progressFill"></div></div>
-        <div id="soundBars" class="soundBars" aria-hidden="true"></div>
+
       </div>
 
-      <!-- Always-visible Up Next, featured track + the remaining album covers. -->
-      <section id="upNext" class="upNext" aria-label="Upcoming songs">
+      <!-- Compact queue in the right-hand gradient; 5 covers plus one square mark. -->
+      <section id="upNext" class="upNext" aria-label="Next five songs">
         <h2>UP NEXT</h2>
         <div class="nextFeatured">
           <div id="nextCover" class="nextCover"><img id="nextCoverImg" alt="" hidden /></div>
@@ -133,10 +129,10 @@
             <div id="nextArtist" class="nextArtist"></div>
           </div>
         </div>
-        <div id="nextStrip" class="nextStrip" aria-label="Later songs"></div>
+        <div id="nextStrip" class="nextStrip" aria-label="Four later album covers"></div>
+        <div class="signature" aria-label="Tech. Music. Art."><span>TECH.</span><span>MUSIC.</span><span>ART.</span></div>
       </section>
 
-      <div class="signature" aria-label="Tech. Music. Art."><span>TECH.</span><span>MUSIC.</span><span>ART.<i></i></span></div>
       <button id="exitBtn" class="exitBtn" aria-label="Exit">×</button>
 
     </div>
