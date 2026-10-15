@@ -158,7 +158,9 @@ const server = http.createServer(async (req, res) => {
       const json = await result.json();
       const temp = Number(json?.current?.temperature_2m);
       if (!Number.isFinite(temp)) throw new Error("Temperature unavailable");
-      return send(res, 200, "application/json", JSON.stringify({available:true,temperatureF:temp,description:"Louisville"}));
+      const code = Number(json?.current?.weather_code);
+      const summary = ({0:"Clear",1:"Mostly Clear",2:"Partly Cloudy",3:"Cloudy",45:"Fog",48:"Fog",51:"Drizzle",53:"Drizzle",55:"Drizzle",61:"Rain",63:"Rain",65:"Heavy Rain",71:"Snow",73:"Snow",75:"Heavy Snow",80:"Showers",81:"Showers",82:"Heavy Showers",95:"Thunderstorm"})[code] || "Conditions unavailable";
+      return send(res, 200, "application/json", JSON.stringify({available:true,temperatureF:temp,description:summary}));
     } catch (_) { return send(res, 200, "application/json", JSON.stringify({available:false})); }
   }
 
