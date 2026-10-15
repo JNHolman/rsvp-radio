@@ -1866,9 +1866,22 @@ async function _loadUpNext(currentKey) {
     sessionUrl.searchParams.set("X-Plex-Token", cfg.PLEX_TOKEN);
     const sessionResponse = await fetchWithTimeout(sessionUrl.toString(), 3000);
     if (!sessionResponse.ok) return _queueUnavailable("plex_sessions_unavailable");
-    const context = plexQueue.parseCurrentQueueContext(
+    let context = plexQueue.parseCurrentQueueContext(
       await sessionResponse.text(), cfg.PLEX_TARGET_CLIENT_IDENTIFIER,
     );
+    // The Pi's own timeline can carry the queue identity even when PMS
+    // /status/sessions does not (for example, Plexamp cached playback).
+    if ((!context || context.ratingKey !== currentKey) && PLEXAMP_PI_ID) {
+      try {
+        const localUrl = new URL("/player/timeline/poll", PLEXAMP_BASE);
+        localUrl.searchParams.set("wait", "0");
+        localUrl.searchParams.set("commandID", String(Date.now()));
+        localUrl.searchParams.set("X-Plex-Client-Identifier", "rsvp-radio");
+        localUrl.searchParams.set("X-Plex-Target-Client-Identifier", PLEXAMP_PI_ID);
+        const localResponse = await fetchWithTimeout(localUrl.toString(), 1800);
+        if (localResponse.ok) context = plexQueue.parseTimelineQueueContext(await localResponse.text());
+      } catch (_) { /* local timeline unavailable */ }
+    }
     if (!context || context.ratingKey !== currentKey) {
       return _queueUnavailable("play_queue_not_reported");
     }
