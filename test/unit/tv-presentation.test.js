@@ -31,12 +31,18 @@ test("Up Next has four real sleeves, a raised queue and matching signature", () 
   assert.match(css, /\.upNext\s+\.signature\s*\{[^}]*7\.6vw;/s);
 });
 
-test("daytime label treatments are local to text, never the artwork", () => {
-  assert.match(css, /\.stage\.art-phase-day:not\(\.videoMode\)\s+\.header\s+\.brand[^}]*-webkit-text-stroke:\s*1\.15px/s);
+test("daytime titles and queue use feathered glow instead of text boxes or strokes", () => {
+  assert.match(css, /\.stage\.art-phase-day:not\(\.videoMode\)\s+\.nowCard::before\s*\{[^}]*radial-gradient\(/s);
+  assert.match(css, /\.stage\.art-phase-day:not\(\.videoMode\)\s+\.upNext::before\s*\{[^}]*radial-gradient\(/s);
+  assert.match(css, /\.stage\.art-phase-day:not\(\.videoMode\)\s+\.header\s+\.brand,[^}]*-webkit-text-stroke:\s*0;/s);
   assert.match(css, /\.stage\.art-phase-day:not\(\.videoMode\)\s+\.upNext\s+\.nextFeatured\s+\.nextMeta\s*\{[^}]*background:\s*transparent;/s);
-  assert.match(css, /\.stage\.art-phase-day:not\(\.videoMode\)\s+\.upNext\s+\.nextTitle,[^}]*-webkit-text-stroke:\s*1\.05px/s);
+  assert.match(css, /\.nowCard\s+\.tTitle\s*\{[^}]*font-weight:\s*800;/s);
+  assert.match(css, /\.nextTitle\s*\{[^}]*font-weight:\s*800;/s);
+  assert.match(css, /\.nextArtist\s*\{[^}]*font-weight:\s*700;/s);
+  assert.match(css, /\.nowCard\s+\.cover\s*\{[^}]*border-radius:\s*9px;/s);
+  assert.match(css, /\.nextCover\s*\{[^}]*border-radius:\s*6px;/s);
+  assert.match(css, /\.upNext\s+\.signature\s*\{[^}]*border-radius:\s*6px;/s);
   assert.doesNotMatch(css, /background:\s*rgba\(12,10,30,\.80\)/);
-  assert.match(css, /\.stage\.art-phase-day:not\(\.videoMode\)\s+\.nowCard\s+\.tTitle/);
   assert.doesNotMatch(css, /(?:\.ui::before|\.ui::after)\s*\{/);
   assert.doesNotMatch(html, /<div class="(?:vignette|topFade|bottomFade)">/);
 });
