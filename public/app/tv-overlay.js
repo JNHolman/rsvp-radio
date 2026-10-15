@@ -71,6 +71,11 @@
       name.textContent = track.title || "—";
       name.title = [track.title, track.artist].filter(Boolean).join(" — ");
       item.appendChild(name);
+      if (track.artist) {
+        const sub = document.createElement("small");
+        sub.textContent = track.artist;
+        item.appendChild(sub);
+      }
       strip.appendChild(item);
     }
   }
@@ -104,10 +109,13 @@
     const playingAudio = m.type === "audio" && ["playing", "paused"].includes(m.playerState);
     visibleAudio = playingAudio;
     progress.classList.toggle("on", playingAudio);
-    upNext.classList.toggle("on", playingAudio);
+    // Bottom Up Next strip stays on screen even when radio is between tracks.
+    // The existing video-mode CSS hides it when RSVP TV owns the display.
+    upNext.classList.add("on");
     if (!playingAudio) {
       lastRatingKey = "";
       renderQueue({ available: false, tracks: [] });
+      title.textContent = "Waiting for music";
       return;
     }
     paused = m.playerState !== "playing";
@@ -126,7 +134,7 @@
     }
   };
 
-  for (let i = 0; i < 32; i++) bars.appendChild(document.createElement("span"));
+  for (let i = 0; i < 64; i++) bars.appendChild(document.createElement("span"));
   let tick = 0;
   setInterval(() => {
     if (!visibleAudio) return;
