@@ -47,22 +47,26 @@
 .weatherWidget .weatherCondition {font-weight:470;}
 .weatherWidget .weatherCondition:not(:empty)::before {content:"·";padding-right:.4vw;opacity:.8;}
 .weatherCity {display:none!important;}
-/* Lower-right blue feather: protect the portrait/vinyl, then gently tint
-   the song and queue area. No navy/black wall or full-frame darkening. */
+/* Clearly positioned blue glass beneath Now Playing and Up Next.
+   Its left boundary is 50vw, BEFORE the first queue text; the full portrait
+   remains above this lower-right treatment. */
 .ui::before {
   content:"";position:absolute;z-index:0;pointer-events:none;
-  left:0;right:0;top:59vh;bottom:0;
+  left:50vw;right:1.6vw;top:61vh;bottom:2.8vh;
+  border:1px solid rgba(223,239,255,.28);
+  border-radius:18px;
   background:linear-gradient(to right,
-    rgba(26,88,197,0) 0%,
-    rgba(26,88,197,0) 32%,
-    rgba(26,88,197,.10) 44%,
-    rgba(26,88,197,.18) 60%,
-    rgba(26,88,197,.30) 80%,
-    rgba(26,88,197,.43) 100%);
-  -webkit-mask-image:linear-gradient(to bottom,transparent 0%,rgba(0,0,0,.33) 18%,rgba(0,0,0,.85) 43%,black 72%);
-  mask-image:linear-gradient(to bottom,transparent 0%,rgba(0,0,0,.33) 18%,rgba(0,0,0,.85) 43%,black 72%);
+    rgba(16,67,145,.24) 0%,
+    rgba(14,65,144,.35) 38%,
+    rgba(12,55,128,.47) 75%,
+    rgba(14,52,117,.56) 100%);
+  -webkit-backdrop-filter:blur(11px) saturate(115%);
+  backdrop-filter:blur(11px) saturate(115%);
+  box-shadow:0 10px 34px rgba(3,19,48,.13),inset 0 1px 0 rgba(255,255,255,.16);
+  transition:opacity .25s ease;
 }
-.stage.art-phase-night .ui::before {opacity:.82;}
+.stage.art-phase-night .ui::before {opacity:.9;}
+.stage.radio-idle .ui::before,.stage.videoMode .ui::before {opacity:0;}
 .nowCard {
   left:auto;right:3vw;top:63.5vh;bottom:auto;
   width:44vw;height:20.5vh;min-height:0;
