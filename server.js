@@ -1958,7 +1958,7 @@ async function _loadWeather() {
   const response = await fetchWithTimeout(url.toString(), 4000);
   if (!response.ok) throw new Error("weather HTTP " + response.status);
   const json = await response.json();
-  const temp = Number(json?.current?.temperature_2m);
+  const temp = json?.current?.temperature_2m;
   const code = Number(json?.current?.weather_code);
   if (!Number.isFinite(temp) || !Number.isInteger(code)) throw new Error("weather data incomplete");
   return { available: true, temperatureF: temp, description: _conditions[code] || "Conditions unavailable" };
