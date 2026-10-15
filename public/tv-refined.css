@@ -16,23 +16,38 @@
 .drawerHead .drawerWordmark { cursor: default; }
 .stage.drawer-open .header .brand { visibility: hidden; }
 .header .brand:focus-visible { outline: 2px solid var(--rsvp-gold); outline-offset: 7px; }
-.weatherWidget { gap: clamp(10px, 1.4vw, 25px); font-size: clamp(14px, 1.10vw, 22px); }
+.weatherWidget {
+  gap: clamp(15px, 1.35vw, 30px);
+  font-size: clamp(15px, 1.3vw, 25px);
+  align-items: baseline;
+}
+.weatherWidget .localClock {
+  font-size: clamp(24px, 2.15vw, 43px);
+  font-weight: 750;
+  line-height: 1;
+}
+.weatherWidget .weatherSummary {
+  font-size: clamp(15px, 1.25vw, 26px);
+  white-space: nowrap;
+}
 .weatherCity { display: none !important; }
 .localClock { font-weight: 750; color: #fff; letter-spacing: .012em; }
 .weatherSummary { color: var(--rsvp-gold); opacity: 1; font-size: .90em; }
 
 .sideNav { display: none !important; }
 
-/* Integrated player: metadata LEFT, album sleeve on the RIGHT. */
+/* Couch-safe player. The portrait/vinyl artwork ends near the 58% line:
+   keep the entire player in the right-hand 40% of the TV at 16:9.
+   Text cannot expand LEFT into the record, even for lengthy titles. */
 .nowCard {
-  left: 53.2vw;
+  left: 60vw;
   right: 3.8vw;
-  width: 43vw;
-  top: 27vh;
+  width: 36.2vw;
+  top: 25.5vh;
   bottom: auto;
-  height: 30vh;
+  height: 36vh;
   padding: 0;
-  gap: 1.0vw;
+  gap: 1.15vw;
   display: flex;
   flex-direction: row;
   justify-content: flex-end;
@@ -58,28 +73,32 @@
 }
 .nowCard .tTitle {
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   white-space: normal;
-  max-height: 2.25em;
+  max-height: 3.33em;
   overflow: hidden;
-  font-size: clamp(25px, 2.30vw, 45px);
-  font-weight: 750;
-  line-height: 1.12;
-  letter-spacing: -.018em;
+  font-size: clamp(31px, 2.90vw, 58px);
+  font-weight: 760;
+  line-height: 1.11;
+  letter-spacing: -.025em;
   text-align: right;
   overflow-wrap: anywhere;
 }
+/* Long titles scale DOWN within the fixed text column, never leftward over
+   the vinyl. Each class is based on Plex's actual title length in player.js. */
+.nowCard .tTitle.title-long { font-size: clamp(28px, 2.45vw, 49px); }
+.nowCard .tTitle.title-very-long { font-size: clamp(25px, 2.08vw, 41px); }
 .nowCard .tArtist {
   color: rgba(255,255,255,.93);
-  font-size: clamp(18px, 1.48vw, 30px);
-  font-weight: 580;
+  font-size: clamp(23px, 1.98vw, 39px);
+  font-weight: 600;
   margin-top: clamp(6px, .9vh, 14px);
 }
 .nowCard .tAlbum {
   color: rgba(255,255,255,.77);
-  font-size: clamp(12px, .98vw, 21px);
-  margin-top: 6px;
+  font-size: clamp(17px, 1.39vw, 28px);
+  margin-top: 7px;
   white-space: normal;
 }
 .nowCard .cover {
@@ -105,18 +124,26 @@
   right: auto;
   top: auto;
   bottom: auto;
-  width: 100%;
+  width: min(100%, 17.4vw);
+  align-self: flex-end;
   min-width: 0;
   margin-top: clamp(11px, 1.9vh, 24px);
   text-align: right;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(7px, .7vh, 12px);
 }
 .progressTimes {
-  margin: 0 0 6px;
-  color: rgba(255,255,255,.84);
-  font-size: clamp(11px, .83vw, 17px);
+  margin: 0;
+  display: flex;
+  justify-content: space-between;
+  color: rgba(255,255,255,.90);
+  font-size: clamp(16px, 1.25vw, 25px);
+  font-weight: 560;
 }
 .progressTrack {
-  height: 3px;
+  width: 100%;
+  height: 6px;
   margin-top: 0;
   background: rgba(255,255,255,.38);
 }
@@ -127,22 +154,22 @@
 }
 .soundBars { display: none !important; }
 
-/* No large full-screen queue bar. Right-half-only fading shadow is above.
-   Five tightly grouped covers, first title only, signature = sixth tile. */
+/* Four real upcoming covers and matching square signature.
+   Readable from the couch with no gradient, panel, or visualizer. */
 .upNext {
   position: absolute;
   top: auto;
   left: auto;
   right: 3.8vw;
-  bottom: 4vh;
-  width: 56.6vw;
-  height: 15vh;
+  bottom: 5.2vh;
+  width: 54vw;
+  height: 16.5vh;
   min-height: 0;
   padding: 0;
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: .56vw;
+  gap: .45vw;
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -162,7 +189,7 @@
   left: auto;
   right: auto;
   top: auto;
-  font-size: clamp(10px, .80vw, 16px);
+  font-size: clamp(15px, 1.15vw, 22px);
   line-height: 1.15;
   font-weight: 750;
   letter-spacing: .11em;
@@ -174,19 +201,19 @@
   transform: translateY(-4px); /* Small lift without shifting title/artist. */
 }
 .nextFeatured {
-  flex: 0 0 19.2vw;
-  width: 19.2vw;
+  flex: 0 0 20.4vw;
+  width: 20.4vw;
   min-width: 0;
   min-height: 0;
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: .55vw;
+  gap: .45vw;
 }
 .nextCover {
   flex: 0 0 auto;
-  width: 6.4vw;
-  height: 6.4vw;
+  width: 7.6vw;
+  height: 7.6vw;
   min-width: 0;
   min-height: 0;
   border-radius: 2px;
@@ -214,7 +241,7 @@
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 3;
-  font-size: clamp(12px, 1.04vw, 21px);
+  font-size: clamp(17px, 1.39vw, 28px);
   font-weight: 700;
   line-height: 1.22;
   max-height: 3.66em;
@@ -227,7 +254,7 @@
 .nextArtist {
   display: block;
   color: rgba(255,255,255,.74);
-  font-size: clamp(10px, .82vw, 17px);
+  font-size: clamp(15px, 1.14vw, 23px);
   font-weight: 530;
   line-height: 1.2;
   margin-top: .28vw;
@@ -244,14 +271,14 @@
   min-width: 0;
   align-items: center;
   justify-content: flex-start;
-  gap: .43vw;
+  gap: .35vw;
   margin: 0;
 }
-.nextStripItem { flex: 0 0 auto; width: 6.4vw; min-width: 0; max-width: none; }
+.nextStripItem { flex: 0 0 auto; width: 7.6vw; min-width: 0; max-width: none; }
 .nextStripItem img {
   display: block;
-  width: 6.4vw;
-  height: 6.4vw;
+  width: 7.6vw;
+  height: 7.6vw;
   max-width: none;
   object-fit: cover;
   border: 1px solid rgba(255,255,255,.30);
@@ -271,10 +298,10 @@
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 3;
 }
-/* 500 x 500 graphic concept, rendered at EXACTLY album-sleeve dimensions. */
+/* Square TECH/MUSIC/ART signature matches the enlarged album covers. */
 .upNext .signature {
   position: relative;
-  flex: 0 0 6.4vw;
+  flex: 0 0 7.6vw;
   right: auto;
   bottom: auto;
   top: auto;
@@ -282,9 +309,9 @@
   min-width: 0;
   min-height: 0;
   max-width: none;
-  width: 6.4vw;
-  height: 6.4vw;
-  padding: .78vw;
+  width: 7.6vw;
+  height: 7.6vw;
+  padding: .84vw;
   margin-left: .35vw;
   display: flex;
   flex-direction: column;
@@ -296,7 +323,7 @@
   box-shadow: 0 5px 14px rgba(0,0,0,.34);
   background: rgba(8,7,19,.78);
   color: white;
-  font-size: clamp(10px, .77vw, 16px);
+  font-size: clamp(14px, 1.06vw, 22px);
   line-height: 1.12;
   font-weight: 690;
   letter-spacing: .03em;
