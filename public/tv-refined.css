@@ -31,6 +31,18 @@
   display: none;
 }
 
+/* In radio mode the approved artwork is already fully color-graded.
+   Base styles.css was still drawing a heavy vignette plus top/bottom masks
+   ABOVE that image. Suppress them ONLY if one of the static art layers is
+   actually active. The general-sibling selector matches existing DOM order:
+   artDay/artNight -> vignette -> topFade -> bottomFade.
+   Video playback and legacy ambient-video fallback keep original fades. */
+.stage:not(.videoMode) > .artBg.on ~ .vignette,
+.stage:not(.videoMode) > .artBg.on ~ .topFade,
+.stage:not(.videoMode) > .artBg.on ~ .bottomFade {
+  display: none;
+}
+
 .bottomFade {
   height: 13vh;
   background: linear-gradient(to top, rgba(0,0,0,.10), rgba(0,0,0,0));
