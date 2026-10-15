@@ -12,6 +12,31 @@
 const _bgA = document.getElementById("bgA");
 const _bgB = document.getElementById("bgB");
 
+const _artDay = document.getElementById("artDay");
+const _artNight = document.getElementById("artNight");
+const _stage = document.querySelector(".stage");
+const ART_DAY = "/assets/bg/rsvp_day_art.webp";
+const ART_NIGHT = "/assets/bg/rsvp_night_art.webp";
+let _artReady = false;
+
+// Use the approved artwork if the assets were installed on this Pi.
+// Until then, the existing ambient videos remain visible beneath these layers.
+function _setArtworkForSource(src) {
+  if (!_artReady) return;
+  const showingDay = src === BG_DAY;
+  _artDay.classList.toggle("on", showingDay && _artDay.naturalWidth > 0);
+  _artNight.classList.toggle("on", !showingDay && _artNight.naturalWidth > 0);
+}
+function _bootArtwork() {
+  if (_artReady) return;
+  _artReady = true;
+  for (const [img, path] of [[_artDay, ART_DAY], [_artNight, ART_NIGHT]]) {
+    img.addEventListener("load", () => _setArtworkForSource(_currentSrc));
+    img.addEventListener("error", () => console.info("[bg] Artwork not installed; using ambient video fallback:", path));
+    img.src = path;
+  }
+}
+
 let _front      = _bgA;
 let _back       = _bgB;
 let _currentSrc = null;
@@ -77,9 +102,11 @@ async function _crossfadeTo(src) {
 // ── Public API ────────────────────────────────────────────────────────────────
 
 async function bootBackground() {
+  _bootArtwork();
   _currentSrc = await _desiredBackground();
   _setSrc(_front, _currentSrc);
   _front.classList.add("on");
+  _setArtworkForSource(_currentSrc);
   try { await _front.play(); } catch (_) {}
   _detach(_back);
 }
@@ -90,6 +117,7 @@ async function swapBackgroundIfNeeded(force = false) {
   const want = await _desiredBackground();
   if (!force && want === _currentSrc) return;
   await _crossfadeTo(want);
+  _setArtworkForSource(want);
 }
 
 async function reloadCurrentVideoIfDue() {
@@ -151,6 +179,7 @@ function failMusicVideoMode(mediaUrl) {
   _musicActiveKey = null;
   _musicEnded     = false;
   _showBlackHold(false);
+  _stage.classList.remove("videoMode");
   _musicVideo.classList.remove("on");
   _musicVideo.removeAttribute("src");
   try { _musicVideo.load(); } catch (_) {}
@@ -168,6 +197,7 @@ function failMusicVideoMode(mediaUrl) {
 }
 
 async function enterMusicVideoMode(mediaUrl, playerState = "playing") {
+  _stage.classList.add("videoMode");
   if (_inMusicMode && _musicActiveKey === mediaUrl) return;
 
   // Don't retry a recently failed video — prevents retry loop
@@ -280,6 +310,7 @@ async function enterMusicVideoMode(mediaUrl, playerState = "playing") {
 
 function exitMusicVideoMode() {
   if (!_inMusicMode) return;
+  _stage.classList.remove("videoMode");
   const myToken = ++_cleanupToken; // invalidate pending listeners and old cleanup
   _inMusicMode    = false;
   _musicActiveKey = null;
