@@ -29,7 +29,7 @@ function fakeNode() {
   };
 }
 
-test("idle shows artwork only; active audio restores player, paused keeps it, video remains separate", () => {
+test("idle hides music overlay but retains global header; audio, pause, and video states stay separate", () => {
   const elements = new Map();
   const el = id => {
     if (!elements.has(id)) elements.set(id, fakeNode());
@@ -85,4 +85,12 @@ test("idle shows artwork only; active audio restores player, paused keeps it, vi
   assert.equal(stage.classList.contains("radio-idle"), true);
   assert.equal(el("upNext").classList.contains("on"), false);
   assert.equal(el("nowExtras").classList.contains("on"), false);
+});
+
+test("idle CSS hides music-only elements and keeps RSVP logo, clock and weather", () => {
+  const css = fs.readFileSync(path.join(__dirname, "../../public/tv-refined.css"), "utf8");
+  assert.doesNotMatch(css, /\.stage\.radio-idle\s+\.header\s+\.(?:brand|weatherWidget)/);
+  assert.match(css, /\.stage\.radio-idle\s+\.nowCard/);
+  assert.match(css, /\.stage\.radio-idle\s+\.nowExtras/);
+  assert.match(css, /\.stage\.radio-idle\s+\.upNext/);
 });
