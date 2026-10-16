@@ -20,13 +20,14 @@
 }
 /* No secondary glow: previously caused fake clouds and artificial bands. */
 .artFx::after {content:none;display:none;}
-/* Night has baked-in purple mist at lower left. Keep that area still,
-   but place the mask on the ACTUAL lower-right waterfront rather than high
-   above the reflections. Same approved 8s drift; no added cloud motion. */
+/* The approved night artwork's visible water is on the LEFT, not the
+   right. Feather the moving copy over that upper-left waterfront only.
+   Keep the lower baked-in purple clouds/mist still (outside the ellipse).
+   No added glow or change to the approved 8-second motion. */
 .stage.art-phase-night .artFx::before {
-  -webkit-mask-image:radial-gradient(ellipse 36% 52% at 76% 60%,
+  -webkit-mask-image:radial-gradient(ellipse 34% 30% at 36% 22%,
     rgba(0,0,0,.92) 0%,rgba(0,0,0,.64) 40%,transparent 100%);
-  mask-image:radial-gradient(ellipse 36% 52% at 76% 60%,
+  mask-image:radial-gradient(ellipse 34% 30% at 36% 22%,
     rgba(0,0,0,.92) 0%,rgba(0,0,0,.64) 40%,transparent 100%);
 }
 .artFx::before {
