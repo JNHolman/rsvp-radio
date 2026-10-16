@@ -2055,6 +2055,7 @@ let _lastFeatureSignalAt = 0;
 let _lastForwardedFeatures = { bass: -1, energy: -1 };
 
 function _relayFeaturesToLights(bass, energy) {
+  if (!_lightsEnabled || _externalHueHold) return;
   const now = Date.now();
   const changed = Math.abs(bass - _lastForwardedFeatures.bass) >= 0.03 ||
     Math.abs(energy - _lastForwardedFeatures.energy) >= 0.03;
