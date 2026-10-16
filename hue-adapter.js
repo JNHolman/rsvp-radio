@@ -159,7 +159,7 @@ async function readPhysicalPower() {
   // Honor that takeover until an explicit RSVP scene/Auto selection.
   const xy = r.body?.action?.xy;
   if (isOn && lastAutomatedXy && (
-      r.body?.action?.colormode !== "xy" ||
+      (typeof r.body?.action?.colormode === "string" && r.body.action.colormode !== "xy") ||
       (Array.isArray(xy) && xy.length === 2 && xy.every(Number.isFinite) &&
         Date.now() - lastAutomatedWriteAt > 1500 &&
         Math.hypot(xy[0] - lastAutomatedXy[0], xy[1] - lastAutomatedXy[1]) > 0.045)
