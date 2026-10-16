@@ -113,6 +113,15 @@ function brightnessPayload(brightness, durMs) {
   };
 }
 
+function ambientPayload({ xy, bri, durMs }) {
+  if (!Array.isArray(xy) || xy.length !== 2 || xy.some(v => !Number.isFinite(v) || v <= 0 || v >= 1) ||
+      !Number.isInteger(bri) || bri < 1 || bri > 254 ||
+      !Number.isFinite(durMs) || durMs < 1000 || durMs > 180000) {
+    throw Object.assign(new Error("invalid_ambient_payload"), { statusCode: 400 });
+  }
+  return { xy, bri, transitiontime: transitionDeciseconds(durMs) };
+}
+
 function groupBrightness(body) {
   const value = Number(body?.action?.bri);
   return Number.isFinite(value) ? clampInt(value, 1, 254) : null;
@@ -150,6 +159,7 @@ module.exports = {
   scenePayload,
   powerPayload,
   brightnessPayload,
+  ambientPayload,
   groupBrightness,
   hueBodyHasError,
   verifyBridgeIdentity,
