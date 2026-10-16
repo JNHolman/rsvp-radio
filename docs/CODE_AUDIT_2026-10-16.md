@@ -18,8 +18,8 @@ is **explicitly excluded** pending the RSVP TV rollout.
   redundant independent Hue scheduler pass.
 - Removed `public/tv-overlay.css`, which neither UI HTML document loads.
   The currently approved `public/tv-refined.css` remains unchanged.
-- Corrected TV visual tests to accept the intentionally night-specific water
-  mask and actual eight-second motion. Replaced brittle pinned CSS version
+- Corrected TV visual tests to protect the approved shared day/night
+  water masks and nine-second ripple. Replaced brittle pinned CSS version
   expectations with a requirement for a cache-busted URL.
 - Fixed the manual Hue swatch sampler and its tests: the current artwork Auto
   palette has day/night **anchor colors**, no `base` swatch.
