@@ -25,6 +25,7 @@ const {
   readCa,
 } = require("./hue/hue-client");
 const { createReactiveLighting } = require("./hue/reactive-lighting");
+const { detectExternalHueEdit } = require("./hue/ownership");
 
 const cfg = loadConfig();
 const reactive = createReactiveLighting({ minIntervalMs: cfg.reactiveMinIntervalMs, range: cfg.reactiveRange });
@@ -143,8 +144,14 @@ async function applyScene(mode, durMs) {
 }
 
 let lastAutomatedXy = null;
+let lastAutomatedBrightness = null;
 let lastAutomatedWriteAt = 0;
 let appColorTakeover = false;
+function recordAutomatedWrite({ xy, bri }) {
+  if (Array.isArray(xy)) lastAutomatedXy = [...xy];
+  if (Number.isFinite(bri)) lastAutomatedBrightness = bri;
+  lastAutomatedWriteAt = Date.now();
+}
 
 async function readPhysicalPower() {
   const r = await hueRequest("GET", groupResourcePath(cfg));
@@ -157,13 +164,11 @@ async function readPhysicalPower() {
   const isOn = typeof on === "boolean" ? on : actionOn;
   // Hue app edits change the bridge target independently of RSVP writes.
   // Honor that takeover until an explicit RSVP scene/Auto selection.
-  const xy = r.body?.action?.xy;
-  if (isOn && lastAutomatedXy && (
-      (typeof r.body?.action?.colormode === "string" && r.body.action.colormode !== "xy") ||
-      (Array.isArray(xy) && xy.length === 2 && xy.every(Number.isFinite) &&
-        Date.now() - lastAutomatedWriteAt > 1500 &&
-        Math.hypot(xy[0] - lastAutomatedXy[0], xy[1] - lastAutomatedXy[1]) > 0.045)
-    )) {
+  if (isOn && detectExternalHueEdit(r.body?.action, {
+    xy: lastAutomatedXy,
+    bri: lastAutomatedBrightness,
+    writtenAt: lastAutomatedWriteAt,
+  })) {
     appColorTakeover = true;
   }
   return { ok: true, on: isOn, appColorTakeover };
@@ -184,8 +189,7 @@ async function applyAmbient(body) {
     // Ambient owns color; music only adds up to eight Hue brightness steps.
     reactive.setRange(Math.min(cfg.reactiveRange, 8));
     reactive.setBaseBrightness(payload.bri);
-    lastAutomatedXy = [...payload.xy];
-    lastAutomatedWriteAt = Date.now();
+    recordAutomatedWrite(payload);
   }
   return result;
 }
@@ -239,6 +243,7 @@ async function applyReactiveSignal(body) {
     brightnessPayload(plan.brightness, cfg.reactiveTransitionMs),
   );
   if (!result.ok) reactive.markWriteFailed();
+  else recordAutomatedWrite({ bri: plan.brightness });
   return {
     status: result.ok ? 200 : 502,
     body: { ok: result.ok, action: "signal", applied: result.ok, brightness: plan.brightness, hueStatus: result.status },
@@ -277,6 +282,8 @@ async function handler(req, res) {
     if (url.pathname === "/release") {
       appColorTakeover = false;
       lastAutomatedXy = null;
+      lastAutomatedBrightness = null;
+      lastAutomatedWriteAt = 0;
       return json(res, 200, { ok: true, action: "release" });
     }
 
