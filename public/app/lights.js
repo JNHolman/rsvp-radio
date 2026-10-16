@@ -38,3 +38,10 @@ async function setLightsOn() {
 async function setLightsOff() {
   return _roomPost("/admin/lights/off");
 }
+async function setLightsScene(scene) {
+  if (!/^(yin-yang-cafe|40-40-club|republic-gardens|the-tunnel|club-crucial|boom-boom-room)$/.test(scene)) return false;
+  return _roomPost("/admin/lights/scene/" + scene);
+}
+async function setLightsAuto() {
+  return _roomPost("/admin/lights/auto");
+}
