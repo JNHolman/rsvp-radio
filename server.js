@@ -2970,7 +2970,11 @@ const _httpServer = app.listen(cfg.PORT, () => {
   // Arm the next sunrise/civil-dusk Hue event before the first lighting sync.
   _solarClock.start();
   // Sync all existing skip data to Plex on startup
-  plexSync.syncAll(cfg.PLEX_BASE, cfg.PLEX_TOKEN);
+  // Integration tests use dummy Plex URLs. Never replay the Pi's persisted
+  // rating ledger or attempt background rating writes from test children.
+  if (process.env.RSVP_INTEGRATION_TEST !== "1") {
+    plexSync.syncAll(cfg.PLEX_BASE, cfg.PLEX_TOKEN);
+  }
   pollSessions();
   // Reconcile Hue state immediately on boot. The browser is intentionally not
   // a second scheduler anymore, so waiting 30 seconds here would leave a stale
