@@ -69,7 +69,8 @@ async function startServer(envOverrides = {}) {
     POLL_MS: envOverrides.POLL_MS || "10000",
     POLL_TIMEOUT_MS: envOverrides.POLL_TIMEOUT_MS || "100",
     PUBLIC_DIR: envOverrides.PUBLIC_DIR,
-    LIGHTS_URL: envOverrides.LIGHTS_URL || "http://127.0.0.1:5005",
+    // Never let default integration test servers write to the live Hue adapter.
+    LIGHTS_URL: envOverrides.LIGHTS_URL || "http://127.0.0.1:1",
     EXIT_API_TOKEN: envOverrides.EXIT_API_TOKEN || "",
     PLEX_WEBHOOK_MAX_BYTES: envOverrides.PLEX_WEBHOOK_MAX_BYTES || "256",
     PLEX_WEBHOOK_TOKEN: envOverrides.PLEX_WEBHOOK_TOKEN || "",
@@ -84,7 +85,9 @@ async function startServer(envOverrides = {}) {
     PLEXAMP_CLIENT_IDENTIFIER:     envOverrides.PLEXAMP_CLIENT_IDENTIFIER     || "",
     PLEX_TARGET_CLIENT_IDENTIFIER: envOverrides.PLEX_TARGET_CLIENT_IDENTIFIER || "",
     MEDIA_DIR:                     envOverrides.MEDIA_DIR                     || "",
-    PLEXAMP_BASE:                  envOverrides.PLEXAMP_BASE                  || "",
+    // Never let a test /api/exit or playback action reach real Plexamp :32500.
+    PLEXAMP_BASE:                  envOverrides.PLEXAMP_BASE                  || "http://127.0.0.1:1",
+    RSVP_INTEGRATION_TEST: "1",
   };
 
   const child = spawn(process.execPath, ["server.js"], {
