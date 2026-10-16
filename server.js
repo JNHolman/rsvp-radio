@@ -2456,6 +2456,7 @@ async function _applyLightsScene(mode) {
 let _lastScheduledLightsMode = ""; // retained for admin reconciliation compatibility
 let _lastLightBlendKey = "";
 let _ambientLast = null;
+let _manualLightsSynced = false;
 
 async function _syncScheduledLights() {
   // Respect power, automation stop, and human overrides. Background-driven
@@ -2463,9 +2464,16 @@ async function _syncScheduledLights() {
   const power = await _syncLightsPower();
   if (_lightsEnabled && !power.ok) return power;
   if (!_lightsEnabled) return { ok: true, deferred: true };
-  if (_isManualActive() || !_automation.enabled || _isManualLightsActive()) {
-    return { ok: true, held: true };
+  if (_isManualActive() || !_automation.enabled) return { ok: true, held: true };
+  if (_isManualLightsActive()) {
+    if (_manualLightsSynced) return { ok: true, held: true };
+    // A restart must restore a persisted human scene, not silently replace it
+    // with ambience or merely trust the stored scene name.
+    const restored = await _applyLightsScene(_manualLights.mode);
+    if (restored.ok) _manualLightsSynced = true;
+    return restored;
   }
+  _manualLightsSynced = false;
 
   // This exact solar clock also drives the TV background. Playlist/genre
   // handoffs remain unchanged, but no longer issue competing Hue scenes.
@@ -2518,6 +2526,7 @@ async function _forwardToLights(action, body) {
 
 app.post("/admin/lights/off", async (_req, res) => {
   _ambientLast = null;
+  _manualLightsSynced = false;
   _lightsEnabled = false;
   _lightsPowerSynced = false;
   _persistRuntimeState();
@@ -2543,6 +2552,7 @@ app.post("/admin/lights/on", async (_req, res) => {
       sceneResult = await _applyLightsScene(_automation.stoppedMode || blockModeForNow());
     } else if (_isManualLightsActive()) {
       sceneResult = await _applyLightsScene(_manualLights.mode);
+      _manualLightsSynced = sceneResult.ok;
     } else {
       // Re-enter the live ambience timeline instead of snapping to the hard
       // timeblock. During a 20-minute handoff this sends only the remaining
@@ -2571,6 +2581,7 @@ app.post("/admin/lights/mode/:mode", async (req, res) => {
     _lastScheduledLightsMode = mode;
     _lastLightBlendKey = "";
     const r = await _applyLightsScene(mode);
+    _manualLightsSynced = r.ok;
     res.status(r.ok ? 200 : 502).json({
       ok: r.ok, action: `mode/${mode}`, status: r.status, enabled: _lightsEnabled,
       scene: _lightsScene, expiresAt,
