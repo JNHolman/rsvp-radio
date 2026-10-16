@@ -5,7 +5,7 @@ const { PALETTES, ambientTarget, approachAmbient } = require("../../intelligence
 
 test("permanent rich colors retain low-brightness ambience", () => {
   assert.deepEqual(PALETTES.day.accents, ["#D9A441", "#C77943", "#D97965", "#C86480", "#B777A4"]);
-  assert.deepEqual(PALETTES.night.accents, ["#315BB5", "#72318D", "#3967BE", "#CF6A5C", "#2C359C", "#A31E8B"]);
+  assert.deepEqual(PALETTES.night.accents, ["#2261D1", "#0B988F", "#1B3EA9", "#107B82", "#5932B3", "#137AB8"]);
   assert.equal(PALETTES.day.brightness, 114);
   assert.equal(PALETTES.night.brightness, 76);
 });
@@ -44,14 +44,25 @@ test("solar phase changes cannot cause sudden color or brightness jumps", () => 
   assert.throws(() => ambientTarget("unknown", 1000), /invalid_ambient_phase/);
 });
 
-test("night ambience reaches distinct blue and warm colors within every half-hour", () => {
+test("night Auto never drifts into pink or washed-out white across the full cycle", () => {
   const slot = 11 * 60 * 1000;
-  // Even a poorly-timed 30-minute observation must not sit in one pink family.
+  const origin = slot * 6000;
+  // Check the middle of all fades, not merely the palette endpoints.
+  for (let second = 0; second <= 6 * 11 * 60; second += 20) {
+    const { xy } = ambientTarget("night", origin + second * 1000);
+    assert.ok(xy[0] < 0.28, "pink/rose hue reappeared at second " + second + ": " + xy);
+    assert.ok(Math.hypot(xy[0] - 0.3127, xy[1] - 0.329) > 0.12,
+      "near-white chromaticity at second " + second + ": " + xy);
+  }
+});
+
+test("night Auto visits contrasting cool color families throughout the cycle", () => {
+  const slot = 11 * 60 * 1000;
   for (let start = 0; start < PALETTES.night.accents.length; start++) {
     const samples = Array.from({ length: 4 }, (_, i) =>
-      ambientTarget("night", (start + i + 6 * 1000) * slot).xy[0]);
-    assert.ok(Math.max(...samples) - Math.min(...samples) > 0.15,
-      "night colors should cover visibly different families, start index " + start);
+      ambientTarget("night", (start + i + 6000) * slot).xy[1]);
+    assert.ok(Math.max(...samples) - Math.min(...samples) > 0.14,
+      "night colors must vary between blue and teal, start " + start);
   }
 });
 
