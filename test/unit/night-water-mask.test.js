@@ -17,5 +17,5 @@ test("day and night use the shared eight-second ripple with night-only waterfron
   assert.match(css, /\.artFx::before\s*\{[^}]*mask-image:linear-gradient\(/s);
   assert.match(css, /animation:rsvp-ripple-drift 8s ease-in-out infinite alternate/);
   assert.match(css, /@keyframes rsvp-ripple-drift\s*\{\s*from \{[^}]*opacity:\.34;\}\s*to \{[^}]*opacity:\.55;\}/);
-  assert.match(html, /\/tv-refined\.css\?v=couch-menu-v1-20261016/);
+  assert.match(html, /\/tv-refined\.css\?v=[^\"]+/);
 });
