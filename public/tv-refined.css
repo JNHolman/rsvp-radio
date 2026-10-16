@@ -445,3 +445,17 @@
 }
 
 /* Header remains stationary when the left drawer opens. */
+
+/* Lighting club selections within the existing slide-out drawer. */
+.drawerPanel .lightSceneBtn {
+  min-height: 68px;
+  padding: 10px 8px;
+  flex-direction: column;
+  gap: 5px;
+  letter-spacing: .035em;
+  text-align: center;
+}
+.lightSceneBtn small { font-size: 9px; letter-spacing: .10em; color: rgba(255,255,255,.58); }
+.lightSceneBtn span { font-size: 12px; font-weight: 700; line-height: 1.24; }
+.drawerPanel .menuBtn.active { border-color: var(--rsvp-gold); background: rgba(237,191,121,.20); }
+.drawerPanel .lightingPower { margin-top: 12px; }
