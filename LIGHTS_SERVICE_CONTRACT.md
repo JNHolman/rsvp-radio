@@ -38,9 +38,12 @@ handoffs. **That schedule no longer controls automatic Hue colors.**
 
 The approved day artwork and warm Hue palette run from sunrise to civil dusk.
 The night artwork and violet-magenta palette run from civil dusk to sunrise.
-A slow, irregular, deterministic palette drift avoids obvious color cycling.
-Hue receives updates every 30 seconds with 35-second crossfades; the color
-delta and brightness delta are capped to keep day/night transitions gradual.
+The server calculates the next solar event at startup and schedules Hue's phase
+change for that exact boundary, with only hourly safety reconciliation for
+clock changes or sleep. It does not recalculate sunrise/dusk on every light
+write. A slow, irregular, deterministic palette drift avoids obvious color
+cycling. Hue still receives incremental color updates every 30 seconds with
+35-second crossfades; their color and brightness deltas remain capped.
 
 Explicit manual Hue genre scene selection still works and takes priority until
 the next scheduled music handoff. Manual power off and automation stop also win.
