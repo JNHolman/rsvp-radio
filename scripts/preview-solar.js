@@ -102,7 +102,7 @@ let forcedPhase = null;
 const solarListeners = new Set();
 
 function notifyPreviewPhase() {
-  const notice = "event: phase\\ndata: " + JSON.stringify({ override: forcedPhase }) + "\\n\\n";
+  const notice = "event: phase\ndata: " + JSON.stringify({ override: forcedPhase }) + "\n\n";
   for (const client of solarListeners) {
     try { client.write(notice); } catch (_) { solarListeners.delete(client); }
   }
@@ -135,10 +135,10 @@ const server = http.createServer(async (req, res) => {
       "Connection": "keep-alive",
       "X-Accel-Buffering": "no",
     });
-    res.write(": connected\\n\\n");
+    res.write(": connected\n\n");
     solarListeners.add(res);
     const heartbeat = setInterval(() => {
-      try { res.write(": keepalive\\n\\n"); } catch (_) {}
+      try { res.write(": keepalive\n\n"); } catch (_) {}
     }, 55000);
     req.on("close", () => {
       clearInterval(heartbeat);
