@@ -37,7 +37,7 @@
   -webkit-mask-image:linear-gradient(to bottom,transparent 0%,rgba(0,0,0,.35) 23%,black 54%,black 87%,transparent 100%);
   mask-image:linear-gradient(to bottom,transparent 0%,rgba(0,0,0,.35) 23%,black 54%,black 87%,transparent 100%);
   opacity:.40;
-  animation:rsvp-ripple-drift 7s ease-in-out infinite alternate;
+  animation:rsvp-ripple-drift 8s ease-in-out infinite alternate;
 }
 .stage.videoMode .artFx {display:none!important;}
 @keyframes rsvp-ripple-drift {
