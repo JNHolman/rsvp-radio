@@ -89,4 +89,4 @@ function approachAmbient(previous, desired, maxXyStep = 0.026, maxBriStep = 6) {
     xy: [+(previous.xy[0] + dx * scale).toFixed(4), +(previous.xy[1] + dy * scale).toFixed(4)],
     bri: previous.bri + briDelta };
 }
-module.exports = { PALETTES, SLOT_MS, ambientTarget, approachAmbient, rgbToXy };
+module.exports = { PALETTES, SLOT_MS, ambientTarget, approachAmbient, rgbToXy, vividTransition };
