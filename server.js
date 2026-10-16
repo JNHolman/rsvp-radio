@@ -49,6 +49,7 @@ const timeblocks  = require("./shared/timeblocks");
 const solarPhase = require("./shared/solar-phase");
 const { createSolarClock } = require("./shared/solar-clock");
 const ambientLight = require("./intelligence/ambient-light");
+const clubLights = require("./intelligence/lighting-scenes");
 const plexQueue = require("./intelligence/plex-queue");
 const _persistedRuntime = runtimeState.load();
 
@@ -303,28 +304,23 @@ function _clearManualMode() {
   _persistRuntimeState();
 }
 
-// Light-only manual scene. Unlike /mode/:mode this never changes Radio/TV
-// programming. It holds until the next future 20-minute handoff begins, then
-// Hue fades from the human-selected scene back into the scheduled ambience.
-let _manualLights = (_persistedRuntime.manualLights && _persistedRuntime.manualLights.expiresAt > Date.now())
-  ? { ..._persistedRuntime.manualLights }
-  : null;
-
-function _isManualLightsActive() {
-  if (!_manualLights) return false;
-  if (Date.now() < _manualLights.expiresAt) return true;
-  console.log(`[lights] manual scene expired (was ${_manualLights.mode})`);
-  _manualLights = null;
-  _persistRuntimeState();
-  return false;
-}
-
+// Hue scenes are independent of music and persist until LIGHTING > AUTO.
+let _manualLights = _persistedRuntime.manualLights ? { ..._persistedRuntime.manualLights } : null;
+function _isManualLightsActive() { return !!_manualLights; }
 function _setManualLights(mode) {
-  const expiresAt = timeblocks.getNextMusicBlendStartMs(new Date());
-  _manualLights = { mode, expiresAt };
+  _manualLights = { mode, startedAt: Date.now() };
+  _manualLightsSynced = false;
+  _ambientLast = null;
+  _ambientHoldUntil = 0;
+  _lightsScene = mode;
   _persistRuntimeState();
-  console.log(`[lights] manual scene → ${mode} (expires at next handoff ${new Date(expiresAt).toISOString()})`);
-  return expiresAt;
+}
+function _clearManualLights() {
+  _manualLights = null;
+  _manualLightsSynced = false;
+  _ambientLast = null;
+  _ambientHoldUntil = 0;
+  _persistRuntimeState();
 }
 
 // ── Pending playlist switch ──────────────────────────────────────────────────
@@ -764,6 +760,7 @@ function _persistRuntimeState() {
     seedMode: _seedMode ? { ..._seedMode } : null,
     manualMode: _manualMode ? { ..._manualMode } : null,
     manualLights: _manualLights ? { ..._manualLights } : null,
+    externalHueHold: _externalHueHold,
     automation: { ..._automation },
     videoMode: _videoMode.active ? { ..._videoMode } : null,
     videoResumeIndex: Object.fromEntries(_videoPlaylistResumeIndex),
@@ -2016,7 +2013,8 @@ app.get("/state",  (_req, res) => {
         enabled: _lightsEnabled,
         scene: _lightsScene,
         manualScene: _isManualLightsActive() ? _manualLights.mode : "",
-        manualExpiresAt: _manualLights?.expiresAt || 0,
+        manualExpiresAt: 0,
+        externalHueHold: _externalHueHold,
         lastAttemptAt: _lightsLastAttemptAt,
         lastOkAt: _lightsLastOkAt,
         error: _lightsLastError,
@@ -2044,6 +2042,7 @@ app.get("/health", (_req, res) => {
       reachable: _lightsLastResultOk,
       enabled: _lightsEnabled,
       scene: _lightsScene,
+      externalHueHold: _externalHueHold,
       lastAttemptAt: _lightsLastAttemptAt,
       lastOkAt: _lightsLastOkAt,
       error: _lightsLastError,
@@ -2427,32 +2426,42 @@ app.post("/admin/force-timeblock-sync", async (_req, res) => {
 //   /signal         /transition
 
 let _lightsEnabled = _persistedRuntime.lightsEnabled !== false;
-let _lightsPowerSynced = false; // boot/retry guard for Hue on/off intent
-let _lightsScene = _persistedRuntime.lightsScene || _manualMode?.mode || _automation.stoppedMode || blockModeForNow();
+let _externalHueHold = _persistedRuntime.externalHueHold === true;
+let _lightsScene = _persistedRuntime.lightsScene || _manualLights?.mode || "ambient";
 let _lightsLastResultOk = null;
 let _lightsLastAttemptAt = 0;
 let _lightsLastOkAt = 0;
 let _lightsLastError = "";
 
-async function _syncLightsPower() {
-  if (_lightsPowerSynced) return { ok: true, status: 200, alreadySynced: true };
-  try {
-    const r = await _forwardToLights(_lightsEnabled ? "on" : "off", {});
-    if (r.ok) _lightsPowerSynced = true;
-    return r;
-  } catch (err) {
-    _lightsPowerSynced = false;
-    throw err;
+// Old media scheduling and music-only overrides cannot touch Hue.
+async function _applyLightsScene(_mode) { return { ok: true, held: true }; }
+
+async function _readHuePower() {
+  const r = await fetchWithTimeout(`${cfg.LIGHTS_URL}/power`, 3000);
+  if (!r.ok) return { ok: false, status: r.status };
+  const state = await r.json();
+  if (!state.ok || typeof state.on !== "boolean") return { ok: false, status: 502 };
+  if (!state.on || state.appColorTakeover) {
+    if (!_externalHueHold) {
+      _externalHueHold = true;
+      _persistRuntimeState();
+      console.log("[lights] Hue app takes precedence; holding RSVP colors");
+    }
   }
+  return { ok: true, ...state };
 }
 
-async function _applyLightsScene(mode) {
-  _ambientLast = null; // Manual scenes own the bulb until explicitly released.
-  _ambientHoldUntil = 0;
-  _lightsScene = mode;
-  _persistRuntimeState();
-  if (!_lightsEnabled) return { ok: true, status: 200, deferred: true };
-  return _forwardToLights(`mode/${mode}`, {});
+async function _releaseHueHoldIfOn() {
+  if (!_lightsEnabled) return { ok: true, deferred: true };
+  const physical = await _readHuePower();
+  if (!physical.ok) return physical;
+  if (!physical.on) return { ok: true, deferred: true };
+  const release = await _forwardToLights("release", {});
+  if (release.ok) {
+    _externalHueHold = false;
+    _persistRuntimeState();
+  }
+  return release;
 }
 
 let _lastScheduledLightsMode = ""; // retained for admin reconciliation compatibility
@@ -2474,44 +2483,38 @@ const _solarClock = createSolarClock({
 });
 
 async function _syncScheduledLights() {
-  // Respect power, automation stop, and human overrides. Background-driven
-  // automatic colors never turn a lamp on or defeat a user-selected scene.
-  const power = await _syncLightsPower();
-  if (_lightsEnabled && !power.ok) return power;
+  // Never turn a light on from any scheduled update, music handoff, or boot.
   if (!_lightsEnabled) return { ok: true, deferred: true };
-  if (_isManualActive() || !_automation.enabled) return { ok: true, held: true };
-  if (_isManualLightsActive()) {
-    if (_manualLightsSynced) return { ok: true, held: true };
-    // A restart must restore a persisted human scene, not silently replace it
-    // with ambience or merely trust the stored scene name.
-    const restored = await _applyLightsScene(_manualLights.mode);
-    if (restored.ok) _manualLightsSynced = true;
-    return restored;
-  }
-  _manualLightsSynced = false;
-
-  // Do not interrupt the initial three-minute fade from a previous scene.
-  if (Date.now() < _ambientHoldUntil) return { ok: true, held: true };
-
-  // Read the solar clock's cached phase; the independent clock schedules the
-  // exact sunrise/civil-dusk boundary and triggers an immediate Hue sync.
-  const now = new Date();
-  const phase = _solarClock.phase();
+  const physical = await _readHuePower();
+  if (!physical.ok) return physical;
+  if (!physical.on || _externalHueHold) return { ok: true, held: true };
+  const now = new Date(), phase = _solarClock.phase();
   if (!phase) return { ok: false, reason: "solar_unavailable" };
 
-  const desired = ambientLight.ambientTarget(phase, now.getTime());
+  const selected = _manualLights?.mode;
+  const isClub = !!selected && clubLights.hasScene(selected);
+  if (selected && !isClub) {
+    if (_manualLightsSynced) return { ok: true, held: true };
+    const legacy = await _forwardToLights(`mode/${selected}`, {});
+    if (legacy.ok) _manualLightsSynced = true;
+    return legacy;
+  }
+  _manualLightsSynced = false;
+  if (!isClub && now.getTime() < _ambientHoldUntil) return { ok: true, held: true };
+
+  const desired = isClub
+    ? clubLights.sceneTarget(selected, phase, now.getTime(), _manualLights.startedAt || now.getTime())
+    : ambientLight.ambientTarget(phase, now.getTime());
   const first = !_ambientLast;
   const next = ambientLight.approachAmbient(_ambientLast, desired);
   const r = await _forwardToLights("ambient", {
-    xy: next.xy,
-    bri: next.bri,
-    // First contact after a human scene, restart, or lights-on is extra gentle.
-    durMs: first ? 180000 : 35000,
+    xy: next.xy, bri: next.bri,
+    durMs: first ? (isClub ? 20000 : 180000) : 35000,
   });
   if (r.ok) {
     _ambientLast = next;
-    if (first) _ambientHoldUntil = now.getTime() + 180000;
-    const name = `ambient-${phase}`;
+    if (first && !isClub) _ambientHoldUntil = now.getTime() + 180000;
+    const name = isClub ? selected : `ambient-${phase}`;
     if (_lightsScene !== name) {
       _lightsScene = name;
       _persistRuntimeState();
@@ -2519,6 +2522,7 @@ async function _syncScheduledLights() {
   }
   return r;
 }
+
 
 async function _forwardToLights(action, body) {
   const url = `${cfg.LIGHTS_URL}/${action}`;
@@ -2545,73 +2549,76 @@ async function _forwardToLights(action, body) {
 }
 
 app.post("/admin/lights/off", async (_req, res) => {
+  _lightsEnabled = false;
   _ambientLast = null;
   _ambientHoldUntil = 0;
-  _manualLightsSynced = false;
-  _lightsEnabled = false;
-  _lightsPowerSynced = false;
   _persistRuntimeState();
   try {
-    const r = await _syncLightsPower();
-    res.status(r.ok ? 200 : 502).json({ ok: r.ok, action: "off", enabled: false, scene: _lightsScene });
-  } catch (err) { res.status(502).json({ ok: false, error: err.message }); }
+    const r = await _forwardToLights("off", {});
+    return res.status(r.ok ? 200 : 502).json({ ok: r.ok, action: "off", enabled: false, scene: _lightsScene });
+  } catch (err) { return res.status(502).json({ ok: false, error: err.message }); }
 });
 
 app.post("/admin/lights/on", async (_req, res) => {
+  // The only RSVP action allowed to physically turn on the Hue globe.
   _lightsEnabled = true;
-  _lightsPowerSynced = false;
+  _ambientLast = null;
+  _ambientHoldUntil = 0;
+  _manualLightsSynced = false;
   _persistRuntimeState();
   try {
-    const on = await _syncLightsPower();
+    const release = await _forwardToLights("release", {});
+    if (!release.ok) return res.status(502).json({ ok: false, error: "hue_release_failed" });
+    const on = await _forwardToLights("on", {});
     if (!on.ok) return res.status(502).json({ ok: false, error: "lights_on_failed" });
+    _externalHueHold = false;
+    _persistRuntimeState();
+    const result = await _syncScheduledLights();
+    return res.status(result.ok ? 200 : 502).json({
+      ok: result.ok, action: "on", enabled: true, scene: _lightsScene,
+    });
+  } catch (err) { return res.status(502).json({ ok: false, error: err.message }); }
+});
 
-    let sceneResult;
-    if (_isManualActive()) {
-      sceneResult = await _applyLightsScene(_manualMode.mode);
-    } else if (!_automation.enabled) {
-      // _lightsScene may describe ambient-day/night, not a Hue genre scene.
-      sceneResult = await _applyLightsScene(_automation.stoppedMode || blockModeForNow());
-    } else if (_isManualLightsActive()) {
-      sceneResult = await _applyLightsScene(_manualLights.mode);
-      _manualLightsSynced = sceneResult.ok;
-    } else {
-      // Re-enter the live ambience timeline instead of snapping to the hard
-      // timeblock. During a 20-minute handoff this sends only the remaining
-      // Hue transition; outside a handoff it restores seed/scheduled intent.
-      _lastScheduledLightsMode = "";
-      _lastLightBlendKey = "";
-      sceneResult = await _syncScheduledLights();
-    }
+async function _chooseLights(mode, res, action) {
+  _setManualLights(mode);
+  try {
+    const release = await _releaseHueHoldIfOn();
+    if (!release.ok) return res.status(502).json({ ok: false, error: "hue_status_unavailable" });
+    const applied = await _syncScheduledLights();
+    return res.status(applied.ok ? 200 : 502).json({
+      ok: applied.ok, action, scene: _lightsScene, enabled: _lightsEnabled,
+      deferred: !!(applied.deferred || applied.held),
+    });
+  } catch (err) { return res.status(502).json({ ok: false, error: err.message }); }
+}
 
-    const ok = !sceneResult || sceneResult.ok !== false;
-    res.status(ok ? 200 : 502).json({ ok, action: "on", enabled: true, scene: _lightsScene });
-  } catch (err) { res.status(502).json({ ok: false, error: err.message }); }
+app.post("/admin/lights/scene/:id", async (req, res) => {
+  const id = String(req.params.id || "").toLowerCase();
+  if (!clubLights.hasScene(id)) return res.status(400).json({ ok: false, error: "invalid_club_scene" });
+  return _chooseLights(id, res, `scene/${id}`);
 });
 
 app.post("/admin/lights/mode/:mode", async (req, res) => {
-  const requestedMode = String(req.params.mode || "").toLowerCase();
-  const mode = requestedMode === "wrap" ? "lounge" : requestedMode;
-  if (!_VALID_MODES.has(mode)) {
-    return res.status(400).json({ ok: false, error: "invalid_mode" });
-  }
-  try {
-    // Scene selection and physical power are independent. A mode change while
-    // lights are OFF updates intent only; it must not turn the bulbs back on.
-    // This is a Hue-only override: Radio/TV programming remains untouched.
-    const expiresAt = _setManualLights(mode);
-    _lastScheduledLightsMode = mode;
-    _lastLightBlendKey = "";
-    const r = await _applyLightsScene(mode);
-    _manualLightsSynced = r.ok;
-    res.status(r.ok ? 200 : 502).json({
-      ok: r.ok, action: `mode/${mode}`, status: r.status, enabled: _lightsEnabled,
-      scene: _lightsScene, expiresAt,
-    });
-  } catch (err) {
-    console.warn(`[admin] lights proxy /mode/${mode} failed:`, err.message);
-    res.status(502).json({ ok: false, error: err.message });
-  }
+  const requested = String(req.params.mode || "").toLowerCase();
+  const mode = requested === "wrap" ? "lounge" : requested;
+  if (!_VALID_MODES.has(mode)) return res.status(400).json({ ok: false, error: "invalid_mode" });
+  return _chooseLights(mode, res, `mode/${mode}`);
 });
+
+app.post("/admin/lights/auto", async (_req, res) => {
+  _clearManualLights();
+  try {
+    const release = await _releaseHueHoldIfOn();
+    if (!release.ok) return res.status(502).json({ ok: false, error: "hue_status_unavailable" });
+    const applied = await _syncScheduledLights();
+    return res.status(applied.ok ? 200 : 502).json({
+      ok: applied.ok, action: "auto", scene: _lightsScene, enabled: _lightsEnabled,
+      deferred: !!(applied.deferred || applied.held),
+    });
+  } catch (err) { return res.status(502).json({ ok: false, error: err.message }); }
+});
+
 
 // ── Video failure recovery ──────────────────────────────────────────────────
 // Browser POSTs here when it cannot play /media/:ratingKey (404, codec, network,
@@ -2969,15 +2976,7 @@ const _httpServer = app.listen(cfg.PORT, () => {
   // scene visible after a server restart.
   (async () => {
     try {
-      await _syncLightsPower();
-      if (!_lightsEnabled) return;
-      if (_isManualActive()) {
-        await _applyLightsScene(_manualMode.mode);
-      } else if (!_automation.enabled) {
-        await _applyLightsScene(_automation.stoppedMode || blockModeForNow());
-      } else {
-        await _syncScheduledLights();
-      }
+      await _syncScheduledLights();
     } catch (err) {
       console.warn("[lights] startup sync failed:", err.message);
     }
