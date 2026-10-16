@@ -47,6 +47,7 @@ const requestAuth = require("./intelligence/request-auth");
 const runtimeState = require("./intelligence/runtime-state");
 const timeblocks  = require("./shared/timeblocks");
 const solarPhase = require("./shared/solar-phase");
+const { createSolarClock } = require("./shared/solar-clock");
 const ambientLight = require("./intelligence/ambient-light");
 const plexQueue = require("./intelligence/plex-queue");
 const _persistedRuntime = runtimeState.load();
@@ -2460,6 +2461,18 @@ let _ambientLast = null;
 let _ambientHoldUntil = 0;
 let _manualLightsSynced = false;
 
+// Solar phase is calculated at boot and at its scheduled edge, not during
+// 30-second Hue color-drift writes. Hourly safety handles clock corrections.
+const _solarClock = createSolarClock({
+  latitude: cfg.SOLAR_LATITUDE,
+  longitude: cfg.SOLAR_LONGITUDE,
+  onPhaseChange: (phase) => {
+    console.log("[solar] Hue palette boundary → " + phase);
+    _syncScheduledLights().catch(err => console.warn("[lights] solar phase sync failed:", err.message));
+  },
+  onError: err => console.warn("[solar] Hue clock:", err.message),
+});
+
 async function _syncScheduledLights() {
   // Respect power, automation stop, and human overrides. Background-driven
   // automatic colors never turn a lamp on or defeat a user-selected scene.
@@ -2480,13 +2493,13 @@ async function _syncScheduledLights() {
   // Do not interrupt the initial three-minute fade from a previous scene.
   if (Date.now() < _ambientHoldUntil) return { ok: true, held: true };
 
-  // This exact solar clock also drives the TV background. Playlist/genre
-  // handoffs remain unchanged, but no longer issue competing Hue scenes.
+  // Read the solar clock's cached phase; the independent clock schedules the
+  // exact sunrise/civil-dusk boundary and triggers an immediate Hue sync.
   const now = new Date();
-  const solar = solarPhase.getSolarPhase(now, cfg.SOLAR_LATITUDE, cfg.SOLAR_LONGITUDE);
-  if (!solar.phase) return { ok: false, reason: "solar_unavailable" };
+  const phase = _solarClock.phase();
+  if (!phase) return { ok: false, reason: "solar_unavailable" };
 
-  const desired = ambientLight.ambientTarget(solar.phase, now.getTime());
+  const desired = ambientLight.ambientTarget(phase, now.getTime());
   const first = !_ambientLast;
   const next = ambientLight.approachAmbient(_ambientLast, desired);
   const r = await _forwardToLights("ambient", {
@@ -2498,7 +2511,7 @@ async function _syncScheduledLights() {
   if (r.ok) {
     _ambientLast = next;
     if (first) _ambientHoldUntil = now.getTime() + 180000;
-    const name = `ambient-${solar.phase}`;
+    const name = `ambient-${phase}`;
     if (_lightsScene !== name) {
       _lightsScene = name;
       _persistRuntimeState();
@@ -2941,6 +2954,8 @@ const _httpServer = app.listen(cfg.PORT, () => {
   }
   const assets = assetHealth();
   if (!assets.ok) console.warn(`[server] Missing background assets: ${assets.missing.join(", ")}`);
+  // Arm the next sunrise/civil-dusk Hue event before the first lighting sync.
+  _solarClock.start();
   // Sync all existing skip data to Plex on startup
   plexSync.syncAll(cfg.PLEX_BASE, cfg.PLEX_TOKEN);
   pollSessions();
@@ -2963,6 +2978,7 @@ const _httpServer = app.listen(cfg.PORT, () => {
     }
   })();
   _pollIntervalHandle = setInterval(pollSessions, cfg.POLL_MS);
+  // 30-second writes are ONLY for smooth ambient color/brightness drift.
   _lightsIntervalHandle = setInterval(() => _syncScheduledLights().catch((err) => console.warn("[lights] schedule sync failed:", err.message)), 30000);
 });
 
@@ -2976,6 +2992,7 @@ function _shutdown(signal) {
   console.log(`[server] received ${signal}, shutting down`);
   if (_pollIntervalHandle) clearInterval(_pollIntervalHandle);
   if (_lightsIntervalHandle) clearInterval(_lightsIntervalHandle);
+  _solarClock.stop();
   _httpServer.close(() => process.exit(0));
   // If close hangs (open keep-alive sockets), force-exit after 1s.
   setTimeout(() => process.exit(0), 1000).unref();
