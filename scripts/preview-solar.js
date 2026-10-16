@@ -99,6 +99,14 @@ const MIME = {
   ".mp4": "video/mp4",
 };
 let forcedPhase = null;
+const solarListeners = new Set();
+
+function notifyPreviewPhase() {
+  const notice = "event: phase\\ndata: " + JSON.stringify({ override: forcedPhase }) + "\\n\\n";
+  for (const client of solarListeners) {
+    try { client.write(notice); } catch (_) { solarListeners.delete(client); }
+  }
+}
 
 function send(res, status, type, body, extra = {}) {
   res.writeHead(status, { "Content-Type": type, "Cache-Control": "no-store", ...extra });
@@ -108,7 +116,7 @@ function send(res, status, type, body, extra = {}) {
 function controlsPage() {
   const selected = forcedPhase || "auto";
   const link = (phase, label) => '<a href="/preview/force/' + phase + '" style="display:inline-block;padding:14px 18px;border:1px solid #999;border-radius:9px;margin:7px;color:#fff;text-decoration:none;background:' + (selected === phase ? "#456" : "#222") + '">' + label + '</a>';
-  return '<!doctype html><html><meta name="viewport" content="width=device-width, initial-scale=1"><title>RSVP Solar Preview Controls</title><body style="font:20px system-ui;background:#111;color:white;padding:28px"><h1>RSVP Solar Preview</h1><p>Current test setting: <strong>' + selected.toUpperCase() + '</strong></p><p>Open the viewer in another tab or on the TV. Changing the setting below will update its background within 20 seconds, using the real crossfade.</p>' + link("day", "Force DAY") + link("night", "Force NIGHT") + link("auto", "Follow sunrise/dusk") + '<p><a style="color:#aaf" href="/">Open preview viewer</a></p><p>Preview only — no music, Plexamp, or Hue controls.</p></body></html>';
+  return '<!doctype html><html><meta name="viewport" content="width=device-width, initial-scale=1"><title>RSVP Solar Preview Controls</title><body style="font:20px system-ui;background:#111;color:white;padding:28px"><h1>RSVP Solar Preview</h1><p>Current test setting: <strong>' + selected.toUpperCase() + '</strong></p><p>Open the viewer in another tab or on the TV. Changing the setting below triggers the ten-second horizon reveal immediately. Automatic changes follow the exact solar clock.</p>' + link("day", "Force DAY") + link("night", "Force NIGHT") + link("auto", "Follow sunrise/dusk") + '<p><a style="color:#aaf" href="/">Open preview viewer</a></p><p>Preview only — no music, Plexamp, or Hue controls.</p></body></html>';
 }
 
 const server = http.createServer(async (req, res) => {
@@ -118,6 +126,26 @@ const server = http.createServer(async (req, res) => {
   try { url = new URL(req.url, "http://localhost"); }
   catch (_) { return send(res, 400, "text/plain", "Invalid URL"); }
   const pathname = url.pathname;
+
+  if (pathname === "/api/solar-events") {
+    // Push preview overrides to the TV instead of polling the solar endpoint.
+    res.writeHead(200, {
+      "Content-Type": "text/event-stream; charset=utf-8",
+      "Cache-Control": "no-store, no-transform",
+      "Connection": "keep-alive",
+      "X-Accel-Buffering": "no",
+    });
+    res.write(": connected\\n\\n");
+    solarListeners.add(res);
+    const heartbeat = setInterval(() => {
+      try { res.write(": keepalive\\n\\n"); } catch (_) {}
+    }, 55000);
+    req.on("close", () => {
+      clearInterval(heartbeat);
+      solarListeners.delete(res);
+    });
+    return;
+  }
 
   if (pathname === "/api/solar-state") {
     try {
@@ -139,7 +167,10 @@ const server = http.createServer(async (req, res) => {
   if (pathname.startsWith("/preview/force/")) {
     const phase = pathname.slice("/preview/force/".length);
     if (!["day", "night", "auto"].includes(phase)) return send(res, 404, "text/plain", "Unknown preview mode");
-    forcedPhase = phase === "auto" ? null : phase;
+    const nextPhase = phase === "auto" ? null : phase;
+    const changed = forcedPhase !== nextPhase;
+    forcedPhase = nextPhase;
+    if (changed) notifyPreviewPhase();
     res.writeHead(302, { Location: "/preview-controls", "Cache-Control": "no-store" });
     return res.end();
   }
