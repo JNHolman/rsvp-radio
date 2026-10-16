@@ -53,11 +53,11 @@ TV also remembers where it was in each playlist. If a blend moves from one genre
 
 ## The lights are part of the programming
 
-The single Hue globe follows the **same sunrise / civil-dusk clock as the approved TV backgrounds**, not the four music genre boundaries. Daylight uses saturated honey gold, copper, coral, and rose; night uses deep violet, plum, magenta, indigo, and a retained salmon accent. No pale almost-white swatches are in the permanent palettes. Colors drift continuously over many minutes, with a hard limit on the change each scheduler tick can command.
+The single Hue globe follows the **same sunrise / civil-dusk clock as the approved TV backgrounds**, not the four music genre boundaries. Daylight balances saturated blue and golden sunlight equally, with copper, coral, and rose supporting; night is led by blue and violet, with brief magenta and salmon accents. No pale almost-white swatches are in the permanent palettes. Colors drift continuously over many minutes, with a hard limit on the change each scheduler tick can command.
 
 A local audio analyzer listens to the Pi's **playback monitor**—not a microphone—and provides only tiny, rate-limited brightness lifts (up to eight Hue steps during ambient mode). Color is never driven directly by bass hits. If the analyzer disappears, the light returns to its ambient baseline.
 
-Manual Hue scenes still work and hold until the next scheduled handoff; disabling automation or turning the light off is respected. Returning to ambience uses a particularly gentle fade rather than a snap.
+The six club scenes in the Lighting drawer (Yin Yang Café, 40/40 Club, Republic Gardens, The Tunnel, Club Crucial, Boom Boom Room) each use day/night color variants. A club selection stays put until Auto, regardless of music handoffs or Pi restarts. RSVP never turns Hue on at startup; the native Hue app's power and lighting edits take priority. Returning to Auto is deliberately gentle.
 
 ---
 
