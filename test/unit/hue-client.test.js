@@ -92,6 +92,14 @@ test("reactive brightness payload changes brightness without touching color", ()
   assert.deepEqual(hue.brightnessPayload(175, 1200), { bri: 175, transitiontime: 12 });
 });
 
+test("ambient group action commands color and brightness together", () => {
+  assert.deepEqual(hue.ambientPayload({ xy: [0.35, 0.2], bri: 76, durMs: 35000 }), {
+    xy: [0.35, 0.2], bri: 76, transitiontime: 350,
+  });
+  assert.throws(() => hue.ambientPayload({ xy: [NaN, 0.2], bri: 76, durMs: 35000 }), /invalid_ambient_payload/);
+  assert.throws(() => hue.ambientPayload({ xy: [0.4, 0.2], bri: 0, durMs: 35000 }), /invalid_ambient_payload/);
+});
+
 test("reactive Hue configuration is conservative by default and can be disabled", () => {
   const defaults = cfg();
   assert.equal(defaults.reactiveEnabled, true);
