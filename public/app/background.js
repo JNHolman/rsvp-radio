@@ -242,6 +242,8 @@ function failMusicVideoMode(mediaUrl) {
 
 async function enterMusicVideoMode(mediaUrl, playerState = "playing") {
   if (_inMusicMode && _musicActiveKey === mediaUrl) return;
+  // TV playback always takes priority over an in-progress solar reveal.
+  _finishHorizonReveal();
 
   // Don't retry a recently failed video — prevents retry loop
   if (_isFailedUrl(mediaUrl)) {
