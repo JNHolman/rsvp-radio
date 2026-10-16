@@ -60,6 +60,9 @@ function makePublicDir({ withAssets = true } = {}) {
 }
 
 async function startServer(envOverrides = {}) {
+  // Never let integration-test child servers read/modify live Pi rating,
+  // session, or video skip data. Other tests may supply their own temp paths.
+  const testDataDir = fs.mkdtempSync(path.join(os.tmpdir(), "rsvp-radio-test-data-"));
   const port = envOverrides.PORT || String(3300 + Math.floor(Math.random() * 300));
   const env = {
     ...process.env,
@@ -74,10 +77,11 @@ async function startServer(envOverrides = {}) {
     EXIT_API_TOKEN: envOverrides.EXIT_API_TOKEN || "",
     PLEX_WEBHOOK_MAX_BYTES: envOverrides.PLEX_WEBHOOK_MAX_BYTES || "256",
     PLEX_WEBHOOK_TOKEN: envOverrides.PLEX_WEBHOOK_TOKEN || "",
-    SESSION_DATA_PATH: envOverrides.SESSION_DATA_PATH || "",
+    SESSION_DATA_PATH: envOverrides.SESSION_DATA_PATH || path.join(testDataDir, "session.json"),
     RUNTIME_STATE_PATH: envOverrides.RUNTIME_STATE_PATH || path.join(fs.mkdtempSync(path.join(os.tmpdir(), "rsvp-radio-runtime-")), "runtime-state.json"),
     SESSION_GENRE_FETCH_TIMEOUT_MS: envOverrides.SESSION_GENRE_FETCH_TIMEOUT_MS || "",
-    SKIP_DATA_PATH: envOverrides.SKIP_DATA_PATH || "",
+    SKIP_DATA_PATH: envOverrides.SKIP_DATA_PATH || path.join(testDataDir, "skip-data.json"),
+    VIDEO_SKIP_DATA_PATH: envOverrides.VIDEO_SKIP_DATA_PATH || path.join(testDataDir, "video-skip-data.json"),
     PLAYLIST_LOFI: envOverrides.PLAYLIST_LOFI || "",
     PLAYLIST_LOUNGE: envOverrides.PLAYLIST_LOUNGE || "",
     PLAYLIST_RAP:  envOverrides.PLAYLIST_RAP  || "",
