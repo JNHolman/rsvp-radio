@@ -14,10 +14,12 @@
 }
 .stage.art-phase-day .artFx {--rsvp-water-image:url("/assets/bg/rsvp_day_art.webp");}
 .stage.art-phase-night .artFx {--rsvp-water-image:url("/assets/bg/rsvp_night_art.webp");}
-.artFx::before,.artFx::after {
+.artFx::before {
   content:"";position:absolute;pointer-events:none;
   will-change:transform,opacity;
 }
+/* No secondary glow: previously caused fake clouds and artificial bands. */
+.artFx::after {content:none;display:none;}
 .artFx::before {
   left:-2vw;bottom:0;width:104vw;height:34vh;
   background-image:var(--rsvp-water-image);
@@ -29,32 +31,13 @@
   opacity:.40;
   animation:rsvp-ripple-drift 7s ease-in-out infinite alternate;
 }
-.artFx::after {
-  left:9vw;bottom:1vh;width:68vw;height:22vh;
-  /* Irregular reflected light only. Repeating horizontal stripes were
-     visible as artificial parallel bands in the night artwork. */
-  background:radial-gradient(ellipse 65% 35% at 50% 72%,
-      rgba(255,224,169,.17),transparent 100%);
-  -webkit-mask-image:radial-gradient(ellipse 78% 65% at 50% 72%,black 10%,transparent 100%);
-  mask-image:radial-gradient(ellipse 78% 65% at 50% 72%,black 10%,transparent 100%);
-  opacity:.48;
-  animation:rsvp-water-shimmer 9s ease-in-out infinite alternate;
-}
-.stage.art-phase-night .artFx::after {
-  filter:hue-rotate(78deg);
-  opacity:.42;
-}
 .stage.videoMode .artFx {display:none!important;}
 @keyframes rsvp-ripple-drift {
   from {transform:translate3d(-1.1vw,0,0) scaleX(1.008);opacity:.34;}
   to {transform:translate3d(1.1vw,0,0) scaleX(.992);opacity:.55;}
 }
-@keyframes rsvp-water-shimmer {
-  from {transform:translate3d(1.8vw,0,0);opacity:.35;}
-  to {transform:translate3d(-1.8vw,0,0);opacity:.62;}
-}
 @media (prefers-reduced-motion:reduce) {
-  .artFx::before,.artFx::after {animation:none;will-change:auto;}
+  .artFx::before {animation:none;will-change:auto;}
 }
 /* Keep all typography and queue art above the animated water layer. */
 .ui {z-index:2;}
