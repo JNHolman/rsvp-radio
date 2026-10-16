@@ -36,8 +36,8 @@ The music schedule remains LOFI 04:00–10:00, LOUNGE 10:00–17:00,
 RAP 17:00–23:00, and R&B 23:00–04:00, with the same 20-minute weighted media
 handoffs. **That schedule no longer controls automatic Hue colors.**
 
-The approved day artwork and warm Hue palette run from sunrise to civil dusk.
-The night artwork and violet-magenta palette run from civil dusk to sunrise.
+The approved day artwork and blue/gold Auto palette run from sunrise to civil dusk.
+The night artwork and blue/violet Auto palette run from civil dusk to sunrise.
 The server calculates the next solar event at startup and schedules Hue's phase
 change for that exact boundary, with only hourly safety reconciliation for
 clock changes or sleep. It does not recalculate sunrise/dusk on every light
@@ -45,8 +45,11 @@ write. A slow, irregular, deterministic palette drift avoids obvious color
 cycling. Hue still receives incremental color updates every 30 seconds with
 35-second crossfades; their color and brightness deltas remain capped.
 
-Explicit manual Hue genre scene selection still works and takes priority until
-the next scheduled music handoff. Manual power off and automation stop also win.
+Explicit club or legacy Hue scene selection takes priority until the user chooses
+**AUTO**, including across music handoffs and restarts. Native app power-off
+or scene/brightness edits yield control; only explicit **HUE ON** may power a
+bulb back on. Music automation stopping does not change the selected lighting
+collection.
 
 ## Hue implementation requirements
 
@@ -71,7 +74,7 @@ music menu. It offers six manual scenes: **Yin Yang Café** (The Listening Room)
   Selecting a scene or Auto never turns on a bulb that is physically off.
 - `POST /admin/lights/off` explicitly turns off Hue. Hue's native phone app
   power-off also takes priority; the adapter's read-only `GET /power` exposes
-  physical state and out-of-band app scene changes. The `POST /release` adapter
+  physical state and out-of-band app color, color-temperature and brightness changes. The `POST /release` adapter
   action transfers control back to RSVP only after explicit user selection.
 - Existing `POST /admin/lights/mode/:mode` remains available to old clients,
   but now also persists until Auto and affects Hue only, not music.
