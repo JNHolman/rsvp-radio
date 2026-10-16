@@ -56,6 +56,7 @@ function _showDrawerPanel(panel) {
   _menuMessage(_menuPreview ? "Preview only — no changes will be sent." : "");
   _toggleMenu(true);
   if (panel === "tv") _refreshMenuVideos();
+  if (panel === "lighting" && !_menuPreview) _refreshLightingPanel();
 }
 
 async function _menuPost(endpoint) {
@@ -76,6 +77,36 @@ async function _menuPost(endpoint) {
   } catch (err) {
     _menuMessage("Unable to apply: " + err.message, true);
     return false;
+  }
+}
+
+
+async function _refreshLightingPanel() {
+  const status = document.getElementById("lightingStatus");
+  if (!status) return;
+  try {
+    const response = await fetch("/state", { cache: "no-store" });
+    if (!response.ok) throw new Error("unavailable");
+    const data = await response.json();
+    const hue = data.configHealth?.hue;
+    if (!hue) return;
+    const selected = hue.manualScene || "";
+    for (const button of _menu.querySelectorAll("[data-light-scene]")) {
+      const active = button.dataset.lightScene === selected;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-pressed", String(active));
+    }
+    const auto = _menu.querySelector("[data-light-auto]");
+    if (auto) {
+      auto.classList.toggle("active", !selected);
+      auto.setAttribute("aria-pressed", String(!selected));
+    }
+    const name = selected
+      ? _menu.querySelector('[data-light-scene="' + selected + '"] span')?.textContent || selected.toUpperCase()
+      : "AUTO · FOLLOW ARTWORK";
+    status.textContent = (hue.enabled === false ? "HUE OFF · " : hue.externalHueHold ? "HUE APP CONTROL · " : "ACTIVE · ") + name;
+  } catch (_) {
+    status.textContent = "Hue status unavailable";
   }
 }
 
@@ -140,16 +171,19 @@ _menu.addEventListener("click", async (e) => {
     if (["lounge", "rnb", "rap", "lofi"].includes(mode)) await _menuPost("/mode/" + mode);
   } else if (button.dataset.api) {
     await _menuPost(button.dataset.api);
-  } else if (button.dataset.action || button.dataset.mode) {
+  } else if (button.dataset.lightScene || button.dataset.lightAuto || button.dataset.action || button.dataset.mode) {
     if (_menuPreview) {
       _menuMessage("Preview only — lighting hasn't been changed.");
       return;
     }
     let ok = false;
-    if (button.dataset.action === "on") ok = await setLightsOn();
+    if (button.dataset.lightScene) ok = await setLightsScene(button.dataset.lightScene);
+    else if (button.dataset.lightAuto) ok = await setLightsAuto();
+    else if (button.dataset.action === "on") ok = await setLightsOn();
     else if (button.dataset.action === "off") ok = await setLightsOff();
     else if (button.dataset.mode) ok = await setLightsMode(button.dataset.mode);
-    _menuMessage(ok ? "Lighting command applied." : "Lighting command failed.", !ok);
+    _menuMessage(ok ? "Lighting selection applied." : "Lighting command failed.", !ok);
+    if (ok) await _refreshLightingPanel();
   }
 });
 
