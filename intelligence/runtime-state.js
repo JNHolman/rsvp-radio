@@ -74,7 +74,11 @@ function normalize(raw) {
   // New club scenes never expire at a music handoff.
   const lightMode = String(src.manualLights?.mode || "").toLowerCase();
   const manualLightsValue = hasScene(lightMode) ? lightMode : normalizeMode(lightMode);
-  const ml = manualLightsValue ? { mode: manualLightsValue } : null;
+  const ml = manualLightsValue ? {
+    mode: manualLightsValue,
+    startedAt: Number.isFinite(Number(src.manualLights?.startedAt)) && Number(src.manualLights.startedAt) > 0
+      ? Number(src.manualLights.startedAt) : 0,
+  } : null;
 
   const a = src.automation && typeof src.automation === "object" ? src.automation : {};
   const manualStop = !!a.manualStop;
