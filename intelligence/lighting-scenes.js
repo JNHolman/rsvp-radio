@@ -3,7 +3,7 @@
 // RSVP Radio V3: six distinct club environments, chosen independently of music.
 // One Hue globe uses day/night variations of the same club identity.
 // Outdoor Govee lighting is not part of this controller.
-const { rgbToXy } = require("./ambient-light");
+const { rgbToXy, vividTransition } = require("./ambient-light");
 
 const SCENES = Object.freeze({
   "yin-yang-cafe": {
@@ -40,8 +40,6 @@ const SCENES = Object.freeze({
 
 const ids = Object.freeze(Object.keys(SCENES));
 function hasScene(id) { return Object.hasOwn(SCENES, id); }
-function rgb(hex) { return [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16)); }
-function lerp(a, b, t) { return a.map((v, i) => v + (b[i] - v) * t); }
 function smoothstep(t) { return t * t * (3 - 2 * t); }
 
 function sceneTarget(id, phase, nowMs, startedAt = 0) {
@@ -55,9 +53,10 @@ function sceneTarget(id, phase, nowMs, startedAt = 0) {
   const progress = smoothstep(position - slot);
   // A deliberate sequence, not random near-identical picks. Every club
   // visits each color family once before cycling, with gentle eased motion.
-  const from = rgb(colors[((slot % colors.length) + colors.length) % colors.length]);
-  const to = rgb(colors[(((slot + 1) % colors.length) + colors.length) % colors.length]);
-  const xy = rgbToXy(lerp(from, to, progress));
+  const from = colors[((slot % colors.length) + colors.length) % colors.length];
+  const to = colors[(((slot + 1) % colors.length) + colors.length) % colors.length];
+  // Saturated hue-space interpolation avoids dirty gray/white midpoints.
+  const xy = rgbToXy(vividTransition(from, to, progress, 0.7));
   const bri = Math.round(scene.brightness + 2 * Math.sin(nowMs / 310000));
   return { phase, xy, bri };
 }
