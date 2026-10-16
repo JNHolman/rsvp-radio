@@ -2447,6 +2447,7 @@ async function _syncLightsPower() {
 
 async function _applyLightsScene(mode) {
   _ambientLast = null; // Manual scenes own the bulb until explicitly released.
+  _ambientHoldUntil = 0;
   _lightsScene = mode;
   _persistRuntimeState();
   if (!_lightsEnabled) return { ok: true, status: 200, deferred: true };
@@ -2456,6 +2457,7 @@ async function _applyLightsScene(mode) {
 let _lastScheduledLightsMode = ""; // retained for admin reconciliation compatibility
 let _lastLightBlendKey = "";
 let _ambientLast = null;
+let _ambientHoldUntil = 0;
 let _manualLightsSynced = false;
 
 async function _syncScheduledLights() {
@@ -2475,6 +2477,9 @@ async function _syncScheduledLights() {
   }
   _manualLightsSynced = false;
 
+  // Do not interrupt the initial three-minute fade from a previous scene.
+  if (Date.now() < _ambientHoldUntil) return { ok: true, held: true };
+
   // This exact solar clock also drives the TV background. Playlist/genre
   // handoffs remain unchanged, but no longer issue competing Hue scenes.
   const now = new Date();
@@ -2482,15 +2487,17 @@ async function _syncScheduledLights() {
   if (!solar.phase) return { ok: false, reason: "solar_unavailable" };
 
   const desired = ambientLight.ambientTarget(solar.phase, now.getTime());
+  const first = !_ambientLast;
   const next = ambientLight.approachAmbient(_ambientLast, desired);
   const r = await _forwardToLights("ambient", {
     xy: next.xy,
     bri: next.bri,
     // First contact after a human scene, restart, or lights-on is extra gentle.
-    durMs: _ambientLast ? 35000 : 180000,
+    durMs: first ? 180000 : 35000,
   });
   if (r.ok) {
     _ambientLast = next;
+    if (first) _ambientHoldUntil = now.getTime() + 180000;
     const name = `ambient-${solar.phase}`;
     if (_lightsScene !== name) {
       _lightsScene = name;
@@ -2526,6 +2533,7 @@ async function _forwardToLights(action, body) {
 
 app.post("/admin/lights/off", async (_req, res) => {
   _ambientLast = null;
+  _ambientHoldUntil = 0;
   _manualLightsSynced = false;
   _lightsEnabled = false;
   _lightsPowerSynced = false;
