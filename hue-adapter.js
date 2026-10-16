@@ -18,6 +18,7 @@ const {
   scenePayload,
   powerPayload,
   brightnessPayload,
+  ambientPayload,
   groupBrightness,
   hueBodyHasError,
   verifyBridgeIdentity,
@@ -133,11 +134,23 @@ async function applyScene(mode, durMs) {
   try {
     const result = await hueRequest("PUT", groupActionPath(cfg), scenePayload(cfg, mode, durMs));
     if (!result.ok) reactive.onSceneTransition(Date.now(), 0);
+    else reactive.setRange(cfg.reactiveRange);
     return result;
   } catch (err) {
     reactive.onSceneTransition(Date.now(), 0);
     throw err;
   }
+}
+
+async function applyAmbient(body) {
+  const payload = ambientPayload(body);
+  const result = await hueRequest("PUT", groupActionPath(cfg), payload);
+  if (result.ok) {
+    // Ambient owns color; music only adds up to eight Hue brightness steps.
+    reactive.setRange(Math.min(cfg.reactiveRange, 8));
+    reactive.setBaseBrightness(payload.bri);
+  }
+  return result;
 }
 
 async function applyPower(on) {
@@ -241,6 +254,11 @@ async function handler(req, res) {
         durMs: Math.round(durMs),
         hueStatus: result.status,
       });
+    }
+
+    if (url.pathname === "/ambient") {
+      const result = await applyAmbient(body);
+      return json(res, result.ok ? 200 : 502, { ok: result.ok, action: "ambient", hueStatus: result.status });
     }
 
     if (url.pathname === "/signal") {
