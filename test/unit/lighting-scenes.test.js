@@ -63,3 +63,16 @@ test("lighting slide-out contains club controls, Auto and independent power", ()
   assert.match(panel, /data-action="on"/);
   assert.match(panel, /data-action="off"/);
 });
+
+test("TV drawer uses couch-distance type, a wider layout and high-contrast club controls", () => {
+  const css = fs.readFileSync(path.join(__dirname, "../../public/tv-refined.css"), "utf8");
+  const couch = css.split("/* RSVP couch-distance menu:")[1];
+  assert.ok(couch, "the TV couch legibility treatment must be present");
+  assert.match(couch, /width:min\(680px,50vw\)/);
+  assert.match(couch, /\.drawerPanel \.lightSceneBtn span \{\s*font-size:clamp\(21px,1\.35vw,27px\)/);
+  assert.match(couch, /\.drawerPanel \.lightSceneBtn small \{\s*font-size:16px/);
+  assert.match(couch, /\.drawerPanel \.menuBtn \{[\s\S]*?min-height:76px/);
+  assert.match(couch, /\.drawerPanel \.lightAutoBtn \{min-height:82px/);
+  const html = fs.readFileSync(path.join(__dirname, "../../public/index.html"), "utf8");
+  assert.match(html, /tv-refined\.css\?v=couch-menu-v1-20261016/);
+});
