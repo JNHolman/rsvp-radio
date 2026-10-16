@@ -3,9 +3,10 @@
 /**
  * One-off, 15-second-per-color swatch preview for the real Hue globe.
  *
- * Shows every source color in the same day/night palettes used by the
- * ambient system, at each palette's usual brightness. Unlike normal mode,
- * this shows the raw swatches rather than subtle blends with base color.
+ * Default: the approved day/night palette as currently programmed.
+ * --rich: proposed richer day/night swatches for visual comparison.
+ * Both modes use the existing palette brightness and 15-second holds.
+ * The --rich option does NOT alter any automatic lighting settings.
  *
  * Safety: only sends to the TEST Hue adapter on 5006; refuses to run if
  * production Hue adapter is listening on 5005, before and during the demo.
@@ -19,9 +20,25 @@ const PRODUCTION_HUE_PORT = 5005;
 const HOLD_MS = 15000;
 const TRANSITION_MS = 1000;
 
-function swatches() {
+// Candidate colors only: DO NOT change the live ambient palette until
+// the owner has seen these on the actual lamp and approved them.
+const RICH_CANDIDATE = Object.freeze({
+  day: Object.freeze({
+    base: "#E49B42",
+    accents: Object.freeze(["#D9A441", "#C77943", "#D97965", "#C86480", "#B777A4"]),
+    brightness: PALETTES.day.brightness,
+  }),
+  night: Object.freeze({
+    base: "#6A1C9A",
+    accents: Object.freeze(["#A51791", "#8424A8", "#4E2395", "#A82370", "#922A65", "#D56A61", "#4141A3"]),
+    brightness: PALETTES.night.brightness,
+  }),
+});
+
+function swatches(options = {}) {
+  const palettes = options.rich ? RICH_CANDIDATE : PALETTES;
   return ["day", "night"].flatMap(phase => {
-    const p = PALETTES[phase];
+    const p = palettes[phase];
     return [
       { phase, label: "base", hex: p.base, bri: p.brightness },
       ...p.accents.map((hex, i) => ({ phase, label: "accent " + (i + 1), hex, bri: p.brightness })),
@@ -61,9 +78,11 @@ async function main() {
   if (!health.ok || !(await health.json()).bridgeReachable) {
     throw new Error("Test Hue adapter on :5006 cannot reach the bridge");
   }
-  const colors = swatches();
-  console.log("[hue-swatches] Showing " + colors.length + " original palette swatches, 15 seconds each.");
+  const rich = process.argv.includes("--rich");
+  const colors = swatches({ rich });
+  console.log("[hue-swatches] Showing " + colors.length + (rich ? " RICHER CANDIDATE" : " original") + " palette swatches, 15 seconds each.");
   console.log("[hue-swatches] These are stronger than the normal blended ambient lighting.");
+  if (rich) console.log("[hue-swatches] Preview only — permanent ambient colors have NOT changed.");
   let stopped = false;
   const end = () => { stopped = true; };
   process.once("SIGINT", end);
@@ -86,4 +105,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { swatches, colorToPayload };
+module.exports = { swatches, colorToPayload, RICH_CANDIDATE };
