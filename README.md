@@ -20,7 +20,7 @@ They notice the music, the art and the atmosphere—and only later realize how m
 
 At 9:50 AM, LOFI does not suddenly disappear because LOUNGE begins at 10:00 AM.
 
-The handoff starts early. The outgoing programming still carries most of the weight, but the next block begins appearing. Across twenty minutes the balance moves through **80/20 → 60/40 → 40/60 → 20/80**. Songs finish naturally. Videos finish naturally. The lights begin one continuous fade toward the next Hue scene.
+The handoff starts early. The outgoing programming still carries most of the weight, but the next block begins appearing. Across twenty minutes the balance moves through **80/20 → 60/40 → 40/60 → 20/80**. Songs finish naturally. Videos finish naturally. Hue continues its subtle background-matched ambience independently of the genre boundaries.
 
 At 10:10 AM, LOUNGE has completely taken over.
 
@@ -53,13 +53,11 @@ TV also remembers where it was in each playlist. If a blend moves from one genre
 
 ## The lights are part of the programming
 
-Each programming world maps to a Philips Hue scene.
+The single Hue globe follows the **same sunrise / civil-dusk clock as the approved TV backgrounds**, not the four music genre boundaries. Daylight uses restrained amber, peach, and rose tones; night uses violet, magenta, indigo, and occasional warm accents. Colors drift continuously over many minutes, with a hard limit on the change each scheduler tick can command.
 
-Hue follows the same twenty-minute handoff as the media system: one continuous fade begins ten minutes before the boundary and completes ten minutes after it. RSVP does not repeatedly re-fire the scene during that fade, because doing so would restart the bridge's transition clock.
+A local audio analyzer listens to the Pi's **playback monitor**—not a microphone—and provides only tiny, rate-limited brightness lifts (up to eight Hue steps during ambient mode). Color is never driven directly by bass hits. If the analyzer disappears, the light returns to its ambient baseline.
 
-Outside a scheduled long fade, the lighting can breathe gently with the music. A small local analyzer listens to the Pi's **playback monitor**—not a microphone—reduces the active audio to bass and energy envelopes, and feeds those into **rate-limited brightness movement only**. The active RSVP scene keeps ownership of color, so reactive lighting adds life without becoming a random light show. If the analyzer disappears, the server decays the last signal back toward the scene's baseline instead of leaving the lights stranded at an elevated brightness.
-
-Manual light power is respected independently from scene intent. If the lights are off, the scheduler can keep track of which scene should be active without silently turning them back on.
+Manual Hue scenes still work and hold until the next scheduled handoff; disabling automation or turning the light off is respected. Returning to ambience uses a particularly gentle fade rather than a snap.
 
 ---
 
