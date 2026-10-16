@@ -15,19 +15,26 @@ test("day and night both render the animated lower waterfront, at approved 8-sec
   assert.match(css, /\.stage\.art-phase-night\s+\.artFx\s*\{\s*--rsvp-water-image:url\("\/assets\/bg\/rsvp_night_art.webp"\)/);
 });
 
-test("night mask animates upper-left waterfront, not the right or bottom clouds", () => {
+test("night animation is restricted below the shoreline and above low mist", () => {
   const block = css.match(/\.stage\.art-phase-night\s+\.artFx::before\s*\{([^}]+)\}/s);
   assert.ok(block, "night-only mask is present");
   const gradients = [...block[1].matchAll(/(?:-webkit-)?mask-image:\s*radial-gradient\(ellipse\s+(\d+)%\s+(\d+)%\s+at\s+(\d+)%\s+(\d+)%/g)];
-  assert.equal(gradients.length, 2, "both Chromium and standard masks match");
+  assert.equal(gradients.length, 2, "WebKit and standard masks match");
   for (const [, radiusX, radiusY, centerX, centerY] of gradients) {
-    assert.ok(Number(centerX) < 50, "nightwater must be LEFT of center");
-    assert.ok(Number(centerX) - Number(radiusX) <= 5, "ellipse reaches near left bank");
-    const maskTopViewport = 66 + (Number(centerY) - Number(radiusY)) * 0.34;
-    const maskBottomViewport = 66 + (Number(centerY) + Number(radiusY)) * 0.34;
-    assert.ok(maskTopViewport <= 68, "ellipse starts where upper-left water begins");
-    assert.ok(maskBottomViewport < 85, "bottom purple clouds remain still");
+    // Layer occupies the bottom 34vh of the TV artwork.
+    const topViewport = 66 + (Number(centerY) - Number(radiusY)) * .34;
+    const bottomViewport = 66 + (Number(centerY) + Number(radiusY)) * .34;
+    const leftViewport = Number(centerX) - Number(radiusX);
+    const rightViewport = Number(centerX) + Number(radiusX);
+    assert.ok(topViewport >= 77, "mask stays below the shoreline, away from trees and buildings");
+    assert.ok(bottomViewport <= 91, "mask stays above the bottom purple fog");
+    assert.ok(leftViewport >= 20, "mask leaves the lower-left purple clouds still");
+    assert.ok(rightViewport <= 85, "mask leaves the right cloud bank still");
+    assert.ok(Number(centerX) > 40 && Number(centerX) < 60, "mask centers on real water reflections");
   }
+  assert.match(block[1], /--rsvp-ripple-start-opacity:\s*\.41;/);
+  assert.match(block[1], /--rsvp-ripple-end-opacity:\s*\.61;/);
+  assert.match(css, /@keyframes rsvp-ripple-drift\s*\{[\s\S]*opacity:var\(--rsvp-ripple-start-opacity,\.34\);[\s\S]*opacity:var\(--rsvp-ripple-end-opacity,\.55\);/);
   assert.match(css, /\.artFx::after\s*\{[^}]*display:none;/);
-  assert.match(html, /\/tv-refined\.css\?v=night-left-water-22/);
+  assert.match(html, /\/tv-refined\.css\?v=night-reflections-only-23/);
 });
