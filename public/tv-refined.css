@@ -21,16 +21,16 @@
 /* No secondary glow: previously caused fake clouds and artificial bands. */
 .artFx::after {content:none;display:none;}
 /* Verified against the approved night art (1672x941 source):
-   shoreline ~74% down the frame, reflecting water ~78-91% down.
+   shoreline ~74% down the frame, reflecting water ~78-87% down.
    Move ONLY these reflections. Exclude trees/buildings above the shore,
    far-left purple fog and right-hand cloud bank. Feathery edge, no glow.
    Night opacity is slightly higher to make dark ripples legible. */
 .stage.art-phase-night .artFx::before {
   --rsvp-ripple-start-opacity:.41;
   --rsvp-ripple-end-opacity:.61;
-  -webkit-mask-image:radial-gradient(ellipse 30% 18% at 53% 55%,
+  -webkit-mask-image:radial-gradient(ellipse 30% 14% at 53% 48%,
     rgba(0,0,0,.92) 0%,rgba(0,0,0,.64) 40%,transparent 100%);
-  mask-image:radial-gradient(ellipse 30% 18% at 53% 55%,
+  mask-image:radial-gradient(ellipse 30% 14% at 53% 48%,
     rgba(0,0,0,.92) 0%,rgba(0,0,0,.64) 40%,transparent 100%);
 }
 .artFx::before {
