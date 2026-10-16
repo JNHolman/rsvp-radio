@@ -5,7 +5,7 @@ const { PALETTES, ambientTarget, approachAmbient } = require("../../intelligence
 
 test("permanent rich colors retain low-brightness ambience", () => {
   assert.deepEqual(PALETTES.day.accents, ["#D9A441", "#C77943", "#D97965", "#C86480", "#B777A4"]);
-  assert.deepEqual(PALETTES.night.accents, ["#A51791", "#8424A8", "#4E2395", "#A82370", "#922A65", "#D56A61", "#4141A3"]);
+  assert.deepEqual(PALETTES.night.accents, ["#315BB5", "#72318D", "#3967BE", "#CF6A5C", "#2C359C", "#A31E8B"]);
   assert.equal(PALETTES.day.brightness, 114);
   assert.equal(PALETTES.night.brightness, 76);
 });
@@ -42,4 +42,21 @@ test("solar phase changes cannot cause sudden color or brightness jumps", () => 
   assert.ok(Math.abs(step.bri - day.bri) <= 6);
   assert.deepEqual(approachAmbient(null, night), night);
   assert.throws(() => ambientTarget("unknown", 1000), /invalid_ambient_phase/);
+});
+
+test("night ambience reaches distinct blue and warm colors within every half-hour", () => {
+  const slot = 11 * 60 * 1000;
+  // Even a poorly-timed 30-minute observation must not sit in one pink family.
+  for (let start = 0; start < PALETTES.night.accents.length; start++) {
+    const samples = Array.from({ length: 4 }, (_, i) =>
+      ambientTarget("night", (start + i + 6 * 1000) * slot).xy[0]);
+    assert.ok(Math.max(...samples) - Math.min(...samples) > 0.15,
+      "night colors should cover visibly different families, start index " + start);
+  }
+});
+
+test("daytime ambient algorithm retains its approved palette and behavior", () => {
+  const now = Date.UTC(2026, 9, 16, 16, 35);
+  const target = ambientTarget("day", now);
+  assert.ok(target.xy[0] > 0.25 && target.xy[1] > 0.2);
 });
