@@ -1648,8 +1648,8 @@ async function pollSessions() {
       resolvedMode   = timeBlockMode;
       resolvedSource = "timeblock";
     } else {
-      // Schedule/playlist mode always follows the timeblock (unchanged). The
-      // first song's genre drives the LIGHTS only, captured into _seedMode below.
+      // Scheduled playlist selection follows the timeblock; a new-session
+      // genre seed may label the current music state but never controls Hue.
       resolvedMode   = timeBlockMode;
       resolvedSource = "timeblock";
 
