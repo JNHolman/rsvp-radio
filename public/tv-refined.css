@@ -459,3 +459,119 @@
 .lightSceneBtn span { font-size: 12px; font-weight: 700; line-height: 1.24; }
 .drawerPanel .menuBtn.active { border-color: var(--rsvp-gold); background: rgba(237,191,121,.20); }
 .drawerPanel .lightingPower { margin-top: 12px; }
+
+/* RSVP couch-distance menu: deliberate 10-foot UI sizing.
+   Applied only inside the slide-out; approved artwork and Radio overlay
+   typography stay unchanged. A 420px-wide drawer with 9–12px labels was
+   unreadable on the TV. Use the available room and real button targets. */
+.menu,.menu.on {
+  width:min(680px,50vw);
+  background:rgba(8,7,24,.98);
+  border-right:2px solid rgba(237,191,121,.52);
+}
+.drawerHead {
+  padding:3.6vh 34px 2.4vh;
+  gap:24px;
+}
+.drawerHead .drawerWordmark {
+  font-size:clamp(25px,1.9vw,37px);
+  letter-spacing:-.035em;
+}
+.drawerHead .drawerClose {
+  flex:0 0 58px;
+  width:58px;
+  height:58px;
+  font-size:45px;
+}
+.drawerHome {padding:32px 34px 24px;}
+.drawerEyebrow {
+  font-size:18px;
+  letter-spacing:.12em;
+  margin:0 0 22px;
+}
+.drawerChoice {padding:23px 10px;gap:10px 0;}
+.drawerChoice > span {font-size:clamp(24px,1.55vw,32px);line-height:1.15;}
+.drawerChoice > small {font-size:18px;color:rgba(255,255,255,.86);line-height:1.25;}
+.drawerChoice > i {font-size:34px;}
+.drawerDetails {padding:28px 34px 38px;}
+.drawerBack {
+  font-size:20px;
+  letter-spacing:.065em;
+  padding:9px 0 20px;
+}
+.drawerDetails h2 {font-size:clamp(32px,2vw,40px);margin:0 0 20px;line-height:1.12;}
+.drawerPanel p {
+  font-size:20px;
+  line-height:1.35;
+  color:rgba(255,255,255,.95);
+  margin:0 0 22px;
+}
+.drawerPanel .menuGrid {gap:14px;margin-bottom:14px;}
+.drawerPanel .menuBtn {
+  min-height:76px;
+  padding:16px 12px;
+  border-radius:11px;
+  border:2px solid rgba(237,191,121,.65);
+  background:rgba(255,255,255,.10);
+  font-size:clamp(20px,1.3vw,26px);
+  line-height:1.22;
+  letter-spacing:.025em;
+  font-weight:700;
+  text-wrap:balance;
+}
+.drawerPanel .lightSceneBtn {
+  min-height:108px;
+  padding:15px 12px;
+  gap:9px;
+}
+.drawerPanel .lightSceneBtn small {
+  font-size:16px;
+  font-weight:700;
+  letter-spacing:.08em;
+  color:#EDBF79;
+  line-height:1.2;
+}
+.drawerPanel .lightSceneBtn span {
+  font-size:clamp(21px,1.35vw,27px);
+  font-weight:800;
+  line-height:1.14;
+  letter-spacing:.015em;
+  color:#fff;
+}
+.drawerPanel .menuBtn:hover,
+.drawerPanel .menuBtn:focus-visible,
+.drawerPanel .menuBtn.active {
+  border-color:#EDBF79;
+  background:rgba(237,191,121,.22);
+}
+.drawerPanel .menuBtn:focus-visible,.drawerChoice:focus-visible,.drawerBack:focus-visible {
+  outline:3px solid #EDBF79;
+  outline-offset:3px;
+}
+.drawerPanel .lightAutoBtn {min-height:82px;margin-top:18px;}
+.drawerPanel .lightingPower {margin-top:18px;}
+.menuFeedback {font-size:19px;line-height:1.3;min-height:26px;padding:8px 34px;}
+/* This microprint is redundant and implies Auto even under a manual club. */
+.drawerFoot {display:none;}
+@media(max-width:900px) {
+  .menu,.menu.on {width:min(570px,78vw);}
+  .drawerDetails,.drawerHome {padding-left:24px;padding-right:24px;}
+  .drawerPanel .lightSceneBtn span {font-size:clamp(19px,2.5vw,25px);}
+}
+@media(max-width:620px) {
+  .menu,.menu.on {width:94vw;}
+  .drawerHead {padding-left:20px;padding-right:20px;}
+  .drawerPanel[data-panel="lighting"] .menuGrid.two:not(.lightingPower) {
+    grid-template-columns:1fr;
+  }
+  .drawerPanel .lightSceneBtn {min-height:76px;}
+  .drawerPanel .lightSceneBtn span {font-size:21px;}
+  .drawerPanel .lightSceneBtn small {font-size:14px;}
+  .drawerPanel .menuBtn {font-size:18px;min-height:62px;}
+  .drawerDetails h2 {font-size:29px;}
+}
+@media(max-height:720px) {
+  .drawerHead {padding-top:15px;padding-bottom:12px;}
+  .drawerDetails {padding-top:16px;padding-bottom:20px;}
+  .drawerPanel .lightSceneBtn {min-height:85px;}
+}
