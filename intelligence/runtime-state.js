@@ -6,13 +6,15 @@ const { writeJsonAtomic } = require("./atomic-json");
 
 const DEFAULT_PATH = process.env.RUNTIME_STATE_PATH || path.join(__dirname, "..", "data", "runtime-state.json");
 const MODES = new Set(["lofi", "lounge", "rap", "rnb"]);
+const { hasScene } = require("./lighting-scenes");
 
 const DEFAULT_STATE = Object.freeze({
-  version: 6,
+  version: 7,
   plexampPausedByRsvp: false,
   wasVideoMode: false,
   lightsEnabled: true,
   lightsScene: "",
+  externalHueHold: false,
   seedMode: null,
   manualMode: null,
   manualLights: null,
@@ -68,11 +70,11 @@ function normalize(raw) {
     ? { mode: manualModeValue, expiresAt: Number(src.manualMode.expiresAt) }
     : null;
 
-  const manualLightsValue = normalizeMode(src.manualLights?.mode);
-  const ml = src.manualLights && typeof src.manualLights === "object" && manualLightsValue
-    && Number.isFinite(Number(src.manualLights.expiresAt)) && Number(src.manualLights.expiresAt) > 0
-    ? { mode: manualLightsValue, expiresAt: Number(src.manualLights.expiresAt) }
-    : null;
+  // Existing legacy manual Hue modes migrate to persistent overrides.
+  // New club scenes never expire at a music handoff.
+  const lightMode = String(src.manualLights?.mode || "").toLowerCase();
+  const manualLightsValue = hasScene(lightMode) ? lightMode : normalizeMode(lightMode);
+  const ml = manualLightsValue ? { mode: manualLightsValue } : null;
 
   const a = src.automation && typeof src.automation === "object" ? src.automation : {};
   const manualStop = !!a.manualStop;
@@ -86,11 +88,12 @@ function normalize(raw) {
     : { enabled: true, manualStop: false, stoppedMode: null, stoppedAt: 0 };
 
   return {
-    version: 6,
+    version: 7,
     plexampPausedByRsvp: !!src.plexampPausedByRsvp,
     wasVideoMode: !!src.wasVideoMode || !!vm,
     lightsEnabled: src.lightsEnabled !== false,
-    lightsScene: normalizeMode(src.lightsScene),
+    lightsScene: (() => { const v = String(src.lightsScene || "").toLowerCase(); return hasScene(v) || /^ambient-(day|night)$/.test(v) ? v : normalizeMode(v); })(),
+    externalHueHold: !!src.externalHueHold,
     seedMode,
     manualMode: mm,
     manualLights: ml,
