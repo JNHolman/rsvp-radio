@@ -53,3 +53,31 @@ the next scheduled music handoff. Manual power off and automation stop also win.
 Use the local Philips Hue Bridge API over HTTPS and keep bridge credentials out of this repository. The adapter should keep the Hue application key and scene/group identifiers in environment configuration or another local secret store.
 
 Recommended mapping is one Hue scene per RSVP mode (`lofi`, `lounge`, `rap`, `rnb`) within one Hue group/zone. Scene recall/transition should target that same Hue group/zone so all lights move together.
+
+## RSVP Lighting V3 club scenes
+
+The slide-out **LIGHTING** menu controls the Hue globe separately from the VIBE
+music menu. It offers six manual scenes: **Yin Yang Café** (The Listening Room),
+**40/40 Club**, **Republic Gardens**, **The Tunnel**, **Club Crucial** and
+**Boom Boom Room**, plus **AUTO**, **HUE ON** and **HUE OFF**.
+
+- `POST /admin/lights/scene/:id` chooses a named club. These scenes use 30-second
+  incremental writes to `POST /ambient`; each scene includes separate day/night
+  color paths and pacing. The selector is persisted until explicit Auto.
+- `POST /admin/lights/auto` clears the manual scene and resumes the currently
+  scheduled solar artwork colors. The previous manual scene is not restored by a
+  media/genre handoff.
+- `POST /admin/lights/on` is the **only RSVP command that may power on Hue**.
+  Selecting a scene or Auto never turns on a bulb that is physically off.
+- `POST /admin/lights/off` explicitly turns off Hue. Hue's native phone app
+  power-off also takes priority; the adapter's read-only `GET /power` exposes
+  physical state and out-of-band app scene changes. The `POST /release` adapter
+  action transfers control back to RSVP only after explicit user selection.
+- Existing `POST /admin/lights/mode/:mode` remains available to old clients,
+  but now also persists until Auto and affects Hue only, not music.
+- Radio/TV programming, video/track selection and the four music time blocks
+  cannot override a selected club scene. Hue overrides survive Pi restarts.
+
+Govee H7021 balcony strings are **not controlled by this implementation**.
+Their controller and native app remain separate until Govee control capabilities
+are verified and a dedicated adapter is implemented.
