@@ -18,23 +18,55 @@ const _stage = document.querySelector(".stage");
 const ART_DAY = "/assets/bg/rsvp_day_art.webp";
 const ART_NIGHT = "/assets/bg/rsvp_night_art.webp";
 let _artReady = false;
+const HORIZON_REVEAL_MS = 10000;
+let _activeArtwork = null;
+let _horizonTimer = null;
+
+// The incoming approved image reveals sky -> skyline -> waterfront with a
+// feathered mask; the outgoing image stays underneath for the full 10 seconds.
+// No artwork moves, and the UI and music-video handoffs remain untouched.
+function _finishHorizonReveal() {
+  if (_horizonTimer !== null) {
+    clearTimeout(_horizonTimer);
+    _horizonTimer = null;
+  }
+  for (const art of [_artDay, _artNight]) {
+    art.classList.remove("horizon-incoming", "horizon-outgoing", "horizon-reveal");
+    art.classList.toggle("on", art === _activeArtwork);
+  }
+  _stage.classList.remove("horizon-transition");
+}
 
 // Use the approved artwork if the assets were installed on this Pi.
 // Until then, the existing ambient videos remain visible beneath these layers.
 function _setArtworkForSource(src) {
   if (!_artReady || !src) return;
-  const showingDay = src === BG_DAY;
-  const dayVisible = showingDay && _artDay.naturalWidth > 0;
-  const nightVisible = !showingDay && _artNight.naturalWidth > 0;
-  _artDay.classList.toggle("on", dayVisible);
-  _artNight.classList.toggle("on", nightVisible);
+  const requested = src === BG_DAY ? _artDay : _artNight;
+  const incoming = requested.naturalWidth > 0 ? requested : null;
+  const outgoing = _activeArtwork;
+
+  if (incoming !== outgoing) {
+    _finishHorizonReveal();
+    _activeArtwork = incoming;
+    const reduceMotion = window.matchMedia &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (incoming && outgoing && outgoing.naturalWidth > 0 && !reduceMotion && !_inMusicMode) {
+      outgoing.classList.add("on", "horizon-outgoing");
+      incoming.classList.add("on", "horizon-incoming", "horizon-reveal");
+      _stage.classList.add("horizon-transition");
+      _horizonTimer = setTimeout(_finishHorizonReveal, HORIZON_REVEAL_MS + 100);
+    } else {
+      _artDay.classList.toggle("on", incoming === _artDay);
+      _artNight.classList.toggle("on", incoming === _artNight);
+    }
+  }
 
   // A bright daytime skyline requires dark text, while the night scene works
   // with light lettering. Follow whichever approved artwork ACTUALLY loaded;
   // never change the media scheduler, solar calculations or Hue behavior.
   // No phase class means fallback ambient video uses existing default colors.
-  _stage.classList.toggle("art-phase-day", dayVisible);
-  _stage.classList.toggle("art-phase-night", nightVisible);
+  _stage.classList.toggle("art-phase-day", incoming === _artDay);
+  _stage.classList.toggle("art-phase-night", incoming === _artNight);
 }
 function _bootArtwork() {
   if (_artReady) return;
