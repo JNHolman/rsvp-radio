@@ -103,10 +103,13 @@ test("unavailable solar data retries without changing last confirmed phase", () 
 
 test("server uses cached solar phase inside Hue tick, not a solar calculation", () => {
   const server = fs.readFileSync(path.resolve(__dirname, "../../server.js"), "utf8");
-  const tick = server.match(/async function _syncScheduledLights\(\)\s*\{([\s\S]*?)\n\}\n\nasync function _forwardToLights/);
-  assert.ok(tick);
-  assert.match(tick[1], /_solarClock\.phase\(\)/);
-  assert.doesNotMatch(tick[1], /getSolarPhase\(/);
+  const start = server.indexOf("async function _syncScheduledLights()");
+  const end = server.indexOf("async function _forwardToLights(", start);
+  assert.ok(start >= 0, "Hue scheduler function exists");
+  assert.ok(end > start, "Hue scheduler ends before the Hue transport helper");
+  const tick = server.slice(start, end);
+  assert.match(tick, /_solarClock\.phase\(\)/);
+  assert.doesNotMatch(tick, /getSolarPhase\(/);
   assert.match(server, /_solarClock\.start\(\)/);
   assert.match(server, /_solarClock\.stop\(\)/);
   assert.match(server, /_lightsIntervalHandle = setInterval\(/);
