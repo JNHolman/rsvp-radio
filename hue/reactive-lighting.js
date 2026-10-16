@@ -12,6 +12,7 @@ function clampBrightness(value) {
 }
 
 function createReactiveLighting({ minIntervalMs = 1800, range = 36 } = {}) {
+  let reactiveRange = range;
   let smoothBass = 0;
   let smoothEnergy = 0;
   let lastWriteAt = 0;
@@ -38,6 +39,10 @@ function createReactiveLighting({ minIntervalMs = 1800, range = 36 } = {}) {
       smoothBass = 0;
       smoothEnergy = 0;
     }
+  }
+
+  function setRange(value) {
+    reactiveRange = Math.max(0, Math.min(120, Number(value) || 0));
   }
 
   function setBaseBrightness(value) {
@@ -71,7 +76,7 @@ function createReactiveLighting({ minIntervalMs = 1800, range = 36 } = {}) {
     if (lastWriteAt && now - lastWriteAt < minIntervalMs) return { kind: "hold", reason: "rate_limited" };
 
     const drive = Math.max(0, Math.min(1, (smoothBass * 0.72) + (smoothEnergy * 0.28)));
-    const target = clampBrightness(baseBrightness + Math.round(drive * range));
+    const target = clampBrightness(baseBrightness + Math.round(drive * reactiveRange));
     if (lastBrightness !== null && Math.abs(target - lastBrightness) < 2) {
       return { kind: "hold", reason: "below_delta", target };
     }
@@ -90,7 +95,7 @@ function createReactiveLighting({ minIntervalMs = 1800, range = 36 } = {}) {
     return { smoothBass, smoothEnergy, lastWriteAt, lastBrightness, baseBrightness, suppressedUntil, poweredOn };
   }
 
-  return { onSceneTransition, onPower, setBaseBrightness, getBaseBrightness, plan, markWriteFailed, snapshot };
+  return { onSceneTransition, onPower, setRange, setBaseBrightness, getBaseBrightness, plan, markWriteFailed, snapshot };
 }
 
 module.exports = { createReactiveLighting, clampBrightness };
