@@ -35,5 +35,8 @@ test("NIGHT button can switch to night despite stale ?art=day on viewer", async 
 
 test("preview controls expose the phase selected by DAY / NIGHT / AUTO", () => {
   assert.match(preview, /phase:\s*forcedPhase\s*\|\|\s*result\.phase/);
-  assert.match(preview, /forcedPhase\s*=\s*phase\s*===\s*"auto"\s*\?\s*null\s*:\s*phase/);
+  assert.match(preview, /const nextPhase\s*=\s*phase\s*===\s*"auto"\s*\?\s*null\s*:\s*phase/);
+  assert.match(preview, /forcedPhase\s*=\s*nextPhase/);
+  assert.match(preview, /if \(changed\) notifyPreviewPhase\(\)/);
+  assert.match(preview, /text\/event-stream; charset=utf-8/);
 });
