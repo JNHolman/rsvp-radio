@@ -42,6 +42,15 @@ test("zero energy decays brightness back toward the scene baseline", () => {
   assert.ok(last >= 140);
 });
 
+test("ambient caps music brightness movement without changing its color", () => {
+  const r = createReactiveLighting({ minIntervalMs: 1, range: 40 });
+  r.setRange(8);
+  r.setBaseBrightness(76);
+  const plan = r.plan({ bass: 1, energy: 1, nowMs: 1000 });
+  assert.equal(plan.kind, "apply");
+  assert.ok(plan.brightness >= 76 && plan.brightness <= 84);
+});
+
 test("reactive Hue does nothing while lights are off", () => {
   const r = createReactiveLighting();
   r.setBaseBrightness(140);
