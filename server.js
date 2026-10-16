@@ -35,7 +35,6 @@ const plexSync    = require("./intelligence/plex-sync");
 const session     = require("./intelligence/session");
 const playlistCtl = require("./intelligence/playlist-controller");
 const blendPolicy = require("./intelligence/blend-policy");
-const lightTransition = require("./intelligence/light-transition");
 const videoBlendPolicy = require("./intelligence/video-blend-policy");
 const videoRecovery = require("./intelligence/video-recovery");
 const videoEvent = require("./intelligence/video-event");
@@ -2292,20 +2291,12 @@ app.post("/admin/plexamp/resume", async (req, res) => {
 
 app.post("/admin/automation/stop", async (_req, res) => {
   _stopAutomation();
-  // Cancel any light-service fade already in flight and hold the scene that
-  // belongs to the block where automation was stopped. Manual mode changes can
-  // still replace this scene while automation remains stopped.
-  await _applyLightsScene(_automation.stoppedMode).catch((err) =>
-    console.warn("[lights] automation-stop hold failed:", err.message),
-  );
   res.json({ ok:true, automation:{..._automation} });
 });
 app.post("/admin/automation/start", async (_req, res) => {
   _startAutomation();
-  // Rejoin the live timeline directly. In an active handoff this preserves the
-  // remaining Hue fade instead of snapping to the incoming block first.
-  _lastScheduledLightsMode = "";
-  _lastLightBlendKey = "";
+  // Reconcile the independent lighting collection without changing its
+  // persistent manual club scene.
   await _syncScheduledLights().catch((err) =>
     console.warn("[lights] automation-start sync failed:", err.message),
   );
@@ -2382,7 +2373,6 @@ app.post("/mode/:mode", async (req, res) => {
   } else {
     _fireImmediatePlaylistSwitch(mode, "manual override");
   }
-  await _applyLightsScene(mode).catch((err) => console.warn("[lights] manual scene failed:", err.message));
   res.json({
     ok: true,
     mode,
@@ -2402,16 +2392,10 @@ app.post("/admin/force-timeblock-sync", async (_req, res) => {
     let moved = false;
     if (_videoMode.active) moved = await _switchVideoToMode(mode);
     else _pendingVideoMode = mode;
-    await _applyLightsScene(mode).catch((err) =>
-      console.warn("[lights] force-sync scene failed:", err.message),
-    );
     return res.json({ ok: true, mode, owner: "tv", moved });
   }
 
   _fireImmediatePlaylistSwitch(mode, "admin force-sync");
-  await _applyLightsScene(mode).catch((err) =>
-    console.warn("[lights] force-sync scene failed:", err.message),
-  );
   res.json({ ok: true, mode, owner: "radio" });
 });
 
@@ -2421,10 +2405,8 @@ app.post("/admin/force-timeblock-sync", async (_req, res) => {
 // Hue adapter. This avoids a second browser-side scheduler and also lets admin
 // controls work consistently from the Pi or another device on the LAN.
 //
-// Whitelisted actions only:
-//   /on             /off
-//   /mode/rnb /mode/rap /mode/lofi /mode/lounge
-//   /signal         /transition
+// Hue adapter supports explicit on/off, legacy modes, Auto ambient color,
+// and reactive brightness. Music programming does not select Hue scenes.
 
 let _lightsEnabled = _persistedRuntime.lightsEnabled !== false;
 let _externalHueHold = _persistedRuntime.externalHueHold === true;
@@ -2433,9 +2415,6 @@ let _lightsLastResultOk = null;
 let _lightsLastAttemptAt = 0;
 let _lightsLastOkAt = 0;
 let _lightsLastError = "";
-
-// Old media scheduling and music-only overrides cannot touch Hue.
-async function _applyLightsScene(_mode) { return { ok: true, held: true }; }
 
 async function _readHuePower() {
   const r = await fetchWithTimeout(`${cfg.LIGHTS_URL}/power`, 3000);
@@ -2465,8 +2444,6 @@ async function _releaseHueHoldIfOn() {
   return release;
 }
 
-let _lastScheduledLightsMode = ""; // retained for admin reconciliation compatibility
-let _lastLightBlendKey = "";
 let _ambientLast = null;
 let _ambientHoldUntil = 0;
 let _manualLightsSynced = false;
