@@ -20,14 +20,17 @@
 }
 /* No secondary glow: previously caused fake clouds and artificial bands. */
 .artFx::after {content:none;display:none;}
-/* The approved night artwork's visible water is on the LEFT, not the
-   right. Feather the moving copy over that upper-left waterfront only.
-   Keep the lower baked-in purple clouds/mist still (outside the ellipse).
-   No added glow or change to the approved 8-second motion. */
+/* Verified against the approved night art (1672x941 source):
+   shoreline ~74% down the frame, reflecting water ~78-91% down.
+   Move ONLY these reflections. Exclude trees/buildings above the shore,
+   far-left purple fog and right-hand cloud bank. Feathery edge, no glow.
+   Night opacity is slightly higher to make dark ripples legible. */
 .stage.art-phase-night .artFx::before {
-  -webkit-mask-image:radial-gradient(ellipse 34% 30% at 36% 22%,
+  --rsvp-ripple-start-opacity:.41;
+  --rsvp-ripple-end-opacity:.61;
+  -webkit-mask-image:radial-gradient(ellipse 30% 18% at 53% 55%,
     rgba(0,0,0,.92) 0%,rgba(0,0,0,.64) 40%,transparent 100%);
-  mask-image:radial-gradient(ellipse 34% 30% at 36% 22%,
+  mask-image:radial-gradient(ellipse 30% 18% at 53% 55%,
     rgba(0,0,0,.92) 0%,rgba(0,0,0,.64) 40%,transparent 100%);
 }
 .artFx::before {
@@ -43,8 +46,8 @@
 }
 .stage.videoMode .artFx {display:none!important;}
 @keyframes rsvp-ripple-drift {
-  from {transform:translate3d(-1.1vw,0,0) scaleX(1.008);opacity:.34;}
-  to {transform:translate3d(1.1vw,0,0) scaleX(.992);opacity:.55;}
+  from {transform:translate3d(-1.1vw,0,0) scaleX(1.008);opacity:var(--rsvp-ripple-start-opacity,.34);}
+  to {transform:translate3d(1.1vw,0,0) scaleX(.992);opacity:var(--rsvp-ripple-end-opacity,.55);}
 }
 @media (prefers-reduced-motion:reduce) {
   .artFx::before {animation:none;will-change:auto;}
