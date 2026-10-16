@@ -37,7 +37,8 @@ test("approved water treatment has no added glow or legacy shading rectangles", 
   assert.ok(uiShading, "edge-free ambient readability shading exists");
   assert.equal((uiShading[1].match(/radial-gradient\(/g) || []).length, 3);
   assert.match(css, /\.artFx::after\s*\{[^}]*display:none;/s);
-  assert.match(css, /\.stage\.art-phase-night\s+\.artFx::before\s*\{[^}]*mask-image:\s*radial-gradient\(/s);
+  assert.match(css, /\.artFx::before\s*\{[^}]*mask-image:linear-gradient\(/s);
+  assert.doesNotMatch(css, /\.stage\.art-phase-night\s+\.artFx::before\s*\{/);
   assert.match(css, /\.stage\.art-phase-night\s+\.ui::before\s*\{\s*opacity:\s*\.94;/);
   assert.doesNotMatch(html, /<div class="(?:vignette|topFade|bottomFade)">/);
 });
