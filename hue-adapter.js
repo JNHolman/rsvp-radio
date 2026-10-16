@@ -146,6 +146,10 @@ async function applyAmbient(body) {
   const payload = ambientPayload(body);
   const result = await hueRequest("PUT", groupActionPath(cfg), payload);
   if (result.ok) {
+    // Don't let bass-brightness writes interrupt a long return-to-ambient fade.
+    if (payload.transitiontime >= 1800) {
+      reactive.onSceneTransition(Date.now(), payload.transitiontime * 100);
+    }
     // Ambient owns color; music only adds up to eight Hue brightness steps.
     reactive.setRange(Math.min(cfg.reactiveRange, 8));
     reactive.setBaseBrightness(payload.bri);
