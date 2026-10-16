@@ -21,6 +21,7 @@ let _artReady = false;
 const HORIZON_REVEAL_MS = 10000;
 let _activeArtwork = null;
 let _horizonTimer = null;
+let _horizonSettleTimer = null;
 
 // The incoming approved image reveals sky -> skyline -> waterfront with a
 // feathered mask; the outgoing image stays underneath for the full 10 seconds.
@@ -30,11 +31,25 @@ function _finishHorizonReveal() {
     clearTimeout(_horizonTimer);
     _horizonTimer = null;
   }
+  if (_horizonSettleTimer !== null) {
+    clearTimeout(_horizonSettleTimer);
+    _horizonSettleTimer = null;
+  }
+
+  // Do not let the old artwork's default 1.2s opacity transition restart
+  // as its horizon class disappears. On a NIGHT -> DAY switch, the night
+  // image is stacked above day and otherwise flashes back over it.
+  // Temporarily disable opacity transitions until both layers are settled.
   for (const art of [_artDay, _artNight]) {
+    art.style.transition = "none";
     art.classList.remove("horizon-incoming", "horizon-outgoing", "horizon-reveal");
     art.classList.toggle("on", art === _activeArtwork);
   }
   _stage.classList.remove("horizon-transition");
+  _horizonSettleTimer = setTimeout(() => {
+    _horizonSettleTimer = null;
+    for (const art of [_artDay, _artNight]) art.style.removeProperty("transition");
+  }, 200);
 }
 
 // Use the approved artwork if the assets were installed on this Pi.
