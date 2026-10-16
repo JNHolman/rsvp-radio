@@ -18,7 +18,6 @@ const POLL_MS      = Number(RUNTIME.pollMs) || 2000;
 const POLL_TIMEOUT = Number(RUNTIME.pollTimeoutMs) || 2000;
 
 // ── Background video ──────────────────────────────────────────────────────────
-const BG_CHECK_MS      = 20000;
 const BG_RELOAD_MS     = 30 * 60 * 1000;
 const BG_CROSSFADE_MS  = 1200;
 
