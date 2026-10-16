@@ -187,6 +187,40 @@ test("/admin/lights/mode/:mode rejects invalid mode with 400", async () => {
   }
 });
 
+test("automatic Hue color matches solar TV phase without changing programming", async () => {
+  const lights = await startLightsStub();
+  const server = await startServer({
+    PUBLIC_DIR: makePublicDir({ withAssets: true }),
+    LIGHTS_URL: lights.baseUrl,
+  });
+  try {
+    // Startup reconciles the light without waiting for a 30s poll.
+    for (let i = 0; i < 40 && !lights.calls.some(c => c.path === "/ambient"); i++) {
+      await new Promise(resolve => setTimeout(resolve, 25));
+    }
+    const ambient = lights.calls.find(c => c.path === "/ambient");
+    assert.ok(ambient, "background-matched ambient intent reaches Hue");
+    const phase = (await (await fetch(`${server.baseUrl}/api/solar-state`)).json()).phase;
+    const payload = JSON.parse(ambient.body);
+    const { ambientTarget } = require("../../intelligence/ambient-light");
+    const expected = ambientTarget(phase, Date.now());
+    assert.ok(Array.isArray(payload.xy) && payload.xy.length === 2);
+    assert.ok(Math.hypot(payload.xy[0] - expected.xy[0], payload.xy[1] - expected.xy[1]) < 0.01);
+    assert.ok(Math.abs(payload.bri - expected.bri) <= 1);
+
+    // A human-selected Hue scene must not be overridden by an automatic sync.
+    const override = await fetch(`${server.baseUrl}/admin/lights/mode/rnb`, { method: "POST" });
+    assert.equal(override.status, 200);
+    const before = lights.calls.filter(c => c.path === "/ambient").length;
+    await fetch(`${server.baseUrl}/admin/automation/start`, { method: "POST" });
+    assert.equal(lights.calls.filter(c => c.path === "/ambient").length, before);
+    assert.ok(lights.calls.some(c => c.path === "/mode/rnb"));
+  } finally {
+    await server.stop();
+    await lights.stop();
+  }
+});
+
 test("/admin/lights/* returns 502 when lights service is down", async () => {
   const server = await startServer({
     PUBLIC_DIR: makePublicDir({ withAssets: true }),
