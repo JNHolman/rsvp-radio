@@ -14,33 +14,36 @@ The adapter is the hardware boundary: RSVP owns programming/scheduling; the Hue 
   - Fade the **current physical Hue state** toward the destination scene over `durMs`.
   - `from` is context/fallback only; do not snap back to a stored source scene before fading.
   - A late/retry command may contain only the remaining duration. Accept it and continue smoothly from the bulbs' current state.
+- `POST /ambient`
+  - JSON: `{ "xy": [0.4, 0.3], "bri": 110, "durMs": 35000 }`
+  - Apply color and brightness in a single group action with a soft fade. RSVP computes
+    the target from the same solar phase as TV and caps each change. The first
+    return from a manual scene fades over 180 seconds.
+  - The adapter caps music-reactive brightness to eight Hue steps in ambient mode.
 - `POST /signal`
   - JSON: `{ "bass": 0.0-1.0, "energy": 0.0-1.0 }`
-  - Reactive-light input. It may modulate brightness only; the active RSVP scene keeps ownership of color.
-  - Rate-limit bridge writes and suppress reactive writes while a scheduled scene transition is active so the 20-minute fade is never interrupted.
+  - Reactive-light input; adjusts brightness only, never color.
+  - Rate-limit bridge writes and suppress them during manually requested long
+    scene transitions so the scheduled fade is uninterrupted.
 - `POST /on`
 - `POST /off`
 
 Successful commands return any 2xx response. RSVP treats non-2xx or connection failure as unsuccessful and retries automatic reconciliation.
 
-## RSVP schedule
+## Automatic ambience
 
-- `lofi`: 04:00–10:00
-- `lounge`: 10:00–17:00
-- `rap`: 17:00–23:00
-- `rnb`: 23:00–04:00
+The music schedule remains LOFI 04:00–10:00, LOUNGE 10:00–17:00,
+RAP 17:00–23:00, and R&B 23:00–04:00, with the same 20-minute weighted media
+handoffs. **That schedule no longer controls automatic Hue colors.**
 
-## Unified 20-minute handoff
+The approved day artwork and warm Hue palette run from sunrise to civil dusk.
+The night artwork and violet-magenta palette run from civil dusk to sunrise.
+A slow, irregular, deterministic palette drift avoids obvious color cycling.
+Hue receives updates every 30 seconds with 35-second crossfades; the color
+delta and brightness delta are capped to keep day/night transitions gradual.
 
-Each boundary is a 20-minute ambience transition centered on the schedule boundary:
-
-- -10 to -5 minutes: music/video selection is 80% outgoing / 20% incoming
-- -5 to 0 minutes: 60% / 40%
-- 0 to +5 minutes: 40% / 60%
-- +5 to +10 minutes: 20% / 80%
-- +10 minutes: incoming mode owns the programming fully
-
-Hue receives one continuous destination-scene fade beginning at -10 minutes and ending at +10 minutes. If RSVP or the Hue adapter starts late, RSVP sends the remaining duration instead of snapping directly to the destination.
+Explicit manual Hue genre scene selection still works and takes priority until
+the next scheduled music handoff. Manual power off and automation stop also win.
 
 ## Hue implementation requirements
 
