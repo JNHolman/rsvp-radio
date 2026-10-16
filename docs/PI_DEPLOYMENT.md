@@ -2,7 +2,7 @@
 
 RSVP is split into three local runtime pieces:
 
-1. **`rsvp-hue`** — system service, loopback-only on port 5005. It translates RSVP's four ambience modes and reactive brightness intent into Philips Hue Bridge HTTPS commands.
+1. **`rsvp-hue`** — system service, loopback-only on port 5005. It applies day/night artwork colors, six selectable club scenes and restrained music-reactive brightness through authenticated Philips Hue Bridge HTTPS.
 2. **`rsvp-radio`** — system service on port 3000. It owns the programming clock, Radio/TV handoffs, state, reputation, controls, and the kiosk UI.
 3. **`rsvp-analyzer`** — desktop-user service. It captures the current PipeWire/Pulse playback sink monitor with `parec`, derives bass/energy envelopes, and posts them only to the loopback `/features` endpoint. The server—not Chromium—relays those features to Hue.
 
@@ -64,14 +64,18 @@ correct local calendar day, including daylight saving time.
 
 `GET /api/solar-state` reports the current `day` or `night` phase, that
 day's sunrise/dusk timestamps, and the next transition timestamp. The kiosk
-checks every 20 seconds and uses the **existing** background crossfade. On a
+uses the next solar event timer plus an hourly reconciliation check and preserves the
+approved artwork transitions. On a
 short endpoint failure, it retains the last valid phase rather than abruptly
-switching scenes. The Hue globe follows these same day/night solar phases using rich gold,
-copper, coral and rose by day, and violet, plum, magenta, indigo and a salmon
-accent at night. Each 11-minute palette shift progresses through restrained
-30-second adjustments, keeping movement almost imperceptible. The four music
-blocks and their 20-minute programming handoffs remain independent of Hue
-color selection. Hue brightness retains a subtle music-reactive overlay.
+switching scenes. Hue Auto is equally blue and gold by day, with copper,
+coral and rose accents. Night is primarily blue and violet, with brief
+magenta and salmon accents. Gentle 30-second updates track the solar palette.
+The six selectable club scenes have separate day/night variations and remain
+selected through music handoffs and reboots until Auto is pressed.
+Neither normal startup nor Auto selection switches a physically off Hue bulb on.
+Native Hue app changes to power, color mode, color or brightness yield lighting
+control until an explicit RSVP selection; music still gets a subtle brightness
+overlay while RSVP controls Hue.
 
 The two owner-approved still images are supported as separate, sharp layers:
 
@@ -86,7 +90,9 @@ it as a fallback. Keep the files separate from the music and Hue data.
 
 ## Boot behavior
 
-`systemd` starts Hue and RSVP after networking. The desktop user's systemd session starts the analyzer once the audio session exists. RSVP immediately reconciles persisted power intent and either the solar background-matched Hue ambience or a held manual Hue scene. Chromium waits until RSVP returns `/health` with `"ok": true` before opening the kiosk; Hue/analyzer degradation is reported separately and does not block the screen.
+`systemd` starts Hue and RSVP after networking. The desktop user's systemd session starts the analyzer once the audio session exists. RSVP checks the physical Hue state and restores background-matched Auto or a
+persisted club scene only if the bulb is already on and the Hue app has not taken
+control. It never powers on a bulb at boot. Chromium waits until RSVP returns `/health` with `"ok": true` before opening the kiosk; Hue/analyzer degradation is reported separately and does not block the screen.
 
 The analyzer is deliberately a **user** service rather than a system service because PipeWire/Pulse playback belongs to the desktop user's audio session.
 
