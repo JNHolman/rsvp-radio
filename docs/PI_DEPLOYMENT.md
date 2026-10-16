@@ -66,8 +66,12 @@ correct local calendar day, including daylight saving time.
 day's sunrise/dusk timestamps, and the next transition timestamp. The kiosk
 checks every 20 seconds and uses the **existing** background crossfade. On a
 short endpoint failure, it retains the last valid phase rather than abruptly
-switching scenes. Only the ambient artwork follows the sun: RSVP's scheduled
-music blocks and Philips Hue handoffs remain unchanged.
+switching scenes. The Hue globe follows these same day/night solar phases using rich gold,
+copper, coral and rose by day, and violet, plum, magenta, indigo and a salmon
+accent at night. Each 11-minute palette shift progresses through restrained
+30-second adjustments, keeping movement almost imperceptible. The four music
+blocks and their 20-minute programming handoffs remain independent of Hue
+color selection. Hue brightness retains a subtle music-reactive overlay.
 
 The two owner-approved still images are supported as separate, sharp layers:
 
@@ -82,7 +86,7 @@ it as a fallback. Keep the files separate from the music and Hue data.
 
 ## Boot behavior
 
-`systemd` starts Hue and RSVP after networking. The desktop user's systemd session starts the analyzer once the audio session exists. RSVP immediately reconciles persisted power intent and the correct scheduled Hue scene/remaining 20-minute transition. Chromium waits until RSVP returns `/health` with `"ok": true` before opening the kiosk; Hue/analyzer degradation is reported separately and does not block the screen.
+`systemd` starts Hue and RSVP after networking. The desktop user's systemd session starts the analyzer once the audio session exists. RSVP immediately reconciles persisted power intent and either the solar background-matched Hue ambience or a held manual Hue scene. Chromium waits until RSVP returns `/health` with `"ok": true` before opening the kiosk; Hue/analyzer degradation is reported separately and does not block the screen.
 
 The analyzer is deliberately a **user** service rather than a system service because PipeWire/Pulse playback belongs to the desktop user's audio session.
 
