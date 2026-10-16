@@ -85,6 +85,47 @@ let _lastReload = Date.now();
 
 let _lastSolarPhase = null;
 let _solarWarned = false;
+let _nextSolarTransitionAt = null;
+let _solarClockStarted = false;
+let _solarTimer = null;
+let _solarRefreshInFlight = null;
+let _solarRefreshQueued = false;
+const SOLAR_RETRY_MS = 60000;
+const SOLAR_SAFETY_MS = 60 * 60 * 1000;
+
+// Set a single timer for the precise server-computed sunrise or civil dusk.
+// If the endpoint is unavailable, retry after one minute; never poll every 20s.
+function _armSolarTransition(when) {
+  _nextSolarTransitionAt = when;
+  if (!_solarClockStarted) return;
+  if (_solarTimer !== null) clearTimeout(_solarTimer);
+  const wait = Number.isFinite(when)
+    ? Math.max(750, Math.min(when - Date.now(), 2147483647))
+    : SOLAR_RETRY_MS;
+  _solarTimer = setTimeout(() => {
+    _solarTimer = null;
+    _reconcileSolarClock().catch(err => console.warn("[bg] Solar timer:", err.message));
+  }, wait);
+}
+
+// Coalesce a scheduled event, a preview button press, and a wake-up refresh.
+// A preview notification that arrives during a request is processed afterward.
+async function _reconcileSolarClock() {
+  if (_solarRefreshInFlight) {
+    _solarRefreshQueued = true;
+    return _solarRefreshInFlight;
+  }
+  const run = (async () => {
+    do {
+      _solarRefreshQueued = false;
+      // Video playback owns the screen, but the solar clock still advances.
+      if (_inMusicMode) await _desiredBackground();
+      else await swapBackgroundIfNeeded(false);
+    } while (_solarRefreshQueued);
+  })();
+  _solarRefreshInFlight = run;
+  try { await run; } finally { _solarRefreshInFlight = null; }
+}
 
 // Sun times are computed by the Pi using its configured Louisville timezone.
 // Keep the last confirmed value on a temporary server error; fixed hours are
@@ -99,10 +140,13 @@ async function _desiredBackground() {
     const solar = await response.json();
     if (solar.phase !== "day" && solar.phase !== "night") throw new Error("Invalid phase");
     _lastSolarPhase = solar.phase;
+    const nextAt = Date.parse(solar.nextTransition || "");
+    _armSolarTransition(Number.isFinite(nextAt) ? nextAt : null);
     _solarWarned = false;
   } catch (err) {
     if (!_solarWarned) console.warn("[bg] Solar phase unavailable; retaining last known phase:", err.message);
     _solarWarned = true;
+    _armSolarTransition(null);
   }
   const day = _lastSolarPhase === null ? isDayTime() : _lastSolarPhase === "day";
   return day ? BG_DAY : BG_NIGHT;
@@ -174,7 +218,29 @@ async function reloadCurrentVideoIfDue() {
 }
 
 function startBackgroundTimers() {
-  setInterval(() => swapBackgroundIfNeeded(false), BG_CHECK_MS);
+  if (_solarClockStarted) return;
+  _solarClockStarted = true;
+  _armSolarTransition(_nextSolarTransitionAt);
+
+  // One occasional safety reconciliation catches clock adjustments and missed
+  // timers after sleep; it is not the normal day/night change mechanism.
+  setInterval(() => {
+    _reconcileSolarClock().catch(err => console.warn("[bg] Solar safety:", err.message));
+  }, SOLAR_SAFETY_MS);
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) _reconcileSolarClock().catch(() => {});
+  });
+  window.addEventListener("pageshow", () => _reconcileSolarClock().catch(() => {}));
+  window.addEventListener("online", () => _reconcileSolarClock().catch(() => {}));
+
+  // The isolated test server pushes DAY/NIGHT/AUTO button changes immediately.
+  // Production needs no push channel: its exact nextTransition is sufficient.
+  if (window.RSVP_PREVIEW_MODE === true && typeof EventSource !== "undefined") {
+    const events = new EventSource("/api/solar-events");
+    events.addEventListener("phase", () => _reconcileSolarClock().catch(() => {}));
+  }
+
+  // Existing media reload maintenance stays independent of the solar clock.
   setInterval(reloadCurrentVideoIfDue, 60 * 1000);
 }
 
