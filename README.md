@@ -53,7 +53,7 @@ TV also remembers where it was in each playlist. If a blend moves from one genre
 
 ## The lights are part of the programming
 
-The single Hue globe follows the **same sunrise / civil-dusk clock as the approved TV backgrounds**, not the four music genre boundaries. Daylight uses restrained amber, peach, and rose tones; night uses violet, magenta, indigo, and occasional warm accents. Colors drift continuously over many minutes, with a hard limit on the change each scheduler tick can command.
+The single Hue globe follows the **same sunrise / civil-dusk clock as the approved TV backgrounds**, not the four music genre boundaries. Daylight uses saturated honey gold, copper, coral, and rose; night uses deep violet, plum, magenta, indigo, and a retained salmon accent. No pale almost-white swatches are in the permanent palettes. Colors drift continuously over many minutes, with a hard limit on the change each scheduler tick can command.
 
 A local audio analyzer listens to the Pi's **playback monitor**—not a microphone—and provides only tiny, rate-limited brightness lifts (up to eight Hue steps during ambient mode). Color is never driven directly by bass hits. If the analyzer disappears, the light returns to its ambient baseline.
 
