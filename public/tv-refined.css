@@ -31,12 +31,9 @@
 }
 .artFx::after {
   left:9vw;bottom:1vh;width:68vw;height:22vh;
-  background:
-    repeating-linear-gradient(to bottom,
-      transparent 0 12px,
-      rgba(255,224,169,.18) 13px 15px,
-      transparent 16px 29px),
-    radial-gradient(ellipse 65% 35% at 50% 72%,
+  /* Irregular reflected light only. Repeating horizontal stripes were
+     visible as artificial parallel bands in the night artwork. */
+  background:radial-gradient(ellipse 65% 35% at 50% 72%,
       rgba(255,224,169,.17),transparent 100%);
   -webkit-mask-image:radial-gradient(ellipse 78% 65% at 50% 72%,black 10%,transparent 100%);
   mask-image:radial-gradient(ellipse 78% 65% at 50% 72%,black 10%,transparent 100%);
