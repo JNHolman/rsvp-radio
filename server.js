@@ -47,6 +47,7 @@ const requestAuth = require("./intelligence/request-auth");
 const runtimeState = require("./intelligence/runtime-state");
 const timeblocks  = require("./shared/timeblocks");
 const solarPhase = require("./shared/solar-phase");
+const ambientLight = require("./intelligence/ambient-light");
 const plexQueue = require("./intelligence/plex-queue");
 const _persistedRuntime = runtimeState.load();
 
@@ -2445,75 +2446,50 @@ async function _syncLightsPower() {
 }
 
 async function _applyLightsScene(mode) {
+  _ambientLast = null; // Manual scenes own the bulb until explicitly released.
   _lightsScene = mode;
   _persistRuntimeState();
   if (!_lightsEnabled) return { ok: true, status: 200, deferred: true };
   return _forwardToLights(`mode/${mode}`, {});
 }
 
-let _lastScheduledLightsMode = ""; // force one physical scene reconciliation on boot
+let _lastScheduledLightsMode = ""; // retained for admin reconciliation compatibility
 let _lastLightBlendKey = "";
+let _ambientLast = null;
+
 async function _syncScheduledLights() {
-  // Power intent is independent of the music scheduler. Reconcile it first so
-  // a failed Hue /on or /off command is retried even while automation/manual
-  // mode prevents scene changes.
+  // Respect power, automation stop, and human overrides. Background-driven
+  // automatic colors never turn a lamp on or defeat a user-selected scene.
   const power = await _syncLightsPower();
   if (_lightsEnabled && !power.ok) return power;
+  if (!_lightsEnabled) return { ok: true, deferred: true };
+  if (_isManualActive() || !_automation.enabled || _isManualLightsActive()) {
+    return { ok: true, held: true };
+  }
 
+  // This exact solar clock also drives the TV background. Playlist/genre
+  // handoffs remain unchanged, but no longer issue competing Hue scenes.
   const now = new Date();
-  const scheduled = blockModeForNow();
-  if (_isManualActive() || !_automation.enabled) return;
+  const solar = solarPhase.getSolarPhase(now, cfg.SOLAR_LATITUDE, cfg.SOLAR_LONGITUDE);
+  if (!solar.phase) return { ok: false, reason: "solar_unavailable" };
 
-  const blend = timeblocks.getMusicBlendState(now);
-  const manualLights = _isManualLightsActive() ? _manualLights.mode : "";
-  // Before the transition window, an explicit light-only choice wins over a
-  // first-song seed. Once the -10m handoff begins, both expire from control and
-  // Hue fades FROM whatever scene is physically active toward the next block.
-  const automaticTarget = !blend && manualLights
-    ? manualLights
-    : (!blend && _isSeedActive()) ? _seedMode.mode : scheduled;
-
-  const plan = lightTransition.planLightSync({
-    nowMs: now.getTime(),
-    scheduledMode: automaticTarget,
-    blendState: blend,
-    lastScheduledMode: _lastScheduledLightsMode,
-    lightsScene: _lightsScene,
-    lastBlendKey: _lastLightBlendKey,
-    lightsEnabled: _lightsEnabled,
-    blendHalfMin: timeblocks.MUSIC_BLEND_HALF_MIN,
+  const desired = ambientLight.ambientTarget(solar.phase, now.getTime());
+  const next = ambientLight.approachAmbient(_ambientLast, desired);
+  const r = await _forwardToLights("ambient", {
+    xy: next.xy,
+    bri: next.bri,
+    // First contact after a human scene, restart, or lights-on is extra gentle.
+    durMs: _ambientLast ? 35000 : 180000,
   });
-
-  if (plan.kind === "transition") {
-    _lightsScene = plan.scene;
-    const r = await _forwardToLights("transition", {
-      from: plan.fromMode,
-      to: plan.toMode,
-      durMs: plan.durMs,
-    });
-    // Mark only after success so a transient light-service failure retries.
-    if (r.ok) {
-      _lastLightBlendKey = plan.key;
+  if (r.ok) {
+    _ambientLast = next;
+    const name = `ambient-${solar.phase}`;
+    if (_lightsScene !== name) {
+      _lightsScene = name;
       _persistRuntimeState();
     }
-    return r;
   }
-
-  if (plan.kind === "defer") {
-    _lightsScene = plan.scene; // destination intent advances while bulbs are off
-    _persistRuntimeState();
-    return { ok: true, status: 200, deferred: true };
-  }
-
-  if (plan.kind === "hold" || plan.kind === "none") return { ok: true, status: 200, held: true };
-
-  _lastLightBlendKey = "";
-  const applied = await _applyLightsScene(plan.mode);
-  // Only acknowledge the scheduled scene after the Hue service accepted it.
-  // If the service/bridge is temporarily unavailable, leave the previous
-  // acknowledgement in place so the 30-second scheduler retries automatically.
-  if (applied.ok) _lastScheduledLightsMode = automaticTarget;
-  return applied;
+  return r;
 }
 
 async function _forwardToLights(action, body) {
@@ -2541,6 +2517,7 @@ async function _forwardToLights(action, body) {
 }
 
 app.post("/admin/lights/off", async (_req, res) => {
+  _ambientLast = null;
   _lightsEnabled = false;
   _lightsPowerSynced = false;
   _persistRuntimeState();
@@ -2562,7 +2539,10 @@ app.post("/admin/lights/on", async (_req, res) => {
     if (_isManualActive()) {
       sceneResult = await _applyLightsScene(_manualMode.mode);
     } else if (!_automation.enabled) {
-      sceneResult = await _applyLightsScene(_lightsScene || _automation.stoppedMode || blockModeForNow());
+      // _lightsScene may describe ambient-day/night, not a Hue genre scene.
+      sceneResult = await _applyLightsScene(_automation.stoppedMode || blockModeForNow());
+    } else if (_isManualLightsActive()) {
+      sceneResult = await _applyLightsScene(_manualLights.mode);
     } else {
       // Re-enter the live ambience timeline instead of snapping to the hard
       // timeblock. During a 20-minute handoff this sends only the remaining
@@ -2955,7 +2935,7 @@ const _httpServer = app.listen(cfg.PORT, () => {
       if (_isManualActive()) {
         await _applyLightsScene(_manualMode.mode);
       } else if (!_automation.enabled) {
-        await _applyLightsScene(_lightsScene || _automation.stoppedMode || blockModeForNow());
+        await _applyLightsScene(_automation.stoppedMode || blockModeForNow());
       } else {
         await _syncScheduledLights();
       }
