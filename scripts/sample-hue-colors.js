@@ -22,10 +22,11 @@ const TRANSITION_MS = 1000;
 function swatches() {
   return ["day", "night"].flatMap(phase => {
     const p = PALETTES[phase];
-    return [
-      { phase, label: "base", hex: p.base, bri: p.brightness },
-      ...p.accents.map((hex, i) => ({ phase, label: "accent " + (i + 1), hex, bri: p.brightness })),
-    ];
+    // V3 Auto has anchor colors and weighted time slots; it has no
+    // permanent "base" color. Preview each distinct anchor exactly once.
+    return p.accents.map((hex, i) => ({
+      phase, label: "color " + (i + 1), hex, bri: p.brightness,
+    }));
   });
 }
 
