@@ -169,7 +169,7 @@ function _parseFilenameMetadata(filePath) {
 //
 //   appState           — high-level state machine value
 //   media.*            — current media identity and player state
-//   mode.*             — current lights/playlist mode + source + manual expiry
+//   mode.*             — current programming mode + source + manual expiry
 //   video.*            — server-known video phase (none|playing|paused only)
 //   intelligence.*     — strike count, Plex rating, last play percent
 //   plexamp.*          — whether RSVP paused Plexamp for video handoff
@@ -181,7 +181,7 @@ function _parseFilenameMetadata(filePath) {
 //
 // mode.source values:
 //   "manual" | "timeblock" | "video-session"
-// First-song seed affects Hue only; it does not rewrite the programming mode.
+// First-song seed labels the session mode; it never selects Hue colors.
 // Manual mode yields when the next scheduled 20-minute handoff begins.
 
 function _emptyMedia() {
@@ -1654,10 +1654,9 @@ async function pollSessions() {
       resolvedSource = "timeblock";
 
       // Maintain the session + detect a new-session seed on EVERY audio poll.
-      // (Previously gated behind an empty-playlist check, so when a block had a
-      // playlist the first song's genre was never read — the "Rap song but LOFI
-      // lights" bug.) checkSession only returns a mode on a genuine new session
-      // (>= IDLE_TIMEOUT of silence); otherwise it just updates the timestamp.
+      // Record the first track's genre even when a scheduled playlist is
+      // configured. Only media-session state is affected; Hue is independent.
+      // A new genre seed requires a genuine new session after the idle gap.
       try {
         const seedMode = await session.checkSession(
           { ratingKey: t.ratingKey, title: t.title, artist: t.artist },
@@ -1666,17 +1665,8 @@ async function pollSessions() {
         if (seedMode) {
           _seedMode = { mode: seedMode, expiresAt: timeblocks.getNextBoundaryMs(new Date()) };
           _persistRuntimeState();
-          console.log(`[lights] seed -> ${seedMode} (holds until the handoff window)`);
-          // Server owns automatic lights. Apply/reconcile the seed immediately
-          // instead of depending on the kiosk browser to issue a second command.
-          if (_automation.enabled) {
-            // Do not block the Plex/session poll on an independent light-service
-            // network call. Reconciliation is best-effort and the periodic
-            // light scheduler will retry if this immediate sync fails.
-            _syncScheduledLights().catch((err) =>
-              console.warn("[lights] seed sync failed:", err.message),
-            );
-          }
+          console.log(`[session] seed -> ${seedMode} (until next boundary)`);
+          // Hue uses its own solar/club timer; never write colors on song change.
         }
       } catch (_) {}
     }
