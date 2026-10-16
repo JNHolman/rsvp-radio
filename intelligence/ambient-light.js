@@ -15,9 +15,11 @@ const PALETTES = Object.freeze({
   },
   night: {
     base: "#6A1C9A",
-    accents: ["#A51791", "#8424A8", "#4E2395", "#A82370", "#922A65", "#D56A61", "#4141A3"],
+    // Deliberate cool/warm contrast, sequenced to avoid long magenta runs.
+    // Distinct blues reference the waterfront, salmon the city reflections.
+    accents: ["#315BB5", "#72318D", "#3967BE", "#CF6A5C", "#2C359C", "#A31E8B"],
     brightness: 76,
-    strength: 0.56,
+    strength: 0.92,
   },
 });
 
@@ -54,13 +56,15 @@ function ambientTarget(phase, nowMs) {
   const slot = Math.floor(position);
   const progress = smoothstep(position - slot);
   const base = rgb(pal.base);
-  const salt = phase === "day" ? 391 : 547;
-  // Repeated favorites are intentional. Rare cooler/warmer accents add depth
-  // without turning this single lamp into a rainbow cycle.
-  const from = rgb(pal.accents[hash(slot, salt) % pal.accents.length]);
-  const to = rgb(pal.accents[hash(slot + 1, salt) % pal.accents.length]);
-  const accent = mix(from, to, progress);
-  const depth = pal.strength + 0.025 * Math.sin(nowMs / 240000);
+  // Preserve daytime's established random-but-smooth drift. At night,
+  // deliberately alternate distinct color families rather than randomly
+  // repeating magentas. Each leg still eases across eleven minutes.
+  const fromIndex = phase === "night" ? slot % pal.accents.length : hash(slot, 391) % pal.accents.length;
+  const toIndex = phase === "night" ? (slot + 1) % pal.accents.length : hash(slot + 1, 391) % pal.accents.length;
+  const accent = mix(rgb(pal.accents[fromIndex]), rgb(pal.accents[toIndex]), progress);
+  // Night colors must stay true to their own identity; a permanent purple
+  // base mixed at 44% was turning every destination into pink/plum.
+  const depth = pal.strength + (phase === "night" ? 0.008 : 0.025) * Math.sin(nowMs / 240000);
   const brightness = Math.round(pal.brightness + 2 * Math.sin(nowMs / 310000) + 1.5 * Math.sin(nowMs / 170000));
   return { phase, xy: rgbToXy(mix(base, accent, depth)), bri: brightness };
 }
