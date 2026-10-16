@@ -278,10 +278,13 @@ test("six club scenes send Hue colors independently of the music schedule", asyn
     LIGHTS_URL: lights.baseUrl,
   });
   try {
+    const beforeMusic = (await (await fetch(`${server.baseUrl}/state`)).json()).mode;
     const chosen = await fetch(`${server.baseUrl}/admin/lights/scene/the-tunnel`, { method: "POST" });
     assert.equal(chosen.status, 200);
     const body = await chosen.json();
     assert.equal(body.scene, "the-tunnel");
+    const afterMusic = (await (await fetch(`${server.baseUrl}/state`)).json()).mode;
+    assert.deepEqual(afterMusic, beforeMusic, "lighting scene must not change Radio/TV mode");
     assert.ok(lights.calls.some(c => c.path === "/ambient"), "club uses Hue ambient color endpoint");
     const before = lights.calls.filter(c => c.path === "/mode/rap").length;
     await fetch(`${server.baseUrl}/admin/automation/stop`, { method: "POST" });
@@ -320,6 +323,29 @@ test("Hue app power-off is never overridden by startup, Auto or scene selection"
     assert.equal(on.status, 200);
     assert.ok(lights.calls.some(c => c.path === "/on"), "explicit Hue On is permitted");
     assert.ok(lights.calls.some(c => c.path === "/ambient"), "light resumes ambience after explicit Hue On");
+  } finally {
+    await server.stop();
+    await lights.stop();
+  }
+});
+
+test("Hue app power-off after Auto starts stays off even after the app switches it on", async () => {
+  const lights = await startLightsStub();
+  const server = await startServer({
+    PUBLIC_DIR: makePublicDir({ withAssets: true }),
+    LIGHTS_URL: lights.baseUrl,
+  });
+  try {
+    lights.setPhysicalOn(false);
+    await fetch(`${server.baseUrl}/admin/lights/auto`, { method: "POST" });
+    const first = (await (await fetch(`${server.baseUrl}/state`)).json()).configHealth.hue;
+    assert.equal(first.externalHueHold, true);
+    lights.setPhysicalOn(true);
+    const before = lights.calls.filter(c => c.path === "/ambient").length;
+    await fetch(`${server.baseUrl}/admin/lights/auto`, { method: "POST" });
+    // Explicit Auto is a control action, so may reclaim ownership once on.
+    assert.ok(lights.calls.filter(c => c.path === "/ambient").length > before);
+    assert.ok(!lights.calls.some(c => c.path === "/on"), "Auto must not send power-on");
   } finally {
     await server.stop();
     await lights.stop();
