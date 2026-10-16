@@ -58,13 +58,9 @@ let _solarWarned = false;
 // Keep the last confirmed value on a temporary server error; fixed hours are
 // used only if the solar endpoint has never returned a valid response.
 async function _desiredBackground() {
-  // Preview-only artwork selector. Never overrides the server solar clock
-  // or affects production, which runs on a different port.
-  if (window.location.port === "3001") {
-    const previewArt = new URLSearchParams(window.location.search).get("art");
-    if (previewArt === "day") return BG_DAY;
-    if (previewArt === "night") return BG_NIGHT;
-  }
+  // All preview DAY / NIGHT / AUTO selections come from the isolated
+  // :3001 solar endpoint. Ignore stale ?art= links so they cannot freeze
+  // the artwork while the preview controls and Hue follow a new phase.
   try {
     const response = await fetch("/api/solar-state", { cache: "no-store" });
     if (!response.ok) throw new Error("HTTP " + response.status);
