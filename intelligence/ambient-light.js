@@ -3,18 +3,21 @@
 // One Hue globe: slow color drift, not an obvious light show. The TV's
 // sunrise/civil-dusk solar phase determines the palette.
 const SLOT_MS = 11 * 60 * 1000;
+// Owner-approved direction: rich, saturated colors with no pale almost-white
+// accents. Retain the established low brightness, gentle 11-minute timing,
+// and rare warm salmon at night. TV artwork stays unchanged.
 const PALETTES = Object.freeze({
   day: {
-    base: "#F0A86F",
-    accents: ["#F8C685", "#EBA77C", "#EE9A9F", "#F6B474", "#DA94B3", "#A8A2D1"],
+    base: "#E49B42",
+    accents: ["#D9A441", "#C77943", "#D97965", "#C86480", "#B777A4"],
     brightness: 114,
-    strength: 0.32,
+    strength: 0.56,
   },
   night: {
-    base: "#8135B0",
-    accents: ["#B836AE", "#9A2FB9", "#693CAC", "#B83D98", "#BC426F", "#D56A61", "#5954BA"],
+    base: "#6A1C9A",
+    accents: ["#A51791", "#8424A8", "#4E2395", "#A82370", "#922A65", "#D56A61", "#4141A3"],
     brightness: 76,
-    strength: 0.38,
+    strength: 0.56,
   },
 });
 
