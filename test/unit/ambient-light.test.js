@@ -1,7 +1,14 @@
 "use strict";
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { ambientTarget, approachAmbient } = require("../../intelligence/ambient-light");
+const { PALETTES, ambientTarget, approachAmbient } = require("../../intelligence/ambient-light");
+
+test("permanent rich colors retain low-brightness ambience", () => {
+  assert.deepEqual(PALETTES.day.accents, ["#D9A441", "#C77943", "#D97965", "#C86480", "#B777A4"]);
+  assert.deepEqual(PALETTES.night.accents, ["#A51791", "#8424A8", "#4E2395", "#A82370", "#922A65", "#D56A61", "#4141A3"]);
+  assert.equal(PALETTES.day.brightness, 114);
+  assert.equal(PALETTES.night.brightness, 76);
+});
 
 test("solar palettes are distinct and have restrained brightness", () => {
   const now = Date.UTC(2026, 9, 15, 20);
