@@ -2836,6 +2836,11 @@ app.post("/api/exit", (req, res) => {
   const stopUrl = `${PLEXAMP_BASE}/player/playback/stop?X-Plex-Token=${encodeURIComponent(cfg.PLEX_TOKEN)}&X-Plex-Target-Client-Identifier=${encodeURIComponent(PLEXAMP_PI_ID)}&X-Plex-Client-Identifier=rsvp-radio&commandID=1`;
   fetchWithTimeout(stopUrl, 2000).catch(() => {});
   setTimeout(() => {
+    // Integration tests exercise the route while a real production kiosk may
+    // be running on the same Pi. Never let those tests kill its browser.
+    if (process.env.RSVP_INTEGRATION_TEST === "1") {
+      return res.json({ ok: true, testMode: true });
+    }
     exec('pkill -f "chromium.*--kiosk" || true', () => res.json({ ok: true }));
   }, 500);
 });
