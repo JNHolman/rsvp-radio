@@ -38,8 +38,9 @@ test("approved water treatment has no added glow or legacy shading rectangles", 
   assert.equal((uiShading[1].match(/radial-gradient\(/g) || []).length, 3);
   assert.match(css, /\.artFx::after\s*\{[^}]*display:none;/s);
   assert.match(css, /\.artFx::before\s*\{[^}]*mask-image:linear-gradient\(/s);
-  // Approved night water excludes the baked-in lower-left purple mist.
-  assert.match(css, /\.stage\.art-phase-night\s+\.artFx::before\s*\{[^}]*mask-image:radial-gradient\(/s);
+  // The approved water animation uses shared day/night masks, not a night-only override.
+  assert.match(css, /\.artFx::before\s*\{[^}]*mask-image:radial-gradient\(/s);
+  assert.doesNotMatch(css, /\.stage\.art-phase-night\s+\.artFx::before\s*\{/);
   assert.match(css, /\.stage\.art-phase-night\s+\.ui::before\s*\{\s*opacity:\s*\.94;/);
   assert.doesNotMatch(html, /<div class="(?:vignette|topFade|bottomFade)">/);
 });
