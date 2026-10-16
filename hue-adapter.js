@@ -142,6 +142,30 @@ async function applyScene(mode, durMs) {
   }
 }
 
+let lastAutomatedXy = null;
+let lastAutomatedWriteAt = 0;
+let appColorTakeover = false;
+
+async function readPhysicalPower() {
+  const r = await hueRequest("GET", groupResourcePath(cfg));
+  if (!r.ok) return { ok: false, status: r.status };
+  const on = r.body?.state?.any_on;
+  const actionOn = r.body?.action?.on;
+  if (typeof on !== "boolean" && typeof actionOn !== "boolean") {
+    return { ok: false, status: 502, error: "missing_hue_power_state" };
+  }
+  const isOn = typeof on === "boolean" ? on : actionOn;
+  // Hue app edits change the bridge target independently of RSVP writes.
+  // Honor that takeover until an explicit RSVP scene/Auto selection.
+  const xy = r.body?.action?.xy;
+  if (isOn && lastAutomatedXy && Array.isArray(xy) && xy.length === 2 &&
+      xy.every(Number.isFinite) && Date.now() - lastAutomatedWriteAt > 1500 &&
+      Math.hypot(xy[0] - lastAutomatedXy[0], xy[1] - lastAutomatedXy[1]) > 0.045) {
+    appColorTakeover = true;
+  }
+  return { ok: true, on: isOn, appColorTakeover };
+}
+
 async function applyAmbient(body) {
   const payload = ambientPayload(body);
   const result = await hueRequest("PUT", groupActionPath(cfg), payload);
@@ -153,6 +177,8 @@ async function applyAmbient(body) {
     // Ambient owns color; music only adds up to eight Hue brightness steps.
     reactive.setRange(Math.min(cfg.reactiveRange, 8));
     reactive.setBaseBrightness(payload.bri);
+    lastAutomatedXy = [...payload.xy];
+    lastAutomatedWriteAt = Date.now();
   }
   return result;
 }
@@ -224,10 +250,23 @@ async function handler(req, res) {
     }
   }
 
+  if (req.method === "GET" && url.pathname === "/power") {
+    try {
+      const physical = await readPhysicalPower();
+      return json(res, physical.ok ? 200 : (physical.status || 502), physical);
+    } catch (err) { return json(res, 503, { ok: false, error: err.message }); }
+  }
+
   if (req.method !== "POST") return json(res, 405, { ok: false, error: "method_not_allowed" });
 
   try {
     const body = await readJson(req);
+
+    if (url.pathname === "/release") {
+      appColorTakeover = false;
+      lastAutomatedXy = null;
+      return json(res, 200, { ok: true, action: "release" });
+    }
 
     if (url.pathname === "/on" || url.pathname === "/off") {
       const on = url.pathname === "/on";
