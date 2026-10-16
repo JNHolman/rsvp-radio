@@ -74,10 +74,27 @@ test("runtime state migrates legacy wrap mode to lounge", () => {
     manualLights: { mode: "wrap", expiresAt },
     automation: { manualStop: true, stoppedMode: "wrap", stoppedAt: 1 },
   });
-  assert.equal(n.version, 6);
+  assert.equal(n.version, 7);
   assert.equal(n.lightsScene, "lounge");
   assert.equal(n.seedMode.mode, "lounge");
   assert.equal(n.manualMode.mode, "lounge");
   assert.equal(n.manualLights.mode, "lounge");
   assert.equal(n.automation.stoppedMode, "lounge");
+});
+
+test("club scene and its starting time survive restart independently of music", () => {
+  const startedAt = Date.now() - 12345;
+  const n = normalize({
+    lightsScene: "the-tunnel",
+    manualLights: { mode: "the-tunnel", startedAt },
+    manualMode: { mode: "rap", expiresAt: Date.now() + 10000 },
+    externalHueHold: true,
+  });
+  assert.equal(n.manualLights.mode, "the-tunnel");
+  assert.equal(n.manualLights.startedAt, startedAt);
+  assert.equal(n.lightsScene, "the-tunnel");
+  assert.equal(n.manualMode.mode, "rap");
+  assert.equal(n.externalHueHold, true);
+  assert.deepEqual(normalize({ manualLights: { mode: "lounge", expiresAt: 1 } }).manualLights,
+    { mode: "lounge", startedAt: 0 });
 });
