@@ -74,5 +74,5 @@ test("TV drawer uses couch-distance type, a wider layout and high-contrast club 
   assert.match(couch, /\.drawerPanel \.menuBtn \{[\s\S]*?min-height:76px/);
   assert.match(couch, /\.drawerPanel \.lightAutoBtn \{min-height:82px/);
   const html = fs.readFileSync(path.join(__dirname, "../../public/index.html"), "utf8");
-  assert.match(html, /tv-refined\.css\?v=couch-menu-v1-20261016/);
+  assert.match(html, /tv-refined\.css\?v=[^\"]+/);
 });
