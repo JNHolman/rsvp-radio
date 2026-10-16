@@ -4,8 +4,8 @@
 // sunrise/civil-dusk solar phase determines the palette.
 const SLOT_MS = 11 * 60 * 1000;
 // Owner-approved direction: rich, saturated colors with no pale almost-white
-// accents. Retain the established low brightness, gentle 11-minute timing,
-// and rare warm salmon at night. TV artwork stays unchanged.
+// accents. Retain the established low brightness and gentle 11-minute timing.
+// Day/night TV artwork stays unchanged.
 const PALETTES = Object.freeze({
   day: {
     base: "#E49B42",
@@ -15,9 +15,11 @@ const PALETTES = Object.freeze({
   },
   night: {
     base: "#6A1C9A",
-    // Deliberate cool/warm contrast, sequenced to avoid long magenta runs.
-    // Distinct blues reference the waterfront, salmon the city reflections.
-    accents: ["#315BB5", "#72318D", "#3967BE", "#CF6A5C", "#2C359C", "#A31E8B"],
+    // Pure cool night ambience: saturated cobalt, jade, sapphire, teal,
+    // violet and ocean blue. Pink/salmon belong to selectable club scenes,
+    // not the always-running Auto palette.
+    // Neighboring hues avoid achromatic/white-looking crossfades.
+    accents: ["#2261D1", "#0B988F", "#1B3EA9", "#107B82", "#5932B3", "#137AB8"],
     brightness: 76,
     strength: 0.92,
   },
@@ -62,8 +64,8 @@ function ambientTarget(phase, nowMs) {
   const fromIndex = phase === "night" ? slot % pal.accents.length : hash(slot, 391) % pal.accents.length;
   const toIndex = phase === "night" ? (slot + 1) % pal.accents.length : hash(slot + 1, 391) % pal.accents.length;
   const accent = mix(rgb(pal.accents[fromIndex]), rgb(pal.accents[toIndex]), progress);
-  // Night colors must stay true to their own identity; a permanent purple
-  // base mixed at 44% was turning every destination into pink/plum.
+  // Keep only a trace of the artwork's violet base at night to preserve
+  // each saturated blue/teal destination without pulling it toward pink.
   const depth = pal.strength + (phase === "night" ? 0.008 : 0.025) * Math.sin(nowMs / 240000);
   const brightness = Math.round(pal.brightness + 2 * Math.sin(nowMs / 310000) + 1.5 * Math.sin(nowMs / 170000));
   return { phase, xy: rgbToXy(mix(base, accent, depth)), bri: brightness };
