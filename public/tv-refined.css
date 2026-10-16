@@ -3,6 +3,35 @@
    Never changes the approved day/night artwork, media, or Hue.
    Use the application's normal inherited font (no custom font-family overrides). */
 :root { --rsvp-gold:#edbf79;--rsvp-ivory:#f6f3ec; }
+/* Ten-second solar artwork handoff: sky, skyline, then waterfront.
+   A wide feathered mask keeps the reveal seamless rather than a wipe line.
+   Only the incoming/outgoing artwork layers are touched; the TV UI is fixed. */
+.artBg.horizon-outgoing {opacity:1;transition:none;z-index:0;}
+.artBg.horizon-incoming {
+  opacity:1;transition:none;z-index:1;
+  -webkit-mask-image:linear-gradient(to bottom,#000 47%,transparent 53%);
+  mask-image:linear-gradient(to bottom,#000 47%,transparent 53%);
+  -webkit-mask-size:100% 220%;
+  mask-size:100% 220%;
+  -webkit-mask-repeat:no-repeat;
+  mask-repeat:no-repeat;
+  animation:rsvp-horizon-reveal 10s linear both;
+}
+@keyframes rsvp-horizon-reveal {
+  0%   {-webkit-mask-position:0 100%;mask-position:0 100%;}
+  24%  {-webkit-mask-position:0 78%; mask-position:0 78%;}
+  67%  {-webkit-mask-position:0 40%; mask-position:0 40%;}
+  90%  {-webkit-mask-position:0 12%; mask-position:0 12%;}
+  100% {-webkit-mask-position:0 0%;  mask-position:0 0%;}
+}
+/* Suspend water ripple while the two images blend, then resume naturally. */
+.artFx {transition:opacity .5s ease;}
+.stage.horizon-transition .artFx {opacity:0!important;}
+.stage.videoMode .artBg.horizon-incoming,
+.stage.videoMode .artBg.horizon-outgoing {opacity:0!important;}
+@media (prefers-reduced-motion:reduce) {
+  .artBg.horizon-incoming {animation:none;-webkit-mask-image:none;mask-image:none;}
+}
 /* The water itself now moves: a cropped copy of the approved artwork
    drifts gently across only the lower waterfront. Portrait, vinyl, skyline,
    and all UI elements remain completely still. */
@@ -37,7 +66,7 @@
   -webkit-mask-image:linear-gradient(to bottom,transparent 0%,rgba(0,0,0,.35) 23%,black 54%,black 87%,transparent 100%);
   mask-image:linear-gradient(to bottom,transparent 0%,rgba(0,0,0,.35) 23%,black 54%,black 87%,transparent 100%);
   opacity:.40;
-  animation:rsvp-ripple-drift 8s ease-in-out infinite alternate;
+  animation:rsvp-ripple-drift 9s ease-in-out infinite alternate;
 }
 .stage.videoMode .artFx {display:none!important;}
 @keyframes rsvp-ripple-drift {
