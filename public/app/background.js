@@ -237,6 +237,7 @@ function startBackgroundTimers() {
   // Production needs no push channel: its exact nextTransition is sufficient.
   if (window.RSVP_PREVIEW_MODE === true && typeof EventSource !== "undefined") {
     const events = new EventSource("/api/solar-events");
+    events.addEventListener("open", () => _reconcileSolarClock().catch(() => {}));
     events.addEventListener("phase", () => _reconcileSolarClock().catch(() => {}));
   }
 
