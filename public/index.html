@@ -84,19 +84,24 @@
               <button class="menuBtn" data-vibe="lounge">LOUNGE</button>
               <button class="menuBtn" data-vibe="rnb">R&amp;B</button>
               <button class="menuBtn" data-vibe="rap">HIP-HOP</button>
-              <button class="menuBtn" data-vibe="lofi">LO-FI</button>
+              <button class="menuBtn" data-vibe="lofi">THE LISTENING ROOM</button>
             </div>
             <button class="menuBtn drawerWide" data-api="/mode/clear">RETURN TO AUTOMATIC</button>
           </div>
           <div class="drawerPanel" data-panel="lighting" hidden>
-            <p>Use the existing Philips Hue controls.</p>
-            <div class="menuGrid two">
-              <button class="menuBtn" data-mode="lounge">LOUNGE</button>
-              <button class="menuBtn" data-mode="lofi">LO-FI</button>
-              <button class="menuBtn" data-mode="rap">RAP</button>
-              <button class="menuBtn" data-mode="rnb">R&amp;B</button>
-              <button class="menuBtn" data-action="on">LIGHTS ON</button>
-              <button class="menuBtn" data-action="off">LIGHTS OFF</button>
+            <p id="lightingStatus" aria-live="polite">AUTO · Artwork-matched Hue atmosphere</p>
+            <div class="menuGrid two" aria-label="RSVP club lighting scenes">
+              <button class="menuBtn lightSceneBtn" data-light-scene="yin-yang-cafe" type="button"><small>THE LISTENING ROOM</small><span>YIN YANG CAFÉ</span></button>
+              <button class="menuBtn lightSceneBtn" data-light-scene="40-40-club" type="button"><small>LOUNGE</small><span>40/40 CLUB</span></button>
+              <button class="menuBtn lightSceneBtn" data-light-scene="republic-gardens" type="button"><small>LOUNGE</small><span>REPUBLIC GARDENS</span></button>
+              <button class="menuBtn lightSceneBtn" data-light-scene="the-tunnel" type="button"><small>RAP</small><span>THE TUNNEL</span></button>
+              <button class="menuBtn lightSceneBtn" data-light-scene="club-crucial" type="button"><small>RAP</small><span>CLUB CRUCIAL</span></button>
+              <button class="menuBtn lightSceneBtn" data-light-scene="boom-boom-room" type="button"><small>R&amp;B</small><span>BOOM BOOM ROOM</span></button>
+            </div>
+            <button class="menuBtn drawerWide lightAutoBtn" data-light-auto="true" type="button">AUTO · FOLLOW THE ARTWORK</button>
+            <div class="menuGrid two lightingPower">
+              <button class="menuBtn" data-action="on" type="button">HUE ON</button>
+              <button class="menuBtn" data-action="off" type="button">HUE OFF</button>
             </div>
           </div>
         </div>
