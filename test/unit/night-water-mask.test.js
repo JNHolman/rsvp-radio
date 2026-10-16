@@ -27,7 +27,7 @@ test("night animation is restricted below the shoreline and above low mist", () 
     const leftViewport = Number(centerX) - Number(radiusX);
     const rightViewport = Number(centerX) + Number(radiusX);
     assert.ok(topViewport >= 77, "mask stays below the shoreline, away from trees and buildings");
-    assert.ok(bottomViewport <= 91, "mask stays above the bottom purple fog");
+    assert.ok(bottomViewport <= 88, "mask stays above the bottom purple fog");
     assert.ok(leftViewport >= 20, "mask leaves the lower-left purple clouds still");
     assert.ok(rightViewport <= 85, "mask leaves the right cloud bank still");
     assert.ok(Number(centerX) > 40 && Number(centerX) < 60, "mask centers on real water reflections");
