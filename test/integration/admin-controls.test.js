@@ -96,21 +96,29 @@ test("/admin/top-songs: topStruck sorted desc by strikes, capped at 10, excludes
 
 // ── /admin/lights/* proxy ────────────────────────────────────────────────────
 
-async function startLightsStub() {
+async function startLightsStub({ initiallyOn = true } = {}) {
   const calls = [];
+  let physicalOn = initiallyOn;
   const server = http.createServer((req, res) => {
     let body = "";
     req.on("data", (c) => { body += c; });
     req.on("end", () => {
       calls.push({ method: req.method, path: req.url, body });
+      if (req.method === "POST" && req.url === "/on") physicalOn = true;
+      if (req.method === "POST" && req.url === "/off") physicalOn = false;
       res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ ok: true, mock: true }));
+      if (req.method === "GET" && req.url === "/power") {
+        res.end(JSON.stringify({ ok: true, on: physicalOn, appColorTakeover: false }));
+      } else {
+        res.end(JSON.stringify({ ok: true, mock: true }));
+      }
     });
   });
   await new Promise((r) => server.listen(0, "127.0.0.1", r));
   return {
     baseUrl: `http://127.0.0.1:${server.address().port}`,
     calls,
+    setPhysicalOn(on) { physicalOn = !!on; },
     async stop() { await new Promise((r) => server.close(r)); },
   };
 }
@@ -258,6 +266,60 @@ test("/features updates analyzer health and relays reactive signal without Chrom
     const health = await (await fetch(`${server.baseUrl}/health`)).json();
     assert.equal(health.analyzer.fresh, true);
     assert.ok(Number.isFinite(health.analyzer.ageMs));
+  } finally {
+    await server.stop();
+    await lights.stop();
+  }
+});
+test("six club scenes send Hue colors independently of the music schedule", async () => {
+  const lights = await startLightsStub();
+  const server = await startServer({
+    PUBLIC_DIR: makePublicDir({ withAssets: true }),
+    LIGHTS_URL: lights.baseUrl,
+  });
+  try {
+    const chosen = await fetch(`${server.baseUrl}/admin/lights/scene/the-tunnel`, { method: "POST" });
+    assert.equal(chosen.status, 200);
+    const body = await chosen.json();
+    assert.equal(body.scene, "the-tunnel");
+    assert.ok(lights.calls.some(c => c.path === "/ambient"), "club uses Hue ambient color endpoint");
+    const before = lights.calls.filter(c => c.path === "/mode/rap").length;
+    await fetch(`${server.baseUrl}/admin/automation/stop`, { method: "POST" });
+    assert.equal(lights.calls.filter(c => c.path === "/mode/rap").length, before,
+      "music mode must not override selected Hue scene");
+    const state = await (await fetch(`${server.baseUrl}/state`)).json();
+    assert.equal(state.configHealth.hue.manualScene, "the-tunnel");
+    assert.equal(state.configHealth.hue.manualExpiresAt, 0);
+    const automatic = await fetch(`${server.baseUrl}/admin/lights/auto`, { method: "POST" });
+    assert.equal(automatic.status, 200);
+    const after = await (await fetch(`${server.baseUrl}/state`)).json();
+    assert.equal(after.configHealth.hue.manualScene, "");
+  } finally {
+    await server.stop();
+    await lights.stop();
+  }
+});
+
+test("Hue app power-off is never overridden by startup, Auto or scene selection", async () => {
+  const lights = await startLightsStub({ initiallyOn: false });
+  const server = await startServer({
+    PUBLIC_DIR: makePublicDir({ withAssets: true }),
+    LIGHTS_URL: lights.baseUrl,
+  });
+  try {
+    await new Promise(resolve => setTimeout(resolve, 120));
+    assert.ok(!lights.calls.some(c => c.path === "/on"), "server boot cannot power on Hue");
+    assert.ok(!lights.calls.some(c => c.path === "/ambient"), "off bulb receives no Auto color");
+    const scene = await fetch(`${server.baseUrl}/admin/lights/scene/boom-boom-room`, { method: "POST" });
+    assert.equal(scene.status, 200);
+    assert.ok(!lights.calls.some(c => c.path === "/on" || c.path === "/ambient"));
+    const auto = await fetch(`${server.baseUrl}/admin/lights/auto`, { method: "POST" });
+    assert.equal(auto.status, 200);
+    assert.ok(!lights.calls.some(c => c.path === "/on" || c.path === "/ambient"));
+    const on = await fetch(`${server.baseUrl}/admin/lights/on`, { method: "POST" });
+    assert.equal(on.status, 200);
+    assert.ok(lights.calls.some(c => c.path === "/on"), "explicit Hue On is permitted");
+    assert.ok(lights.calls.some(c => c.path === "/ambient"), "light resumes ambience after explicit Hue On");
   } finally {
     await server.stop();
     await lights.stop();
