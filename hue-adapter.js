@@ -161,6 +161,17 @@ async function readPhysicalPower() {
   // Hue app edits change the bridge target independently of RSVP writes.
   // Honor that takeover until an explicit RSVP scene/Auto selection.
   if (isOn && detectExternalHueEdit(r.body?.action, lastAutomatedWrite)) {
+    if (!appColorTakeover) {
+      // Diagnostic only: record which reported target differed, never log the
+      // Hue API key/bridge credentials or send another command to the bulb.
+      const action = r.body?.action || {};
+      const xyDelta = Array.isArray(action.xy) && Array.isArray(lastAutomatedWrite?.xy)
+        ? Math.hypot(action.xy[0] - lastAutomatedWrite.xy[0],
+          action.xy[1] - lastAutomatedWrite.xy[1]).toFixed(4) : "unknown";
+      const briDelta = Number.isFinite(action.bri) && Number.isFinite(lastAutomatedWrite?.bri)
+        ? action.bri - lastAutomatedWrite.bri : "unknown";
+      console.warn(`[hue] external takeover after fade: mode=${action.colormode || "unknown"} xyDelta=${xyDelta} briDelta=${briDelta}`);
+    }
     appColorTakeover = true;
   }
   return { ok: true, on: isOn, appColorTakeover };
