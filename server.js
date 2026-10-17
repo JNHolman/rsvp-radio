@@ -49,6 +49,7 @@ const solarPhase = require("./shared/solar-phase");
 const { createSolarClock } = require("./shared/solar-clock");
 const ambientLight = require("./intelligence/ambient-light");
 const clubLights = require("./intelligence/lighting-scenes");
+const lightingCadence = require("./intelligence/lighting-cadence");
 const plexQueue = require("./intelligence/plex-queue");
 const _persistedRuntime = runtimeState.load();
 
@@ -310,7 +311,6 @@ function _setManualLights(mode) {
   _manualLights = { mode, startedAt: Date.now() };
   _manualLightsSynced = false;
   _ambientLast = null;
-  _ambientHoldUntil = 0;
   _lightsScene = mode;
   _persistRuntimeState();
 }
@@ -318,7 +318,6 @@ function _clearManualLights() {
   _manualLights = null;
   _manualLightsSynced = false;
   _ambientLast = null;
-  _ambientHoldUntil = 0;
   _persistRuntimeState();
 }
 
@@ -2435,7 +2434,6 @@ async function _releaseHueHoldIfOn() {
 }
 
 let _ambientLast = null;
-let _ambientHoldUntil = 0;
 let _manualLightsSynced = false;
 
 // Solar phase is calculated at boot and at its scheduled edge, not during
@@ -2468,20 +2466,24 @@ async function _syncScheduledLights() {
     return legacy;
   }
   _manualLightsSynced = false;
-  if (!isClub && now.getTime() < _ambientHoldUntil) return { ok: true, held: true };
 
-  const desired = isClub
-    ? clubLights.sceneTarget(selected, phase, now.getTime(), _manualLights.startedAt || now.getTime())
-    : ambientLight.ambientTarget(phase, now.getTime());
-  const first = !_ambientLast;
-  const next = ambientLight.approachAmbient(_ambientLast, desired);
+  // Send one three-minute Hue fade to a contrasting color, then leave the
+  // bridge alone during the irregular hold. No competing 30-second writes.
+  // At sunrise/dusk the new solar phase automatically changes the key.
+  const desired = lightingCadence.lightingTarget(
+    isClub ? selected : "auto", phase, now.getTime(),
+    isClub ? _manualLights.startedAt : null,
+  );
+  if (_ambientLast?.key === desired.key) {
+    return { ok: true, held: true, nextChangeAt: desired.nextChangeAt };
+  }
   const r = await _forwardToLights("ambient", {
-    xy: next.xy, bri: next.bri,
-    durMs: first ? (isClub ? 20000 : 180000) : 35000,
+    xy: desired.xy, bri: desired.bri, durMs: desired.durMs,
   });
   if (r.ok) {
-    _ambientLast = next;
-    if (first && !isClub) _ambientHoldUntil = now.getTime() + 180000;
+    const from = _ambientLast?.color || "startup";
+    _ambientLast = desired;
+    console.log(`[lights] ${isClub ? selected : "auto"} ${phase}: ${from} → ${desired.color}; fade 180s; next ${new Date(desired.nextChangeAt).toLocaleTimeString()}`);
     const name = isClub ? selected : `ambient-${phase}`;
     if (_lightsScene !== name) {
       _lightsScene = name;
@@ -2519,7 +2521,6 @@ async function _forwardToLights(action, body) {
 app.post("/admin/lights/off", async (_req, res) => {
   _lightsEnabled = false;
   _ambientLast = null;
-  _ambientHoldUntil = 0;
   _persistRuntimeState();
   try {
     const r = await _forwardToLights("off", {});
@@ -2531,7 +2532,6 @@ app.post("/admin/lights/on", async (_req, res) => {
   // The only RSVP action allowed to physically turn on the Hue globe.
   _lightsEnabled = true;
   _ambientLast = null;
-  _ambientHoldUntil = 0;
   _manualLightsSynced = false;
   _persistRuntimeState();
   try {
