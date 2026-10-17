@@ -2954,7 +2954,7 @@ const _httpServer = app.listen(cfg.PORT, () => {
     }
   })();
   _pollIntervalHandle = setInterval(pollSessions, cfg.POLL_MS);
-  // 30-second writes are ONLY for smooth ambient color/brightness drift.
+  // 30-second safety checks send Hue colors only when a new hold begins.
   _lightsIntervalHandle = setInterval(() => _syncScheduledLights().catch((err) => console.warn("[lights] schedule sync failed:", err.message)), 30000);
 });
 
