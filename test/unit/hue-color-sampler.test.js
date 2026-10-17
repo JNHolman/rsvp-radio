@@ -9,7 +9,7 @@ test("sampler includes each real palette base and accent, once, day then night",
   const all = swatches();
   const expected = Object.entries(PALETTES).flatMap(([phase, palette]) =>
     [palette.base, ...palette.accents].map(hex => ({ phase, hex, bri: palette.brightness })));
-  assert.equal(all.length, 14);
+  assert.equal(all.length, expected.length);
   assert.deepEqual(all.map(({phase, hex, bri}) => ({phase, hex, bri})), expected);
 });
 
