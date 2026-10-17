@@ -7,7 +7,7 @@ const { swatches, colorToPayload } = require("../../scripts/sample-hue-colors");
 
 test("richer color scheme is now the permanent palette, not a preview-only candidate", () => {
   const all = swatches();
-  assert.equal(all.length, 15);
+  assert.equal(all.length, 17);
   assert.deepEqual(swatches({ rich: true }), all);
   assert.equal(PALETTES.day.base, "#E49B42");
   assert.equal(PALETTES.night.base, "#6A1C9A");
@@ -19,7 +19,7 @@ test("both palettes have rich colors, no nearly-white swatches, and retain salmo
   const all = swatches();
   const day = all.filter(s => s.phase === "day");
   const night = all.filter(s => s.phase === "night");
-  assert.equal(day.length, 6);
+  assert.equal(day.length, 8);
   assert.equal(night.length, 9);
   assert.ok(night.some(s => s.hex === "#D56A61"));
   assert.ok(night.some(s => s.hex === "#3045C5"));
