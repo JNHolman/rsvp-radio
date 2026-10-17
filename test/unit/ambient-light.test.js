@@ -4,7 +4,7 @@ const assert = require("node:assert/strict");
 const { PALETTES, ambientTarget, approachAmbient, hueDistance } = require("../../intelligence/ambient-light");
 
 test("rich day/night palettes stay saturated and include blue and salmon at night", () => {
-  assert.deepEqual(PALETTES.day.accents, ["#D9A441", "#C77943", "#D97965", "#C86480", "#B777A4"]);
+  assert.deepEqual(PALETTES.day.accents, ["#D9A441", "#C77943", "#D97965", "#C86480", "#B777A4", "#365BC0", "#248A9D"]);
   assert.ok(PALETTES.night.accents.includes("#3045C5"));
   assert.ok(PALETTES.night.accents.includes("#D56A61"));
   assert.equal(PALETTES.day.brightness, 114);
