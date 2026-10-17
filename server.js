@@ -2449,6 +2449,7 @@ async function _applyLightsScene(mode) {
   _ambientLast = null;
   _ambientPreviousColor = null;
   _sceneHoldUntil = 0;
+  _sceneHoldPalette = mode;
   _lightsScene = mode;
   _persistRuntimeState();
   if (!_lightsEnabled) return { ok: true, status: 200, deferred: true };
@@ -2464,6 +2465,7 @@ let _lastLightBlendKey = "";
 let _ambientLast = null;
 let _ambientPreviousColor = null;
 let _sceneHoldUntil = 0;
+let _sceneHoldPalette = null;
 let _manualLightsSynced = false;
 
 async function _syncScheduledLights() {
@@ -2485,8 +2487,6 @@ async function _syncScheduledLights() {
     return restored;
   }
   if (!manualLightMode) _manualLightsSynced = false;
-  if (Date.now() < _sceneHoldUntil) return { ok: true, held: true };
-
   // In normal automation TV art and Hue follow the same solar phase. A manual
   // LOFI/Lounge/Rap/R&B selection uses that scene's changing colors instead;
   // neither path alters audio, video, playlists, or the artwork.
@@ -2496,6 +2496,11 @@ async function _syncScheduledLights() {
     const solar = solarPhase.getSolarPhase(now, cfg.SOLAR_LATITUDE, cfg.SOLAR_LONGITUDE);
     if (!solar.phase) return { ok: false, reason: "solar_unavailable" };
     lightingPalette = solar.phase;
+  }
+  // A manual scene's initial hold never delays a different scene or solar
+  // phase after an override expires or is cleared.
+  if (_sceneHoldPalette === lightingPalette && Date.now() < _sceneHoldUntil) {
+    return { ok: true, held: true };
   }
 
   const desired = ambientLight.ambientTarget(
@@ -2553,6 +2558,7 @@ app.post("/admin/lights/off", async (_req, res) => {
   _ambientLast = null;
   _ambientPreviousColor = null;
   _sceneHoldUntil = 0;
+  _sceneHoldPalette = null;
   _manualLightsSynced = false;
   _lightsEnabled = false;
   _lightsPowerSynced = false;
