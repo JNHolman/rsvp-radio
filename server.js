@@ -2446,18 +2446,24 @@ async function _syncLightsPower() {
 }
 
 async function _applyLightsScene(mode) {
-  _ambientLast = null; // Manual scenes own the bulb until explicitly released.
-  _ambientHoldUntil = 0;
+  _ambientLast = null;
+  _ambientPreviousColor = null;
+  _sceneHoldUntil = 0;
   _lightsScene = mode;
   _persistRuntimeState();
   if (!_lightsEnabled) return { ok: true, status: 200, deferred: true };
-  return _forwardToLights(`mode/${mode}`, {});
+  const result = await _forwardToLights(`mode/${mode}`, {});
+  // Keep the scene chosen by a person for a while before its first slow
+  // color change. This does not change Radio/TV programming or power state.
+  if (result.ok) _sceneHoldUntil = Date.now() + 10 * 60 * 1000;
+  return result;
 }
 
 let _lastScheduledLightsMode = ""; // retained for admin reconciliation compatibility
 let _lastLightBlendKey = "";
 let _ambientLast = null;
-let _ambientHoldUntil = 0;
+let _ambientPreviousColor = null;
+let _sceneHoldUntil = 0;
 let _manualLightsSynced = false;
 
 async function _syncScheduledLights() {
@@ -2466,39 +2472,51 @@ async function _syncScheduledLights() {
   const power = await _syncLightsPower();
   if (_lightsEnabled && !power.ok) return power;
   if (!_lightsEnabled) return { ok: true, deferred: true };
-  if (_isManualActive() || !_automation.enabled) return { ok: true, held: true };
-  if (_isManualLightsActive()) {
-    if (_manualLightsSynced) return { ok: true, held: true };
-    // A restart must restore a persisted human scene, not silently replace it
-    // with ambience or merely trust the stored scene name.
-    const restored = await _applyLightsScene(_manualLights.mode);
+  // Explicitly stopping programming automation still freezes its Hue scene.
+  if (!_automation.enabled) return { ok: true, held: true };
+  const manualMode = _isManualActive() ? _manualMode.mode : null;
+  const manualLightMode = !manualMode && _isManualLightsActive() ? _manualLights.mode : null;
+
+  // A manually selected Hue scene is restored once, then allowed to evolve
+  // within its own rich palette instead of staying one color indefinitely.
+  if (manualLightMode && !_manualLightsSynced) {
+    const restored = await _applyLightsScene(manualLightMode);
     if (restored.ok) _manualLightsSynced = true;
     return restored;
   }
-  _manualLightsSynced = false;
+  if (!manualLightMode) _manualLightsSynced = false;
+  if (Date.now() < _sceneHoldUntil) return { ok: true, held: true };
 
-  // Do not interrupt the initial three-minute fade from a previous scene.
-  if (Date.now() < _ambientHoldUntil) return { ok: true, held: true };
-
-  // This exact solar clock also drives the TV background. Playlist/genre
-  // handoffs remain unchanged, but no longer issue competing Hue scenes.
+  // In normal automation TV art and Hue follow the same solar phase. A manual
+  // LOFI/Lounge/Rap/R&B selection uses that scene's changing colors instead;
+  // neither path alters audio, video, playlists, or the artwork.
   const now = new Date();
-  const solar = solarPhase.getSolarPhase(now, cfg.SOLAR_LATITUDE, cfg.SOLAR_LONGITUDE);
-  if (!solar.phase) return { ok: false, reason: "solar_unavailable" };
+  let lightingPalette = manualMode || manualLightMode;
+  if (!lightingPalette) {
+    const solar = solarPhase.getSolarPhase(now, cfg.SOLAR_LATITUDE, cfg.SOLAR_LONGITUDE);
+    if (!solar.phase) return { ok: false, reason: "solar_unavailable" };
+    lightingPalette = solar.phase;
+  }
 
-  const desired = ambientLight.ambientTarget(solar.phase, now.getTime());
-  const first = !_ambientLast;
-  const next = ambientLight.approachAmbient(_ambientLast, desired);
+  const desired = ambientLight.ambientTarget(
+    lightingPalette, now.getTime(), _ambientLast?.color || null, _ambientPreviousColor,
+  );
+  // A stable color is intentionally silent. Hue holds it on its own, with no
+  // repeated writes to interrupt fades or fight subtle music-reactive pulses.
+  if (_ambientLast?.key === desired.key) {
+    return { ok: true, held: true, nextChangeAt: desired.nextChangeAt };
+  }
   const r = await _forwardToLights("ambient", {
-    xy: next.xy,
-    bri: next.bri,
-    // First contact after a human scene, restart, or lights-on is extra gentle.
-    durMs: first ? 180000 : 35000,
+    xy: desired.xy,
+    bri: desired.bri,
+    durMs: desired.durMs, // one three-minute Hue Bridge fade, then a real hold
   });
   if (r.ok) {
-    _ambientLast = next;
-    if (first) _ambientHoldUntil = now.getTime() + 180000;
-    const name = `ambient-${solar.phase}`;
+    const fromColor = _ambientLast?.color || "startup";
+    _ambientPreviousColor = _ambientLast?.color || null;
+    _ambientLast = desired;
+    console.log(`[lights] ambient ${lightingPalette}: ${fromColor} -> ${desired.color}; fade 180s; next after ${new Date(desired.nextChangeAt).toLocaleTimeString()}`);
+    const name = `ambient-${lightingPalette}`;
     if (_lightsScene !== name) {
       _lightsScene = name;
       _persistRuntimeState();
@@ -2533,7 +2551,8 @@ async function _forwardToLights(action, body) {
 
 app.post("/admin/lights/off", async (_req, res) => {
   _ambientLast = null;
-  _ambientHoldUntil = 0;
+  _ambientPreviousColor = null;
+  _sceneHoldUntil = 0;
   _manualLightsSynced = false;
   _lightsEnabled = false;
   _lightsPowerSynced = false;
