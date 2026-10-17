@@ -46,6 +46,33 @@ function nextColor(colors, previous, earlier, seed) {
   return choices[seed % choices.length];
 }
 
+// Reconstruct each weekly color sequence deterministically, carrying the
+// previous destination through the week boundary. A small cache avoids
+// rebuilding elapsed weeks on every 30-second server safety tick.
+const weekHistory = new Map();
+const AUTO_ORIGIN_MS = Date.UTC(2026, 0, 1);
+
+function runWeek(colors, salt, startOfWeek, before, earlier, nowMs = null) {
+  const end = startOfWeek + WEEK_MS;
+  let start = startOfWeek;
+  let previous = before, older = earlier;
+  for (let index = 0; index < 600; index++) {
+    const dateSeed = Math.floor(startOfWeek / 86400000) + index;
+    const color = nextColor(colors, previous, older, hash(dateSeed, salt));
+    const holdMinutes = MIN_HOLD_MINUTES +
+      (hash(dateSeed, salt + 19) % HOLD_SPREAD_MINUTES);
+    const until = Math.min(end, start + holdMinutes * 60000);
+    if (nowMs !== null && nowMs < until) {
+      return { color, start, until };
+    }
+    older = previous;
+    previous = color;
+    start = until;
+    if (until >= end) return { previous, older };
+  }
+  throw new Error("hue_cadence_exhausted");
+}
+
 function lightingTarget(selection, phase, nowMs, startedAt = null) {
   if (phase !== "day" && phase !== "night") throw new RangeError("invalid_solar_phase");
   if (!Number.isFinite(nowMs)) throw new RangeError("invalid_lighting_time");
@@ -54,37 +81,40 @@ function lightingTarget(selection, phase, nowMs, startedAt = null) {
 
   const palette = auto ? PALETTES[phase] : SCENES[selection];
   const colors = auto ? palette.accents : palette[phase];
-  const brightness = palette.brightness;
   const stableOrigin = !auto && Number.isFinite(startedAt) && startedAt > 0
-    ? startedAt : Math.floor(nowMs / WEEK_MS) * WEEK_MS;
+    ? startedAt : (nowMs >= AUTO_ORIGIN_MS ? AUTO_ORIGIN_MS : Math.floor(nowMs / WEEK_MS) * WEEK_MS);
   const generation = Math.floor((nowMs - stableOrigin) / WEEK_MS);
-  const origin = stableOrigin + generation * WEEK_MS;
-  const end = origin + WEEK_MS;
-  const salt = (auto ? 313 : [...selection].reduce((n, letter) => n * 31 + letter.charCodeAt(0), 37)) +
-    (phase === "day" ? 391 : 547);
-  let start = origin;
-  let previous = null, earlier = null;
-  for (let index = 0; index < 600; index++) {
-    const seed = hash(Math.floor(origin / 86400000) + index, salt);
-    const color = nextColor(colors, previous, earlier, seed);
-    const holdMinutes = MIN_HOLD_MINUTES +
-      (hash(Math.floor(origin / 86400000) + index, salt + 19) % HOLD_SPREAD_MINUTES);
-    const until = Math.min(end, start + holdMinutes * 60000);
-    if (nowMs < until || until >= end) {
-      return {
-        phase, selection, color,
-        xy: rgbToXy(rgb(color)),
-        bri: brightness,
-        durMs: FADE_MS,
-        key: selection + ":" + phase + ":" + start,
-        nextChangeAt: until,
-      };
-    }
-    earlier = previous;
-    previous = color;
-    start = until;
+  const salt = (auto ? 313 : [...selection].reduce(
+    (n, letter) => (Math.imul(n, 31) + letter.charCodeAt(0)) | 0, 37,
+  )) + (phase === "day" ? 391 : 547);
+
+  const historyKey = selection + ":" + phase + ":" + stableOrigin;
+  if (!weekHistory.has(historyKey)) {
+    weekHistory.set(historyKey, new Map([[0, { previous: null, older: null }]]));
   }
-  throw new Error("hue_cadence_exhausted");
+  const history = weekHistory.get(historyKey);
+  if (!history.has(generation)) {
+    let known = generation;
+    while (known > 0 && !history.has(known)) known--;
+    let carry = history.get(known);
+    for (let g = known; g < generation; g++) {
+      carry = runWeek(colors, salt, stableOrigin + g * WEEK_MS, carry.previous, carry.older);
+      history.set(g + 1, carry);
+    }
+  }
+  const carry = history.get(generation);
+  const destination = runWeek(
+    colors, salt, stableOrigin + generation * WEEK_MS, carry.previous, carry.older, nowMs,
+  );
+  if (!destination || !destination.color) throw new Error("invalid_hue_destination");
+  return {
+    phase, selection, color: destination.color,
+    xy: rgbToXy(rgb(destination.color)),
+    bri: palette.brightness,
+    durMs: FADE_MS,
+    key: selection + ":" + phase + ":" + destination.start,
+    nextChangeAt: destination.until,
+  };
 }
 
 module.exports = {
