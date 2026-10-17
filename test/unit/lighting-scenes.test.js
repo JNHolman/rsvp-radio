@@ -20,8 +20,8 @@ test("exactly six independent club scenes have valid day/night targets", () => {
     assert.ok(night.xy.every(v => v > 0 && v < 1));
     assert.ok(day.bri >= 60 && day.bri <= 120);
     assert.ok(night.bri >= 60 && night.bri <= 120);
-    assert.equal(SCENES[id].day.length, 4);
-    assert.equal(SCENES[id].night.length, 4);
+    assert.equal(SCENES[id].day.length, 6);
+    assert.equal(SCENES[id].night.length, 6);
   }
 });
 
