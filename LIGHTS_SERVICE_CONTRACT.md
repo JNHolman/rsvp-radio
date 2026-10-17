@@ -77,7 +77,13 @@ music menu. It offers six manual scenes: **Yin Yang Café** (The Listening Room)
   Selecting a scene or Auto never turns on a bulb that is physically off.
 - `POST /admin/lights/off` explicitly turns off Hue. Hue's native phone app
   power-off also takes priority; the adapter's read-only `GET /power` exposes
-  physical state and out-of-band app color, color-temperature and brightness changes. The `POST /release` adapter
+  physical state and out-of-band app color, color-temperature and brightness changes.
+  During a Hue Bridge-driven three-minute fade, intermediate color/brightness
+  readings must **not** be interpreted as Hue app takeover. Wait for the
+  fade plus a five-second settling margin before comparing targets again.
+  Physical power-off is honored immediately even during a fade; a genuine
+  manual scene/color change is recognized after the fade settles, without
+  RSVP sending any additional color commands during the hold. The `POST /release` adapter
   action transfers control back to RSVP only after explicit user selection.
 - Existing `POST /admin/lights/mode/:mode` remains available to old clients,
   but now also persists until Auto and affects Hue only, not music.
