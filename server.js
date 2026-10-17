@@ -2497,8 +2497,10 @@ async function _syncScheduledLights() {
     durMs: desired.durMs, // one three-minute Hue Bridge fade, then a real hold
   });
   if (r.ok) {
+    const fromColor = _ambientLast?.color || "startup";
     _ambientPreviousColor = _ambientLast?.color || null;
     _ambientLast = desired;
+    console.log(`[lights] ambient ${solar.phase}: ${fromColor} -> ${desired.color}; fade 180s; next after ${new Date(desired.nextChangeAt).toLocaleTimeString()}`);
     const name = `ambient-${solar.phase}`;
     if (_lightsScene !== name) {
       _lightsScene = name;
