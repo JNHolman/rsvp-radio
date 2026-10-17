@@ -21,6 +21,37 @@ const PALETTES = Object.freeze({
   },
 });
 
+// The four scene buttons retain their names and original Hue presets on
+// selection. While selected, each mode can then evolve through contrasting
+// colors, without changing the music playlist or the TV's solar artwork.
+// All modes deliberately span more than adjacent hues.
+const SCENE_PALETTES = Object.freeze({
+  lofi: {
+    base: "#8344A5",
+    accents: ["#3045C5", "#C86480", "#D9A441", "#7731AF", "#D56A61", "#248A9D"],
+    brightness: 72,
+  },
+  lounge: {
+    base: "#B8775D",
+    accents: ["#C86480", "#3045C5", "#D9A441", "#923AAB", "#248A9D", "#D56A61"],
+    brightness: 86,
+  },
+  rap: {
+    base: "#982FA4",
+    accents: ["#3045C5", "#E044A5", "#D56A61", "#632CAC", "#C77943", "#248A9D"],
+    brightness: 96,
+  },
+  rnb: {
+    base: "#892D9F",
+    accents: ["#3045C5", "#C52C69", "#D56A61", "#7A2AAF", "#D9A441", "#248A9D"],
+    brightness: 76,
+  },
+});
+
+const PALETTE_SALTS = Object.freeze({
+  day: 391, night: 547, lofi: 661, lounge: 733, rap: 881, rnb: 997,
+});
+
 function hash(number, salt) {
   let x = (Math.imul(number ^ salt, 0x9e3779b1) + salt) | 0;
   x ^= x >>> 16;
@@ -71,12 +102,12 @@ function chooseNext(colors, previous, beforePrevious, seed) {
   return choices[seed % choices.length];
 }
 function ambientTarget(phase, nowMs, previousColor = null, beforePreviousColor = null) {
-  if (!Object.hasOwn(PALETTES, phase)) throw new RangeError("invalid_ambient_phase");
+  if (!Object.hasOwn(PALETTE_SALTS, phase)) throw new RangeError("invalid_ambient_phase");
   if (!Number.isFinite(nowMs)) throw new RangeError("invalid_ambient_time");
-  const pal = PALETTES[phase];
+  const pal = PALETTES[phase] || SCENE_PALETTES[phase];
   const colors = [pal.base, ...pal.accents];
   const week = weekAnchor(nowMs);
-  const phaseSalt = phase === "day" ? 391 : 547;
+  const phaseSalt = PALETTE_SALTS[phase];
   const seed = Math.floor(week / 86400000);
   const nextWeek = new Date(week);
   nextWeek.setDate(nextWeek.getDate() + 7);
@@ -116,4 +147,4 @@ function approachAmbient(previous, desired, maxXyStep = 0.026, maxBriStep = 6) {
   };
 }
 
-module.exports = { PALETTES, ambientTarget, approachAmbient, rgbToXy, hueDistance };
+module.exports = { PALETTES, SCENE_PALETTES, ambientTarget, approachAmbient, rgbToXy, hueDistance };
