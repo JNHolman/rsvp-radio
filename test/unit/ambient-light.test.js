@@ -1,45 +1,72 @@
 "use strict";
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { PALETTES, ambientTarget, approachAmbient } = require("../../intelligence/ambient-light");
+const { PALETTES, ambientTarget, approachAmbient, hueDistance } = require("../../intelligence/ambient-light");
 
-test("permanent rich colors retain low-brightness ambience", () => {
+test("rich day/night palettes stay saturated and include blue and salmon at night", () => {
   assert.deepEqual(PALETTES.day.accents, ["#D9A441", "#C77943", "#D97965", "#C86480", "#B777A4"]);
-  assert.deepEqual(PALETTES.night.accents, ["#A51791", "#8424A8", "#4E2395", "#A82370", "#922A65", "#D56A61", "#4141A3"]);
+  assert.ok(PALETTES.night.accents.includes("#3045C5"));
+  assert.ok(PALETTES.night.accents.includes("#D56A61"));
   assert.equal(PALETTES.day.brightness, 114);
   assert.equal(PALETTES.night.brightness, 76);
-});
-
-test("solar palettes are distinct and have restrained brightness", () => {
-  const now = Date.UTC(2026, 9, 15, 20);
-  const day = ambientTarget("day", now);
-  const night = ambientTarget("night", now);
-  assert.notDeepEqual(day.xy, night.xy);
-  assert.ok(day.bri > night.bri);
-  for (const t of [day, night]) {
-    assert.ok(t.xy.every(n => n > 0 && n < 1));
-    assert.ok(t.bri >= 1 && t.bri <= 254);
+  for (const pal of Object.values(PALETTES)) {
+    for (const hex of [pal.base, ...pal.accents]) {
+      const rgb = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16));
+      assert.ok(Math.max(...rgb) - Math.min(...rgb) >= 50, hex + " must not look nearly white");
+    }
   }
 });
 
-test("palette movement is continuous at accent boundaries, without static colors", () => {
-  const slot = 11 * 60 * 1000;
+test("a selected color remains unchanged while its hold is active", () => {
   for (const phase of ["day", "night"]) {
-    const a = ambientTarget(phase, slot * 200 - 1);
-    const b = ambientTarget(phase, slot * 200 + 1);
-    assert.ok(Math.hypot(a.xy[0] - b.xy[0], a.xy[1] - b.xy[1]) < 0.001);
-    const xy = new Set(Array.from({ length: 50 }, (_, i) =>
-      ambientTarget(phase, slot * 201 + i * 60000).xy.join(",")));
-    assert.ok(xy.size > 8, phase + " must drift rather than hold one color");
+    const now = Date.UTC(2026, 9, 17, 10);
+    const first = ambientTarget(phase, now);
+    const later = ambientTarget(phase, Math.min(now + 60000, first.nextChangeAt - 1000));
+    assert.deepEqual(first.xy, later.xy);
+    assert.equal(first.key, later.key);
+    assert.equal(first.durMs, 180000);
   }
 });
 
-test("solar phase changes cannot cause sudden color or brightness jumps", () => {
-  const day = ambientTarget("day", 1e9);
-  const night = ambientTarget("night", 1e9);
+test("irregular holds produce contrasting colors instead of near-neighbor changes", () => {
+  for (const phase of ["day", "night"]) {
+    const colors = new Set();
+    const intervals = new Set();
+    let now = Date.UTC(2026, 9, 17, 12);
+    let last = null;
+    let beforeLast = null;
+    for (let i = 0; i < 140; i++) {
+      const next = ambientTarget(phase, now, last?.color || null, beforeLast?.color || null);
+      assert.equal(next.phase, phase);
+      assert.equal(next.durMs, 180000);
+      assert.ok(next.xy.every(n => n > 0 && n < 1));
+      assert.ok(next.bri > 0 && next.bri <= 254);
+      if (last) {
+        assert.notEqual(next.key, last.key);
+        assert.ok(hueDistance(next.color, last.color) >= 50, `${phase}: ${last.color} -> ${next.color}`);
+      }
+      colors.add(next.color);
+      const hold = (next.nextChangeAt - now) / 60000;
+      assert.ok(hold >= 0 && hold <= 120);
+      if (hold >= 20) intervals.add(Math.round(hold));
+      beforeLast = last;
+      last = next;
+      now = next.nextChangeAt + 10;
+    }
+    assert.ok(colors.size >= 5, phase + " should visit several colors");
+    assert.ok(intervals.size >= 15, phase + " should vary hold lengths");
+  }
+});
+
+test("solar handoffs use slow Hue fades and retain a legacy step-capping helper", () => {
+  const now = Date.UTC(2026, 9, 17, 17);
+  const day = ambientTarget("day", now);
+  const night = ambientTarget("night", now, day.color);
+  assert.notEqual(day.key, night.key);
+  assert.equal(night.durMs, 180000);
   const step = approachAmbient(day, night);
   assert.ok(Math.hypot(step.xy[0] - day.xy[0], step.xy[1] - day.xy[1]) <= 0.027);
   assert.ok(Math.abs(step.bri - day.bri) <= 6);
   assert.deepEqual(approachAmbient(null, night), night);
-  assert.throws(() => ambientTarget("unknown", 1000), /invalid_ambient_phase/);
+  assert.throws(() => ambientTarget("unknown", now), /invalid_ambient_phase/);
 });
