@@ -58,6 +58,30 @@ test("irregular holds produce contrasting colors instead of near-neighbor change
   }
 });
 
+test("LOFI, Lounge, Rap and R&B all change between distinct colors", () => {
+  for (const mode of ["lofi", "lounge", "rap", "rnb"]) {
+    const colors = new Set();
+    let now = Date.UTC(2026, 9, 17, 20);
+    let previous = null;
+    let older = null;
+    for (let i = 0; i < 90; i++) {
+      const next = ambientTarget(mode, now, previous?.color || null, older?.color || null);
+      assert.equal(next.durMs, 180000);
+      assert.ok(next.bri >= 1 && next.bri <= 254);
+      if (previous) {
+        assert.notEqual(next.key, previous.key);
+        assert.ok(hueDistance(previous.color, next.color) >= 50,
+          `${mode}: ${previous.color} -> ${next.color}`);
+      }
+      colors.add(next.color);
+      older = previous;
+      previous = next;
+      now = next.nextChangeAt + 10;
+    }
+    assert.ok(colors.size >= 5, mode + " should visit at least five distinct colors");
+  }
+});
+
 test("solar handoffs use slow Hue fades and retain a legacy step-capping helper", () => {
   const now = Date.UTC(2026, 9, 17, 17);
   const day = ambientTarget("day", now);
