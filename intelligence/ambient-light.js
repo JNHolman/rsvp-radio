@@ -11,7 +11,7 @@ const MIN_HUE_DISTANCE = 50; // degrees; reject look-alike adjacent colors
 const PALETTES = Object.freeze({
   day: {
     base: "#E49B42",
-    accents: ["#D9A441", "#C77943", "#D97965", "#C86480", "#B777A4"],
+    accents: ["#D9A441", "#C77943", "#D97965", "#C86480", "#B777A4", "#365BC0", "#248A9D"],
     brightness: 114,
   },
   night: {
