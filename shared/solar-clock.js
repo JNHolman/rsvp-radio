@@ -1,7 +1,7 @@
 "use strict";
 
 // Cache the solar phase and schedule its exact next transition. The 30-second
-// Hue color-drift loop reads this cache; it must never recalculate sunrise/dusk.
+// Hue scheduling check reads this cache; it must never recalculate sunrise/dusk.
 // A single hourly safety wake-up covers Pi sleep or an adjusted system clock.
 const solarPhase = require("./solar-phase");
 
