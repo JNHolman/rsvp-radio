@@ -13,14 +13,12 @@
  */
 
 const net = require("node:net");
-const { ambientTarget, approachAmbient } = require("../intelligence/ambient-light");
+const { lightingTarget } = require("../intelligence/lighting-cadence");
 
 const PRODUCTION_HUE_PORT = 5005;
 const TEST_HUE = "http://127.0.0.1:5006";
 const PREVIEW_SOLAR = "http://127.0.0.1:3001/api/solar-state";
 const INTERVAL_MS = 30000;
-const FIRST_FADE_MS = 180000;
-const CONTINUOUS_FADE_MS = 35000;
 
 function portOpen(port) {
   return new Promise(resolve => {
@@ -45,17 +43,11 @@ async function jsonGet(url) {
 }
 
 function choosePreviewCommand(phase, nowMs, state) {
-  const desired = ambientTarget(phase, nowMs);
-  const first = !state.last;
-  const next = approachAmbient(state.last, desired);
+  const next = lightingTarget("auto", phase, nowMs);
   return {
     next,
-    payload: {
-      xy: next.xy,
-      bri: next.bri,
-      durMs: first ? FIRST_FADE_MS : CONTINUOUS_FADE_MS,
-    },
-    holdUntil: first ? nowMs + FIRST_FADE_MS : 0,
+    payload: state.last?.key === next.key ? null :
+      { xy: next.xy, bri: next.bri, durMs: next.durMs },
   };
 }
 
@@ -64,7 +56,6 @@ async function tick(state) {
   if (await portOpen(PRODUCTION_HUE_PORT)) {
     throw new Error("Production Hue is listening on :5005; refusing to compete with it.");
   }
-  if (Date.now() < state.holdUntil) return;
 
   const [bridge, solar] = await Promise.all([
     jsonGet(TEST_HUE + "/health"),
@@ -74,6 +65,7 @@ async function tick(state) {
   if (solar.phase !== "day" && solar.phase !== "night") throw new Error("No valid TV preview phase");
 
   const chosen = choosePreviewCommand(solar.phase, Date.now(), state);
+  if (!chosen.payload) return; // Preserve the settled color, no Hue write.
   // A final guard protects against production restarting during the GETs.
   if (await portOpen(PRODUCTION_HUE_PORT)) throw new Error("Production Hue restarted; exiting test.");
   const response = await fetch(TEST_HUE + "/ambient", {
@@ -86,12 +78,11 @@ async function tick(state) {
   if (!response.ok || !result.ok) throw new Error("Test Hue command rejected: HTTP " + response.status);
 
   state.last = chosen.next;
-  state.holdUntil = chosen.holdUntil;
   console.log(`[hue-preview] ${solar.phase} palette · gentle ${chosen.payload.durMs / 1000}s fade · ${new Date().toLocaleTimeString()}`);
 }
 
 async function main() {
-  const state = { last: null, holdUntil: 0 };
+  const state = { last: null };
   let running = true;
   const end = () => {
     running = false;
