@@ -2447,7 +2447,7 @@ async function _syncLightsPower() {
 
 async function _applyLightsScene(mode) {
   _ambientLast = null; // Manual scenes own the bulb until explicitly released.
-  _ambientHoldUntil = 0;
+  _ambientPreviousColor = null;
   _lightsScene = mode;
   _persistRuntimeState();
   if (!_lightsEnabled) return { ok: true, status: 200, deferred: true };
@@ -2457,7 +2457,7 @@ async function _applyLightsScene(mode) {
 let _lastScheduledLightsMode = ""; // retained for admin reconciliation compatibility
 let _lastLightBlendKey = "";
 let _ambientLast = null;
-let _ambientHoldUntil = 0;
+let _ambientPreviousColor = null;
 let _manualLightsSynced = false;
 
 async function _syncScheduledLights() {
@@ -2477,27 +2477,28 @@ async function _syncScheduledLights() {
   }
   _manualLightsSynced = false;
 
-  // Do not interrupt the initial three-minute fade from a previous scene.
-  if (Date.now() < _ambientHoldUntil) return { ok: true, held: true };
-
   // This exact solar clock also drives the TV background. Playlist/genre
   // handoffs remain unchanged, but no longer issue competing Hue scenes.
   const now = new Date();
   const solar = solarPhase.getSolarPhase(now, cfg.SOLAR_LATITUDE, cfg.SOLAR_LONGITUDE);
   if (!solar.phase) return { ok: false, reason: "solar_unavailable" };
 
-  const desired = ambientLight.ambientTarget(solar.phase, now.getTime());
-  const first = !_ambientLast;
-  const next = ambientLight.approachAmbient(_ambientLast, desired);
+  const desired = ambientLight.ambientTarget(
+    solar.phase, now.getTime(), _ambientLast?.color || null, _ambientPreviousColor,
+  );
+  // A stable color is intentionally silent. Hue holds it on its own, with no
+  // repeated writes to interrupt fades or fight subtle music-reactive pulses.
+  if (_ambientLast?.key === desired.key) {
+    return { ok: true, held: true, nextChangeAt: desired.nextChangeAt };
+  }
   const r = await _forwardToLights("ambient", {
-    xy: next.xy,
-    bri: next.bri,
-    // First contact after a human scene, restart, or lights-on is extra gentle.
-    durMs: first ? 180000 : 35000,
+    xy: desired.xy,
+    bri: desired.bri,
+    durMs: desired.durMs, // one three-minute Hue Bridge fade, then a real hold
   });
   if (r.ok) {
-    _ambientLast = next;
-    if (first) _ambientHoldUntil = now.getTime() + 180000;
+    _ambientPreviousColor = _ambientLast?.color || null;
+    _ambientLast = desired;
     const name = `ambient-${solar.phase}`;
     if (_lightsScene !== name) {
       _lightsScene = name;
@@ -2533,7 +2534,7 @@ async function _forwardToLights(action, body) {
 
 app.post("/admin/lights/off", async (_req, res) => {
   _ambientLast = null;
-  _ambientHoldUntil = 0;
+  _ambientPreviousColor = null;
   _manualLightsSynced = false;
   _lightsEnabled = false;
   _lightsPowerSynced = false;
