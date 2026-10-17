@@ -1,40 +1,40 @@
 "use strict";
 
 // RSVP Radio V3: six distinct club environments, chosen independently of music.
-// One Hue globe uses day/night variations of the same club identity.
+// Each club has rich day/night color destinations across the spectrum; Hue holds then fades between them.
 // Outdoor Govee lighting is not part of this controller.
 const { rgbToXy, vividTransition } = require("./ambient-light");
 
 const SCENES = Object.freeze({
   "yin-yang-cafe": {
     name: "Yin Yang Café", collection: "The Listening Room", minutes: 19, brightness: 70,
-    day: ["#365A49", "#80956B", "#C49450", "#B65E4B"],
-    night: ["#155B5B", "#4F8870", "#B88645", "#69465D"],
+    day: ["#16806C", "#C68F35", "#713DA8", "#C95F51", "#305BC2", "#B5337C"],
+    night: ["#0C796F", "#B98B32", "#6534AD", "#CB6156", "#264AC1", "#B3318C"],
   },
   "40-40-club": {
     name: "40/40 Club", collection: "Lounge", minutes: 12, brightness: 94,
-    day: ["#20477D", "#688BBE", "#D6AF70", "#B5BAC4"],
-    night: ["#182F76", "#386DD1", "#A1ADD0", "#D7A64C"],
+    day: ["#20477D", "#B98B34", "#C96059", "#7135B0", "#218A93", "#C23E82"],
+    night: ["#2046AF", "#BB9039", "#BE5359", "#692CAE", "#227D94", "#BC2D80"],
   },
   "republic-gardens": {
     name: "Republic Gardens", collection: "Lounge", minutes: 12, brightness: 88,
-    day: ["#167756", "#66B68D", "#C57D48", "#AE5478"],
-    night: ["#08796D", "#18ADA3", "#B7A042", "#8541A2"],
+    day: ["#167756", "#C67D42", "#3844B8", "#B63589", "#2C85C2", "#C8554C"],
+    night: ["#08796D", "#AF8735", "#3C39B3", "#B43188", "#2876BB", "#C55451"],
   },
   "the-tunnel": {
     name: "The Tunnel", collection: "Rap", minutes: 7, brightness: 102,
-    day: ["#185CD0", "#22B5CD", "#D52B9F", "#F37C45"],
-    night: ["#213BDB", "#00AFC8", "#E126AD", "#7833BF"],
+    day: ["#185CD0", "#149DB3", "#D52B9F", "#D16A3B", "#6734AF", "#BA3356"],
+    night: ["#213BDB", "#119AB4", "#E126AD", "#D3653A", "#7833BF", "#B92C59"],
   },
   "club-crucial": {
     name: "Club Crucial", collection: "Rap", minutes: 7, brightness: 102,
-    day: ["#B53D30", "#F07922", "#D0A03A", "#38566C"],
-    night: ["#C02C2D", "#F26123", "#8C5330", "#28657D"],
+    day: ["#B53D30", "#F07922", "#315BC0", "#198577", "#7834A6", "#C23A82"],
+    night: ["#C02C2D", "#D36925", "#2C58C1", "#217F83", "#7239A7", "#B92C74"],
   },
   "boom-boom-room": {
     name: "Boom Boom Room", collection: "R&B", minutes: 15, brightness: 82,
-    day: ["#87263F", "#BB3D4E", "#E0B275", "#64425B"],
-    night: ["#70152C", "#B42445", "#D59D57", "#1C3154"],
+    day: ["#87263F", "#D09239", "#2F53B6", "#287F87", "#7137A9", "#C76355"],
+    night: ["#70152C", "#B98A37", "#2947B5", "#227D82", "#6B2BAB", "#C86256"],
   },
 });
 
