@@ -25,7 +25,7 @@ const {
   readCa,
 } = require("./hue/hue-client");
 const { createReactiveLighting } = require("./hue/reactive-lighting");
-const { detectExternalHueEdit } = require("./hue/ownership");
+const { detectExternalHueEdit, updateAutomatedWrite } = require("./hue/ownership");
 
 const cfg = loadConfig();
 const reactive = createReactiveLighting({ minIntervalMs: cfg.reactiveMinIntervalMs, range: cfg.reactiveRange });
@@ -143,14 +143,10 @@ async function applyScene(mode, durMs) {
   }
 }
 
-let lastAutomatedXy = null;
-let lastAutomatedBrightness = null;
-let lastAutomatedWriteAt = 0;
+let lastAutomatedWrite = null;
 let appColorTakeover = false;
-function recordAutomatedWrite({ xy, bri }) {
-  if (Array.isArray(xy)) lastAutomatedXy = [...xy];
-  if (Number.isFinite(bri)) lastAutomatedBrightness = bri;
-  lastAutomatedWriteAt = Date.now();
+function recordAutomatedWrite(command) {
+  lastAutomatedWrite = updateAutomatedWrite(lastAutomatedWrite, command);
 }
 
 async function readPhysicalPower() {
@@ -164,11 +160,7 @@ async function readPhysicalPower() {
   const isOn = typeof on === "boolean" ? on : actionOn;
   // Hue app edits change the bridge target independently of RSVP writes.
   // Honor that takeover until an explicit RSVP scene/Auto selection.
-  if (isOn && detectExternalHueEdit(r.body?.action, {
-    xy: lastAutomatedXy,
-    bri: lastAutomatedBrightness,
-    writtenAt: lastAutomatedWriteAt,
-  })) {
+  if (isOn && detectExternalHueEdit(r.body?.action, lastAutomatedWrite)) {
     appColorTakeover = true;
   }
   return { ok: true, on: isOn, appColorTakeover };
@@ -281,9 +273,7 @@ async function handler(req, res) {
 
     if (url.pathname === "/release") {
       appColorTakeover = false;
-      lastAutomatedXy = null;
-      lastAutomatedBrightness = null;
-      lastAutomatedWriteAt = 0;
+      lastAutomatedWrite = null;
       return json(res, 200, { ok: true, action: "release" });
     }
 
