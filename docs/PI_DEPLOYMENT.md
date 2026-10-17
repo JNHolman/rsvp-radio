@@ -67,11 +67,14 @@ day's sunrise/dusk timestamps, and the next transition timestamp. The kiosk
 uses the next solar event timer plus an hourly reconciliation check and preserves the
 approved artwork transitions. On a
 short endpoint failure, it retains the last valid phase rather than abruptly
-switching scenes. Hue Auto is equally blue and gold by day, with copper,
-coral and rose accents. Night is primarily blue and violet, with brief
-magenta and salmon accents. Gentle 30-second updates track the solar palette.
-The six selectable club scenes have separate day/night variations and remain
-selected through music handoffs and reboots until Auto is pressed.
+switching scenes. Hue Auto uses rich blue, gold, copper, coral, and rose by day, and blue,
+violet, magenta, and salmon at night. It holds a single vivid color for
+irregular 20–120 minute periods, then lets the Hue Bridge perform one
+three-minute fade to a contrasting color. The six selectable club scenes
+also use rich, contrasting day/night palettes with the same irregular
+hold-and-fade behavior. There are no repeated color writes during a hold.
+Club scenes remain selected through music handoffs and reboots until
+Auto is pressed.
 Neither normal startup nor Auto selection switches a physically off Hue bulb on.
 Native Hue app changes to power, color mode, color or brightness yield lighting
 control until an explicit RSVP selection; music still gets a subtle brightness
