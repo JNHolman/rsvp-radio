@@ -1,24 +1,55 @@
 "use strict";
 
-// One Hue globe: slow color drift, not an obvious light show. The TV's
-// sunrise/civil-dusk solar phase determines the palette.
-const SLOT_MS = 11 * 60 * 1000;
-// Owner-approved direction: rich, saturated colors with no pale almost-white
-// accents. Retain the established low brightness, gentle 11-minute timing,
-// and rare warm salmon at night. TV artwork stays unchanged.
+// One Hue globe. Pick visibly different rich colors at irregular intervals,
+// give each color time to settle, then let the bridge handle a slow fade.
+// Continuous tiny color changes made the lamp look stuck on one shade.
+const MIN_HOLD_MS = 20 * 60 * 1000;
+const HOLD_SPREAD_MINUTES = 101; // 20 through 120 minutes between changes
+const FADE_MS = 180000; // Hue v1 /ambient limit: three minutes
+const MIN_HUE_DISTANCE = 50; // degrees; reject look-alike adjacent colors
+
 const PALETTES = Object.freeze({
   day: {
     base: "#E49B42",
-    accents: ["#D9A441", "#C77943", "#D97965", "#C86480", "#B777A4"],
+    accents: ["#D9A441", "#C77943", "#D97965", "#C86480", "#B777A4", "#365BC0", "#248A9D"],
     brightness: 114,
-    strength: 0.56,
   },
   night: {
     base: "#6A1C9A",
-    accents: ["#A51791", "#8424A8", "#4E2395", "#A82370", "#922A65", "#D56A61", "#4141A3"],
+    accents: ["#A51791", "#8424A8", "#4E2395", "#A82370", "#922A65", "#D56A61", "#4141A3", "#3045C5"],
     brightness: 76,
-    strength: 0.56,
   },
+});
+
+// The four scene buttons retain their names and original Hue presets on
+// selection. While selected, each mode can then evolve through contrasting
+// colors, without changing the music playlist or the TV's solar artwork.
+// All modes deliberately span more than adjacent hues.
+const SCENE_PALETTES = Object.freeze({
+  lofi: {
+    base: "#8344A5",
+    accents: ["#3045C5", "#C86480", "#D9A441", "#7731AF", "#D56A61", "#248A9D"],
+    brightness: 72,
+  },
+  lounge: {
+    base: "#B8775D",
+    accents: ["#C86480", "#3045C5", "#D9A441", "#923AAB", "#248A9D", "#D56A61"],
+    brightness: 86,
+  },
+  rap: {
+    base: "#982FA4",
+    accents: ["#3045C5", "#E044A5", "#D56A61", "#632CAC", "#C77943", "#248A9D"],
+    brightness: 96,
+  },
+  rnb: {
+    base: "#892D9F",
+    accents: ["#3045C5", "#C52C69", "#D56A61", "#7A2AAF", "#D9A441", "#248A9D"],
+    brightness: 76,
+  },
+});
+
+const PALETTE_SALTS = Object.freeze({
+  day: 391, night: 547, lofi: 661, lounge: 733, rap: 881, rnb: 997,
 });
 
 function hash(number, salt) {
@@ -29,11 +60,20 @@ function hash(number, salt) {
   x = Math.imul(x, 0xc2b2ae35);
   return (x ^ (x >>> 16)) >>> 0;
 }
-function rgb(hex) {
-  return [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16));
+function rgb(hex) { return [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16)); }
+function hue(hex) {
+  const [r, g, b] = rgb(hex);
+  const hi = Math.max(r, g, b);
+  const lo = Math.min(r, g, b);
+  if (hi === lo) return 0;
+  const delta = hi - lo;
+  const h = hi === r ? (g - b) / delta : hi === g ? (b - r) / delta + 2 : (r - g) / delta + 4;
+  return (h * 60 + 360) % 360;
 }
-function mix(a, b, t) { return a.map((v, i) => v + (b[i] - v) * t); }
-function smoothstep(t) { return t * t * (3 - 2 * t); }
+function hueDistance(a, b) {
+  const diff = Math.abs(hue(a) - hue(b));
+  return Math.min(diff, 360 - diff);
+}
 function rgbToXy(color) {
   const [r, g, b] = color.map(v => {
     const s = Math.max(0, Math.min(255, v)) / 255;
@@ -46,26 +86,53 @@ function rgbToXy(color) {
   return [+(x / sum).toFixed(4), +(y / sum).toFixed(4)];
 }
 
-function ambientTarget(phase, nowMs) {
-  if (!Object.hasOwn(PALETTES, phase)) throw new RangeError("invalid_ambient_phase");
+// The seed is stable across restarts and the schedule never drifts because
+// it depends on wall time, not setTimeout intervals.
+function weekAnchor(nowMs) {
+  const day = new Date(nowMs);
+  day.setHours(0, 0, 0, 0);
+  day.setDate(day.getDate() - day.getDay());
+  return day.getTime();
+}
+function chooseNext(colors, previous, beforePrevious, seed) {
+  const viable = colors.filter(c => previous === null || hueDistance(c, previous) >= MIN_HUE_DISTANCE);
+  // Avoid bouncing between two colors when other distinct shades exist.
+  const fresh = viable.filter(c => c !== beforePrevious);
+  const choices = fresh.length ? fresh : viable.length ? viable : colors.filter(c => c !== previous);
+  return choices[seed % choices.length];
+}
+function ambientTarget(phase, nowMs, previousColor = null, beforePreviousColor = null) {
+  if (!Object.hasOwn(PALETTE_SALTS, phase)) throw new RangeError("invalid_ambient_phase");
   if (!Number.isFinite(nowMs)) throw new RangeError("invalid_ambient_time");
-  const pal = PALETTES[phase];
-  const position = nowMs / SLOT_MS;
-  const slot = Math.floor(position);
-  const progress = smoothstep(position - slot);
-  const base = rgb(pal.base);
-  const salt = phase === "day" ? 391 : 547;
-  // Repeated favorites are intentional. Rare cooler/warmer accents add depth
-  // without turning this single lamp into a rainbow cycle.
-  const from = rgb(pal.accents[hash(slot, salt) % pal.accents.length]);
-  const to = rgb(pal.accents[hash(slot + 1, salt) % pal.accents.length]);
-  const accent = mix(from, to, progress);
-  const depth = pal.strength + 0.025 * Math.sin(nowMs / 240000);
-  const brightness = Math.round(pal.brightness + 2 * Math.sin(nowMs / 310000) + 1.5 * Math.sin(nowMs / 170000));
-  return { phase, xy: rgbToXy(mix(base, accent, depth)), bri: brightness };
+  const pal = PALETTES[phase] || SCENE_PALETTES[phase];
+  const colors = [pal.base, ...pal.accents];
+  const week = weekAnchor(nowMs);
+  const phaseSalt = PALETTE_SALTS[phase];
+  const seed = Math.floor(week / 86400000);
+  const nextWeek = new Date(week);
+  nextWeek.setDate(nextWeek.getDate() + 7);
+  let start = week;
+  for (let index = 0; index < 600; index++) {
+    const holdMs = MIN_HOLD_MS + (hash(seed + index, phaseSalt + 19) % HOLD_SPREAD_MINUTES) * 60000;
+    const nextAt = start + holdMs;
+    if (nowMs < nextAt || nextAt >= nextWeek.getTime()) {
+      const choice = chooseNext(colors, previousColor, beforePreviousColor, hash(seed + index, phaseSalt));
+      return {
+        phase,
+        xy: rgbToXy(rgb(choice)),
+        bri: pal.brightness,
+        key: `${phase}:${start}`,
+        color: choice,
+        durMs: FADE_MS,
+        nextChangeAt: Math.min(nextAt, nextWeek.getTime()),
+      };
+    }
+    start = nextAt;
+  }
+  throw new Error("ambient_schedule_exhausted");
 }
 
-// A 30-second tick cannot abruptly jump from one palette to another.
+// Compatibility helper for legacy callers; normal ambience uses the full destination with a Hue fade.
 function approachAmbient(previous, desired, maxXyStep = 0.026, maxBriStep = 6) {
   if (!previous) return desired;
   const dx = desired.xy[0] - previous.xy[0];
@@ -80,4 +147,4 @@ function approachAmbient(previous, desired, maxXyStep = 0.026, maxBriStep = 6) {
   };
 }
 
-module.exports = { PALETTES, ambientTarget, approachAmbient, rgbToXy };
+module.exports = { PALETTES, SCENE_PALETTES, ambientTarget, approachAmbient, rgbToXy, hueDistance };

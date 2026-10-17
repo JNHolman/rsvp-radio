@@ -1,0 +1,32 @@
+name: Isolated Hue lighting tests
+
+on:
+  push:
+    branches:
+      - test/hue-evolving-scenes-20261017
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  hue-colors:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Check lighting JavaScript syntax
+        run: |
+          node --check intelligence/ambient-light.js
+          node --check scripts/preview-hue.js
+          node --check server.js
+      - name: Test color sequences without starting any servers
+        run: |
+          node --test \
+            test/unit/ambient-light.test.js \
+            test/unit/preview-hue.test.js \
+            test/unit/hue-color-sampler.test.js \
+            test/unit/rich-hue-sampler.test.js
