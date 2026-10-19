@@ -5,7 +5,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { PALETTES } = require("../../intelligence/ambient-light");
 const { SCENES, ids } = require("../../intelligence/lighting-scenes");
-const { lightingTarget, hueDistance } = require("../../intelligence/lighting-cadence");
+const { lightingTarget, HOLD_BANDS } = require("../../intelligence/lighting-cadence");
 
 const START = Date.UTC(2026, 9, 17, 12);
 const CONTEXTS = ["auto", ...ids];
@@ -42,32 +42,53 @@ test("same selection and timestamp produce the same color across restarts", () =
   }
 });
 
-test("color changes are irregular and meaningfully contrasting in all eight palettes", () => {
+test("all sixteen palettes vary independently across hold lengths and colors", () => {
+  assert.deepEqual(HOLD_BANDS, [[20, 40], [50, 80], [90, 120]]);
   for (const context of CONTEXTS) {
     for (const phase of ["day", "night"]) {
       const selectedAt = context === "auto" ? null : START - 180000;
-      const colors = new Set(), durations = new Set();
+      const seenColors = new Set(), durations = new Set(), bands = new Set();
+      const names = [];
       let now = START, previous = null;
       for (let i = 0; i < 95; i++) {
         const chosen = lightingTarget(context, phase, now, selectedAt);
-        assert.ok(chosen.nextChangeAt > now, context + " next event must be in future");
+        assert.ok(chosen.nextChangeAt > now, context + " next event must be future");
         if (previous) {
           assert.notEqual(chosen.key, previous.key);
-          assert.ok(hueDistance(chosen.color, previous.color) >= 60,
-            context + " " + phase + " repeated similar color: " + previous.color + " → " + chosen.color);
+          assert.notEqual(chosen.color, previous.color,
+            context + " " + phase + " should never visibly repeat the exact same color");
         }
-        colors.add(chosen.color);
+        seenColors.add(chosen.color);
+        names.push(chosen.color);
         const startMs = Number(chosen.key.slice(chosen.key.lastIndexOf(":") + 1));
-        const durationMin = (chosen.nextChangeAt - startMs) / 60000;
-        assert.ok(durationMin >= 0 && durationMin <= 120);
-        if (durationMin >= 20) durations.add(Math.round(durationMin));
+        const duration = (chosen.nextChangeAt - startMs) / 60000;
+        assert.ok(HOLD_BANDS.some(([min, max]) => duration >= min && duration <= max),
+          context + " " + phase + " duration is not in any band: " + duration);
+        bands.add(HOLD_BANDS.findIndex(([min, max]) => duration >= min && duration <= max));
+        durations.add(duration);
         previous = chosen;
         now = chosen.nextChangeAt + 1;
       }
-      assert.ok(colors.size >= 4, context + " " + phase + " needs broad colors");
-      assert.ok(durations.size >= 12, context + " " + phase + " needs variable timing");
+      assert.ok(seenColors.size >= 4, context + " " + phase + " visits too few colors");
+      assert.deepEqual([...bands].sort(), [0, 1, 2],
+        context + " " + phase + " must experience short, medium and long holds");
+      assert.ok(durations.size >= 20, context + " " + phase + " hold times repeat too often");
+      // Old code locked Auto day into blue/rose/gold for extended periods.
+      let repeatedThree = 0;
+      for (let i = 3; i < names.length; i++) {
+        if (names[i] === names[i - 3]) repeatedThree++;
+      }
+      assert.ok(repeatedThree < 40, context + " " + phase + " fell into a 3-color cycle");
     }
   }
+});
+
+test("color and hold times survive process-level reload from the same source", () => {
+  const p = require.resolve("../../intelligence/lighting-cadence");
+  const current = require(p).lightingTarget("auto", "night", START + 400000);
+  delete require.cache[p];
+  const restored = require(p).lightingTarget("auto", "night", START + 400000);
+  assert.deepEqual(restored, current);
 });
 
 test("manual selection and solar phase overrides change context without waiting for a hold", () => {
