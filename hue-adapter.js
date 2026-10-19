@@ -211,45 +211,12 @@ async function readGroupBrightness() {
   return reactive.setBaseBrightness(bri);
 }
 
-async function applyReactiveSignal(body) {
-  if (!cfg.reactiveEnabled) {
-    return { status: 200, body: { ok: true, action: "signal", applied: false, reason: "reactive_disabled" } };
-  }
-
-  const bass = Number(body?.bass);
-  const energy = Number(body?.energy);
-  if (!Number.isFinite(bass) || !Number.isFinite(energy) || bass < 0 || bass > 1 || energy < 0 || energy > 1) {
-    return { status: 400, body: { ok: false, error: "invalid_signal" } };
-  }
-
-  const physical = await readPhysicalPower();
-  if (!physical.ok) return { status: 502, body: { ok: false, error: "hue_state_unavailable" } };
-  if (!physical.on || physical.appColorTakeover) {
-    return { status: 200, body: { ok: true, action: "signal", applied: false, reason: "hue_app_control" } };
-  }
-  let plan = reactive.plan({ bass, energy, nowMs: Date.now() });
-  if (plan.kind === "need_base") {
-    const base = await readGroupBrightness();
-    if (base === null) {
-      return { status: 200, body: { ok: true, action: "signal", applied: false, reason: "base_unavailable" } };
-    }
-    plan = reactive.plan({ bass, energy, nowMs: Date.now() });
-  }
-
-  if (plan.kind !== "apply") {
-    return { status: 200, body: { ok: true, action: "signal", applied: false, reason: plan.reason || plan.kind } };
-  }
-
-  const result = await hueRequest(
-    "PUT",
-    groupActionPath(cfg),
-    brightnessPayload(plan.brightness, cfg.reactiveTransitionMs),
-  );
-  if (!result.ok) reactive.markWriteFailed();
-  else recordAutomatedWrite({ bri: plan.brightness });
+async function applyReactiveSignal(_body) {
+  // Kept as a compatibility endpoint for older callers. RSVP uses no
+  // music-driven Hue behavior; this must never write to the bridge.
   return {
-    status: result.ok ? 200 : 502,
-    body: { ok: result.ok, action: "signal", applied: result.ok, brightness: plan.brightness, hueStatus: result.status },
+    status: 200,
+    body: { ok: true, action: "signal", applied: false, reason: "reactivity_removed" },
   };
 }
 
