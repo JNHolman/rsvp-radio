@@ -1432,7 +1432,6 @@ async function pollSessions() {
   _pollInFlight = true;
 
   const { bass, energy } = featuresNow();
-  _relayFeaturesToLights(bass, energy);
   const now              = new Date();
   const timeBlockMode    = blockModeForNow();
   const musicBlend       = timeblocks.getMusicBlendState(now);
@@ -2038,26 +2037,8 @@ app.get("/health", (_req, res) => {
   });
 });
 
-let _featureSignalInFlight = false;
-let _lastFeatureSignalAt = 0;
-let _lastForwardedFeatures = { bass: -1, energy: -1 };
-
-function _relayFeaturesToLights(bass, energy) {
-  if (!_lightsEnabled || _externalHueHold) return;
-  const now = Date.now();
-  const changed = Math.abs(bass - _lastForwardedFeatures.bass) >= 0.03 ||
-    Math.abs(energy - _lastForwardedFeatures.energy) >= 0.03;
-  const due = now - _lastFeatureSignalAt >= cfg.FEATURE_SIGNAL_RELAY_MS;
-  if (_featureSignalInFlight || !due || !changed) return;
-
-  _featureSignalInFlight = true;
-  _lastFeatureSignalAt = now;
-  _lastForwardedFeatures = { bass, energy };
-  _forwardToLights("signal", { bass, energy })
-    .catch(() => {})
-    .finally(() => { _featureSignalInFlight = false; });
-}
-
+// Audio features remain available for the RSVP status/dashboard but never
+// control Hue. Lighting is a standalone artwork-matched ambient experience.
 app.post("/features", (req, res) => {
   // The analyzer is a local Pi service. Keeping this endpoint loopback-only
   // prevents arbitrary LAN clients from driving the reactive Hue channel.
@@ -2067,11 +2048,6 @@ app.post("/features", (req, res) => {
   const energy = clamp01(req.body?.energy ?? 0);
   const now = Date.now();
   lastFeatures = { bass, energy, updatedAt: now };
-
-  // Reactive lighting belongs to the main runtime, not the kiosk browser.
-  // The regular state poll also relays the decayed feature envelope so an
-  // analyzer failure naturally returns Hue brightness to the scene baseline.
-  _relayFeaturesToLights(bass, energy);
 
   res.json({ ok: true });
 });
