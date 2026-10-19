@@ -20,12 +20,11 @@ The adapter is the hardware boundary: RSVP owns programming/scheduling; the Hue 
     Auto and the six clubs select contrasting color destinations and hold them
     for irregular 20–120 minute intervals. Each change uses a 180-second Hue
     fade; no repeated color writes interrupt a hold.
-  - The adapter caps music-reactive brightness to eight Hue steps in ambient mode.
+  - Hue brightness remains fixed at the artwork/club baseline between scene changes.
+    Music features never alter Hue brightness.
 - `POST /signal`
-  - JSON: `{ "bass": 0.0-1.0, "energy": 0.0-1.0 }`
-  - Reactive-light input; adjusts brightness only, never color.
-  - Rate-limit bridge writes and suppress them during manually requested long
-    scene transitions so the scheduled fade is uninterrupted.
+  - Deprecated compatibility endpoint; returns `applied: false`.
+  - Does not send Hue Bridge commands or alter brightness.
 - `POST /on`
 - `POST /off`
 
@@ -42,10 +41,13 @@ The night artwork and blue/violet Auto palette run from civil dusk to sunrise.
 The server calculates the next solar event at startup and schedules Hue's phase
 change for that exact boundary, with only hourly safety reconciliation for
 clock changes or sleep. It does not recalculate sunrise/dusk on every light
-write. A deterministic but irregular hold-and-fade sequence avoids predictable
-color cycling and near-identical consecutive hues. The server checks state
-every 30 seconds but sends a Hue color command only when the selected
-destination changes. Each Hue Bridge fade lasts 180 seconds.
+write. The scheduler independently chooses a short (20–40 min), medium (50–80 min),
+or long (90–120 min) hold, with no fixed order or forced color cycle.
+It favors visibly different destinations without forbidding returning to a
+color after one intervening shade. Choices derive from a stable seeded
+sequence, preserving the current destination and its end time across service
+restarts. The 30-second server checks send a Hue command only when a
+destination actually changes. Each Hue Bridge fade lasts 180 seconds.
 
 Explicit club or legacy Hue scene selection takes priority until the user chooses
 **AUTO**, including across music handoffs and restarts. Native app power-off
