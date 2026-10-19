@@ -42,7 +42,7 @@ test("same selection and timestamp produce the same color across restarts", () =
   }
 });
 
-test("all sixteen palettes vary independently across hold lengths and colors", () => {
+test("all fourteen day-night contexts vary independently across hold lengths and colors", () => {
   assert.deepEqual(HOLD_BANDS, [[20, 40], [50, 80], [90, 120]]);
   for (const context of CONTEXTS) {
     for (const phase of ["day", "night"]) {
