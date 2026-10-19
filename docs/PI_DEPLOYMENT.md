@@ -2,9 +2,9 @@
 
 RSVP is split into three local runtime pieces:
 
-1. **`rsvp-hue`** — system service, loopback-only on port 5005. It applies day/night artwork colors, six selectable club scenes and restrained music-reactive brightness through authenticated Philips Hue Bridge HTTPS.
+1. **`rsvp-hue`** — system service, loopback-only on port 5005. It applies day/night artwork colors and six selectable club scenes through authenticated Philips Hue Bridge HTTPS. Music never drives bulb brightness.
 2. **`rsvp-radio`** — system service on port 3000. It owns the programming clock, Radio/TV handoffs, state, reputation, controls, and the kiosk UI.
-3. **`rsvp-analyzer`** — desktop-user service. It captures the current PipeWire/Pulse playback sink monitor with `parec`, derives bass/energy envelopes, and posts them only to the loopback `/features` endpoint. The server—not Chromium—relays those features to Hue.
+3. **`rsvp-analyzer`** — desktop-user service. It captures the current PipeWire/Pulse playback sink monitor with `parec`, derives bass/energy envelopes, and posts them only to the loopback `/features` endpoint. Those features remain available for RSVP telemetry, but no longer drive Hue.
 
 Plexamp remains a separate user-session dependency. RSVP can continue operating if Hue or the analyzer is temporarily unavailable; `/health` reports the degraded component so it is visible instead of silently disappearing.
 
@@ -51,7 +51,7 @@ pactl get-default-sink
 pactl list short sources
 ```
 
-The analyzer posts only to loopback HTTP. `/features` rejects LAN clients, and the kiosk is not required for reactive Hue behavior.
+The analyzer posts only to loopback HTTP. `/features` rejects LAN clients. The analyzer operates independently of Hue lighting.
 
 ## TV artwork: sunrise and civil dusk
 
@@ -80,8 +80,7 @@ Club scenes remain selected through music handoffs and reboots until
 Auto is pressed.
 Neither normal startup nor Auto selection switches a physically off Hue bulb on.
 Native Hue app changes to power, color mode, color or brightness yield lighting
-control until an explicit RSVP selection; music still gets a subtle brightness
-overlay while RSVP controls Hue.
+control until an explicit RSVP selection; neither music nor the analyzer changes Hue brightness.
 
 The two owner-approved still images are supported as separate, sharp layers:
 
