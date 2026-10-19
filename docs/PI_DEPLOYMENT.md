@@ -68,11 +68,14 @@ uses the next solar event timer plus an hourly reconciliation check and preserve
 approved artwork transitions. On a
 short endpoint failure, it retains the last valid phase rather than abruptly
 switching scenes. Hue Auto uses rich blue, gold, copper, coral, and rose by day, and blue,
-violet, magenta, and salmon at night. It holds a single vivid color for
-irregular 20–120 minute periods, then lets the Hue Bridge perform one
-three-minute fade to a contrasting color. The six selectable club scenes
-also use rich, contrasting day/night palettes with the same irregular
-hold-and-fade behavior. There are no repeated color writes during a hold.
+violet, magenta, and salmon at night. It randomly chooses short (20–40 min),
+medium (50–80 min), or long (90–120 min) holds with no repeating order.
+Successive colors are varied but not forced through a fixed three-color
+cycle. The six club scenes use the same independently chosen hold lengths.
+Choices are deterministic for a given time and selection so a service
+restart does not reshuffle a hold. Each color change fades for 3 minutes,
+with no extra Hue writes during a hold. Music-derived bass/energy remains
+available as analyzer telemetry, but no longer changes the globe's brightness.
 Club scenes remain selected through music handoffs and reboots until
 Auto is pressed.
 Neither normal startup nor Auto selection switches a physically off Hue bulb on.
