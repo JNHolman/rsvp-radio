@@ -67,8 +67,11 @@ day's sunrise/dusk timestamps, and the next transition timestamp. The kiosk
 uses the next solar event timer plus an hourly reconciliation check and preserves the
 approved artwork transitions. On a
 short endpoint failure, it retains the last valid phase rather than abruptly
-switching scenes. Hue Auto uses rich blue, gold, copper, coral, and rose by day, and blue,
-violet, magenta, and salmon at night. It randomly chooses short (20–40 min),
+switching scenes. Hue Auto preserves sky blue, gold, copper, coral, and rose by day while
+adding lagoon teal, jewel jade, ruby and amethyst. The night palette keeps
+cobalt, indigo, violet, magenta, salmon and reflected blue, with deep teal,
+jade, antique gold and garnet accents. These are complements to the approved
+still-artwork direction, not new TV art. It randomly chooses short (20–40 min),
 medium (50–80 min), or long (90–120 min) holds with no repeating order.
 Successive colors are varied but not forced through a fixed three-color
 cycle. The six club scenes use the same independently chosen hold lengths.
