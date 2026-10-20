@@ -36,15 +36,20 @@ The music schedule remains LOFI 04:00–10:00, LOUNGE 10:00–17:00,
 RAP 17:00–23:00, and R&B 23:00–04:00, with the same 20-minute weighted media
 handoffs. **That schedule no longer controls automatic Hue colors.**
 
-The approved day artwork and blue/gold Auto palette run from sunrise to civil dusk.
-The night artwork and blue/violet Auto palette run from civil dusk to sunrise.
+The approved artwork remains unchanged: sky-blue/gold/waterfront by day and
+indigo/violet/illuminated waterfront by night. **AUTO generates new saturated
+Hue shades within curated complementary hue families**, including teal,
+jade, garnet and warm amber, instead of selecting from the handful of fixed
+artwork anchor HEX codes. Day and night retain their own brightness baselines.
+The original fixed artwork anchors remain available for legacy comparisons.
 The server calculates the next solar event at startup and schedules Hue's phase
 change for that exact boundary, with only hourly safety reconciliation for
 clock changes or sleep. It does not recalculate sunrise/dusk on every light
 write. The scheduler independently chooses a short (20–40 min), medium (50–80 min),
 or long (90–120 min) hold, with no fixed order or forced color cycle.
-It favors visibly different destinations without forbidding returning to a
-color after one intervening shade. Choices derive from a stable seeded
+It favors contrasting hue families and avoids A→B→A family backtracking,
+without a prescribed color-family rotation. The generation is reproducible
+from the event seed, so restarts do not reshuffle an active hold. Choices derive from a stable seeded
 sequence, preserving the current destination and its end time across service
 restarts. The 30-second server checks send a Hue command only when a
 destination actually changes. Each Hue Bridge fade lasts 180 seconds.
