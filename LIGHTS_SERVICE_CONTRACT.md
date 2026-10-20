@@ -36,8 +36,12 @@ The music schedule remains LOFI 04:00–10:00, LOUNGE 10:00–17:00,
 RAP 17:00–23:00, and R&B 23:00–04:00, with the same 20-minute weighted media
 handoffs. **That schedule no longer controls automatic Hue colors.**
 
-The approved day artwork and blue/gold Auto palette run from sunrise to civil dusk.
-The night artwork and blue/violet Auto palette run from civil dusk to sunrise.
+The approved day artwork and sky-blue/gold Auto palette run from sunrise to
+civil dusk, expanded with complementary teal, jade, ruby, coral and amethyst.
+The night artwork and indigo/violet Auto palette run from civil dusk to
+sunrise, with controlled accents in deep teal, jade, antique gold, garnet
+and salmon. This is color variety within the existing cinematic artwork
+direction, not a rainbow cycle; the approved artwork files are untouched.
 The server calculates the next solar event at startup and schedules Hue's phase
 change for that exact boundary, with only hourly safety reconciliation for
 clock changes or sleep. It does not recalculate sunrise/dusk on every light
