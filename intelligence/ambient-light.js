@@ -19,7 +19,8 @@ const PALETTES = Object.freeze({
       "#BE3E50", // ruby
       "#744AB0", // amethyst
     ],
-    // 35% blue, 35% gold, 15% copper, 10% coral, 5% rose.
+    // Legacy gradient preview sequence retains its original five anchors;
+    // live Hue hold scheduling selects across every accent above.
     sequence: [0, 0, 0, 4, 3, 2, 1, 1, 1, 1, 2, 3, 0, 0, 0, 2, 1, 1, 1, 0],
     brightness: 114,
     minSaturation: 0.68,
@@ -40,7 +41,8 @@ const PALETTES = Object.freeze({
       "#B48A35", // antique gold
       "#B43D4B", // garnet ruby
     ],
-    // 90% blue/violet anchors; 5% magenta and 5% salmon.
+    // Legacy gradient preview retains its original six anchors;
+    // live Hue hold scheduling selects across every accent above.
     sequence: [1, 0, 5, 2, 1, 0, 5, 2, 1, 0, 5, 2, 1, 0, 5, 2, 1, 3, 4, 2],
     brightness: 76,
     minSaturation: 0.74,
