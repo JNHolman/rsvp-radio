@@ -67,14 +67,22 @@ day's sunrise/dusk timestamps, and the next transition timestamp. The kiosk
 uses the next solar event timer plus an hourly reconciliation check and preserves the
 approved artwork transitions. On a
 short endpoint failure, it retains the last valid phase rather than abruptly
-switching scenes. Hue Auto uses rich blue, gold, copper, coral, and rose by day, and blue,
-violet, magenta, and salmon at night. It randomly chooses short (20–40 min),
+switching scenes. Hue Auto now generates new saturated shades within artwork-coordinated color
+families, rather than restricting the globe to a few anchor HEX codes. Day
+retains its blue/waterfront and sunlit gold identity while adding diverse
+complementary jewel tones. Night retains blue/indigo/violet waterfront mood
+while permitting deep teal, jade, garnet, ember and antique amber. It randomly chooses short (20–40 min),
 medium (50–80 min), or long (90–120 min) holds with no repeating order.
 Successive colors are varied but not forced through a fixed three-color
 cycle. The six club scenes use the same independently chosen hold lengths.
 Choices are deterministic for a given time and selection so a service
 restart does not reshuffle a hold. Each color change fades for 3 minutes,
-with no extra Hue writes during a hold. Music-derived bass/energy remains
+with no extra Hue writes during a hold. Run `node scripts/review-hue-spectrum.js`
+on the Pi to generate a **read-only** HTML contact sheet at
+`/tmp/rsvp-hue-spectrum-review.html`, embedding the locally approved stills
+next to thirty generated Day/Night shades. No live Hue actions, service
+restarts, Pi desktop changes or source artwork edits occur during review.
+Music-derived bass/energy remains
 available as analyzer telemetry, but no longer changes the globe's brightness.
 Club scenes remain selected through music handoffs and reboots until
 Auto is pressed.
