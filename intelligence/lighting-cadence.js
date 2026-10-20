@@ -1,12 +1,13 @@
 "use strict";
 
-// Artwork-matched Hue lighting: a single settled destination, held for a
-// genuinely varied interval, followed by one quiet bridge-managed fade.
+// Artwork-coordinated Hue lighting: a dynamically varied AUTO color (or
+// a club destination), held for an irregular interval, then one quiet fade.
 // Cryptographically mixed event choices are deterministic so a service
 // restart cannot reshuffle the selected color or upcoming hold boundaries.
 const { createHash } = require("node:crypto");
 const { PALETTES, rgbToXy } = require("./ambient-light");
 const { SCENES, hasScene } = require("./lighting-scenes");
+const { autoSpectrumColor } = require("./hue-spectrum");
 
 const FADE_MS = 180000;
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
@@ -55,16 +56,19 @@ function chooseColor(colors, previous, random) {
   return weighted[weighted.length - 1].color;
 }
 
-function nextEntry(selection, phase, origin, index, start, colors, previous) {
-  // Four independent 32-bit slices determine range, minutes and hue.
-  // The event index never resets at week boundaries.
+function nextEntry(selection, phase, origin, index, start, colors, history) {
+  // Independent hash slices choose hold band, hold length, and color.
+  // The versioned color seed preserves the old hold timing distribution.
   const bytes = createHash("sha256")
     .update(`rsvp-hue-v4|${selection}|${phase}|${origin}|${index}`)
     .digest();
   const band = HOLD_BANDS[bytes.readUInt32BE(0) % HOLD_BANDS.length];
   const durationMinutes = band[0] + bytes.readUInt32BE(4) % (band[1] - band[0] + 1);
-  const color = chooseColor(colors, previous, bytes.readUInt32BE(8));
-  return { start, until: start + durationMinutes * 60000, color, durationMinutes };
+  const recent = history.slice(-8);
+  const destination = selection === "auto"
+    ? autoSpectrumColor(phase, bytes.readUInt32BE(8), recent)
+    : { color: chooseColor(colors, recent.at(-1)?.color ?? null, bytes.readUInt32BE(8)) };
+  return { start, until: start + durationMinutes * 60000, ...destination, durationMinutes };
 }
 
 function lightingTarget(selection, phase, nowMs, startedAt = null) {
@@ -74,7 +78,7 @@ function lightingTarget(selection, phase, nowMs, startedAt = null) {
   if (!auto && !hasScene(selection)) throw new RangeError("invalid_lighting_selection");
 
   const palette = auto ? PALETTES[phase] : SCENES[selection];
-  const colors = auto ? palette.accents : palette[phase];
+  const colors = auto ? null : palette[phase];
   // Manual scene start is already persisted in runtime-state. Old manual
   // selections without a valid start get a fixed origin, not Date.now().
   const origin = !auto && Number.isFinite(startedAt) && startedAt > 0
@@ -92,10 +96,9 @@ function lightingTarget(selection, phase, nowMs, startedAt = null) {
   // Usually no work after the first tick. Reconstructing from origin means
   // all choices survive restarts without a new clock or disk write.
   while (!schedule.entries.length || nowMs >= schedule.entries[schedule.entries.length - 1].until) {
-    const last = schedule.entries[schedule.entries.length - 1];
     const entry = nextEntry(
       selection, phase, origin, schedule.entries.length,
-      schedule.nextStart, colors, last?.color ?? null,
+      schedule.nextStart, colors, schedule.entries,
     );
     schedule.entries.push(entry);
     schedule.nextStart = entry.until;
@@ -111,6 +114,7 @@ function lightingTarget(selection, phase, nowMs, startedAt = null) {
   const entry = schedule.entries[left];
   return {
     phase, selection, color: entry.color,
+    family: entry.family || null,
     xy: rgbToXy(rgb(entry.color)),
     bri: palette.brightness,
     durMs: FADE_MS,
