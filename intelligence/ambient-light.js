@@ -5,16 +5,41 @@
 const SLOT_MS = 11 * 60 * 1000;
 const PALETTES = Object.freeze({
   day: {
-    // Bright blue sky/water, golden sunlight, copper, coral and dusty rose.
-    accents: ["#287EC2", "#D69A37", "#B96A38", "#D47B65", "#B96C91"],
+    // Preserve the approved sky-blue/gold/waterfront anchors; add jewel-tone
+    // teal, jade, ruby and violet so daylight does not read as gold/pink only.
+    // New colors complement rather than replace the approved still artwork.
+    accents: [
+      "#287EC2", // clear-sky / waterfront blue
+      "#D69A37", // sunlit gold
+      "#B96A38", // copper
+      "#D47B65", // coral
+      "#B96C91", // dusty rose
+      "#168A97", // lagoon teal
+      "#247D62", // jewel jade
+      "#BE3E50", // ruby
+      "#744AB0", // amethyst
+    ],
     // 35% blue, 35% gold, 15% copper, 10% coral, 5% rose.
     sequence: [0, 0, 0, 4, 3, 2, 1, 1, 1, 1, 2, 3, 0, 0, 0, 2, 1, 1, 1, 0],
     brightness: 114,
     minSaturation: 0.68,
   },
   night: {
-    // Indigo/violet waterfront, blue highlights, rare magenta and salmon.
-    accents: ["#264CC0", "#352B91", "#6625A9", "#B52D8B", "#D36A61", "#3576C8"],
+    // Preserve the navy/indigo/waterfront purple-mist identity and its salmon
+    // accent; contrast with muted teal, jade, antique gold and deep ruby.
+    // Avoid bright lime or neon green against cinematic night artwork.
+    accents: [
+      "#264CC0", // cobalt
+      "#352B91", // midnight indigo
+      "#6625A9", // violet
+      "#B52D8B", // magenta
+      "#D36A61", // salmon
+      "#3576C8", // reflected blue
+      "#087D86", // deep lagoon teal
+      "#267D61", // emerald jade
+      "#B48A35", // antique gold
+      "#B43D4B", // garnet ruby
+    ],
     // 90% blue/violet anchors; 5% magenta and 5% salmon.
     sequence: [1, 0, 5, 2, 1, 0, 5, 2, 1, 0, 5, 2, 1, 0, 5, 2, 1, 3, 4, 2],
     brightness: 76,
