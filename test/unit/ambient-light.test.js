@@ -5,9 +5,11 @@ const { PALETTES, SLOT_MS, ambientTarget, approachAmbient } = require("../../int
 
 test("daylight Auto balances artwork sky blue and gold with warm supporting colors", () => {
   const p = PALETTES.day;
-  assert.deepEqual(p.accents, ["#287EC2", "#D69A37", "#B96A38", "#D47B65", "#B96C91"]);
+  assert.deepEqual(p.accents.slice(0, 5), ["#287EC2", "#D69A37", "#B96A38", "#D47B65", "#B96C91"]);
+  assert.deepEqual(p.accents.slice(5), ["#168A97", "#247D62", "#BE3E50", "#744AB0"]);
+  assert.equal(new Set(p.accents).size, 9);
   assert.equal(p.sequence.length, 20);
-  assert.deepEqual(p.accents.map((_, i) => p.sequence.filter(n => n === i).length), [7, 7, 3, 2, 1]);
+  assert.deepEqual(p.accents.slice(0, 5).map((_, i) => p.sequence.filter(n => n === i).length), [7, 7, 3, 2, 1]);
   assert.equal(p.brightness, 114);
   const blue = ambientTarget("day", 0.5 * SLOT_MS).xy;
   const gold = ambientTarget("day", 6.5 * SLOT_MS).xy;
@@ -17,7 +19,9 @@ test("daylight Auto balances artwork sky blue and gold with warm supporting colo
 
 test("nighttime Auto is blue/violet led, with limited magenta and salmon", () => {
   const p = PALETTES.night;
-  assert.deepEqual(p.accents, ["#264CC0", "#352B91", "#6625A9", "#B52D8B", "#D36A61", "#3576C8"]);
+  assert.deepEqual(p.accents.slice(0, 6), ["#264CC0", "#352B91", "#6625A9", "#B52D8B", "#D36A61", "#3576C8"]);
+  assert.deepEqual(p.accents.slice(6), ["#087D86", "#267D61", "#B48A35", "#B43D4B"]);
+  assert.equal(new Set(p.accents).size, 10);
   assert.equal(p.sequence.length, 20);
   assert.equal(p.sequence.filter(n => n === 3).length, 1);
   assert.equal(p.sequence.filter(n => n === 4).length, 1);
