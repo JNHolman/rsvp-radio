@@ -3,7 +3,10 @@
 /**
  * One-off, 15-second-per-color swatch preview for the real Hue globe.
  *
- * Shows the current rich day/night palette, 15 seconds per color.
+ * Shows the original approved day/night artwork anchor swatches, 15 seconds per color.
+ * LIVE AUTO now generates many more shades from curated color families.
+ * This legacy sampler remains for comparison only; use the read-only
+ * review-hue-spectrum.js contact sheet to inspect generated destinations.
  * --rich remains accepted as an alias for compatibility with earlier tests.
  * This manual sampler never changes the saved production palette.
  *
@@ -22,7 +25,7 @@ const TRANSITION_MS = 1000;
 function swatches() {
   return ["day", "night"].flatMap(phase => {
     const p = PALETTES[phase];
-    // V3 Auto has anchor colors and weighted time slots; it has no
+    // Historical artwork preview has anchor colors and weighted time slots; it has no
     // permanent "base" color. Preview each distinct anchor exactly once.
     return p.accents.map((hex, i) => ({
       phase, label: "color " + (i + 1), hex, bri: p.brightness,
@@ -63,7 +66,7 @@ async function main() {
     throw new Error("Test Hue adapter on :5006 cannot reach the bridge");
   }
   const colors = swatches();
-  console.log("[hue-swatches] Showing " + colors.length + " current rich day/night palette swatches, 15 seconds each.");
+  console.log("[hue-swatches] Showing legacy anchors: " + colors.length + " current rich day/night palette swatches, 15 seconds each.");
   console.log("[hue-swatches] Raw colors appear stronger than the normal slow ambient blends.");
   let stopped = false;
   const end = () => { stopped = true; };
