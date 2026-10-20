@@ -9,7 +9,10 @@ const os = require("node:os");
 const path = require("node:path");
 const { lightingTarget } = require("../intelligence/lighting-cadence");
 
-const ART_DIR = path.join(__dirname, "../public/assets/bg");
+// An isolated worktree may borrow the production artwork READ-ONLY without
+// touching production code, TV rendering, or either system service.
+const ART_DIR = process.env.RSVP_HUE_REVIEW_ART_DIR ||
+  path.join(__dirname, "../public/assets/bg");
 const OUT = path.join(os.tmpdir(), "rsvp-hue-spectrum-review.html");
 const ART = Object.freeze({
   day: "rsvp_day_art.webp",
