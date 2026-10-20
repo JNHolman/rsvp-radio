@@ -91,6 +91,33 @@ test("color and hold times survive process-level reload from the same source", (
   assert.deepEqual(restored, current);
 });
 
+test("live AUTO destinations span dynamic color families without ABAB backtracking", () => {
+  for (const phase of ["day", "night"]) {
+    let at = START;
+    const colors = new Set(), families = new Set(), recent = [];
+    const durations = new Set();
+    for (let i = 0; i < 120; i++) {
+      const chosen = lightingTarget("auto", phase, at);
+      const beginning = Number(chosen.key.slice(chosen.key.lastIndexOf(":") + 1));
+      const duration = (chosen.nextChangeAt - beginning) / 60000;
+      assert.ok(HOLD_BANDS.some(([lo, hi]) => duration >= lo && duration <= hi));
+      assert.equal(chosen.durMs, 180000);
+      assert.match(chosen.color, /^#[0-9A-F]{6}$/);
+      assert.ok(chosen.family, "dynamic AUTO colors must identify their family");
+      if (recent.length) assert.notEqual(chosen.family, recent.at(-1));
+      if (recent.length > 1) assert.notEqual(chosen.family, recent.at(-2));
+      colors.add(chosen.color);
+      families.add(chosen.family);
+      durations.add(duration);
+      recent.push(chosen.family);
+      at = chosen.nextChangeAt + 1;
+    }
+    assert.ok(colors.size >= 100, phase + " should vary generated shades");
+    assert.ok(families.size >= 9, phase + " should draw broadly across the spectrum");
+    assert.ok(durations.size >= 20, phase + " should retain varied hold lengths");
+  }
+});
+
 test("manual selection and solar phase overrides change context without waiting for a hold", () => {
   const before = lightingTarget("auto", "day", START);
   const after = lightingTarget("auto", "night", START);
