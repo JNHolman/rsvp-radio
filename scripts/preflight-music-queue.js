@@ -41,7 +41,7 @@ async function get(base, path, extra) {
   const registry = await get(pms, "/playlists");
   const all = [...list(registry.Playlist), ...list(registry.Metadata)];
   const audio = all.filter(x => attr(x, "playlistType").toLowerCase() === "audio");
-  const normalize = x => String(x || "").trim().toLowerCase().replace(/\\s+/g, " ");
+  const normalize = x => String(x || "").trim().toLowerCase().replace(/\s+/g, " ");
   const title = x => attr(x, "title").replace(/&amp;/g, "&");
   const byName = new Map(audio.map(x => [normalize(title(x)), x]));
   console.log("Audio playlists accessible to RSVP:", audio.length);
