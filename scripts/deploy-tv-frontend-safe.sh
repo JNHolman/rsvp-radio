@@ -49,7 +49,7 @@ fi
 
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
-mkdir -p "$TMP/base/public/app" "$TMP/fix/public/app" "$TMP/served/public/app"
+mkdir -p "$TMP/base/public/app" "$TMP/fix/public/app" "$TMP/served/public/app" "$TMP/merged/public/app"
 
 echo "Checking live port 3000 and existing frontend files..."
 for file in "${FILES[@]}"; do
@@ -61,13 +61,34 @@ for file in "${FILES[@]}"; do
   curl -fsSL --retry 2 "$REMOTE/$BASE/$file" -o "$TMP/base/$file"
   curl -fsSL --retry 2 "$REMOTE/$FIX/$file" -o "$TMP/fix/$file"
   curl -fsSL --max-time 8 "http://127.0.0.1:3000/${file#public/}" -o "$TMP/served/$file"
-  if ! cmp -s "$localfile" "$TMP/base/$file"; then
-    echo "STOP: local $file differs from the GitHub base; no files changed." >&2
-    exit 3
-  fi
   if ! cmp -s "$TMP/served/$file" "$localfile"; then
     echo "STOP: port 3000 serves a different $file; no files changed." >&2
     exit 3
+  fi
+
+  if [[ "$file" == "public/tv-refined.css" ]]; then
+    # The Pi has owner-approved drawer/lighting styles APPENDED to the base
+    # stylesheet. Keep that tail byte-for-byte, but refuse changes anywhere
+    # inside the original base. This avoids clobbering uncommitted design work.
+    base_bytes="$(wc -c < "$TMP/base/$file")"
+    local_bytes="$(wc -c < "$localfile")"
+    if (( local_bytes < base_bytes )) ||
+       ! head -c "$base_bytes" "$localfile" | cmp -s - "$TMP/base/$file"; then
+      echo "STOP: CSS differs inside the reviewed base, not just appended styling; no files changed." >&2
+      exit 3
+    fi
+
+    cp "$TMP/fix/$file" "$TMP/merged/$file"
+    if (( local_bytes > base_bytes )); then
+      tail -c +"$((base_bytes + 1))" "$localfile" >> "$TMP/merged/$file"
+      echo "Preserved appended RSVP TV drawer CSS ($((local_bytes - base_bytes)) bytes)."
+    fi
+  else
+    if ! cmp -s "$localfile" "$TMP/base/$file"; then
+      echo "STOP: local $file differs from the GitHub base; no files changed." >&2
+      exit 3
+    fi
+    cp "$TMP/fix/$file" "$TMP/merged/$file"
   fi
 done
 
@@ -89,20 +110,20 @@ restore() {
 }
 
 for file in "${FILES[@]}"; do
-  if ! cp "$TMP/fix/$file" "$WEBROOT/${file#public/}"; then
+  if ! cp "$TMP/merged/$file" "$WEBROOT/${file#public/}"; then
     restore
     exit 4
   fi
 done
 for file in "${FILES[@]}"; do
   if ! curl -fsSL --max-time 8 "http://127.0.0.1:3000/${file#public/}" -o "$TMP/served/$file" ||
-     ! cmp -s "$TMP/served/$file" "$TMP/fix/$file"; then
+     ! cmp -s "$TMP/served/$file" "$TMP/merged/$file"; then
     restore
     exit 4
   fi
 done
 
-echo "PASS: both corrected TV files are served on port 3000."
+echo "PASS: both corrected TV files are served on port 3000, preserving appended custom CSS."
 echo "BACKUP: $BACKUP"
 echo "No server or Hue restart was performed."
 echo "Reload the actual Pi Chromium kiosk page to activate the new code."
