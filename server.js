@@ -295,6 +295,7 @@ function _setManualMode(mode) {
   // Explicit operator intent wins immediately over any queued automatic work.
   _pendingPlaylistSwitch = null;
   _musicBlendSession = null;
+  _activeSteeringLane = null;
   _pendingVideoMode = null;
   _persistRuntimeState();
   console.log(`[mode] manual override → ${mode} (expires at next music blend ${new Date(expiresAt).toISOString()})`);
