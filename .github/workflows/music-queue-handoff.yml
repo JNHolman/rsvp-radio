@@ -7,6 +7,7 @@ on:
     paths:
       - server.js
       - intelligence/queue-handoff.js
+      - scripts/preflight-music-queue.js
       - test/unit/queue-handoff.test.js
       - test/unit/playlist-controller.test.js
       - shared/timeblocks.js
@@ -22,6 +23,6 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Check syntax
-        run: node --check server.js && node --check intelligence/queue-handoff.js
+        run: node --check server.js && node --check intelligence/queue-handoff.js && node --check scripts/preflight-music-queue.js
       - name: Focused queue and schedule tests
         run: node --test test/unit/queue-handoff.test.js test/unit/playlist-controller.test.js test/unit/blend-policy.test.js test/unit/plex-queue.test.js test/unit/automation-policy.test.js
