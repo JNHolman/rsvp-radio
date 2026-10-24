@@ -461,6 +461,10 @@ function _prepareScheduledTrack(blend, currentTrackKey, scheduledMode) {
   })().catch(err => console.warn("[playlist] safe queue preparation error:", err.message));
 }
 
+// Current video file path — kept server-side only, never exposed in /state.
+// Preserve this declaration when refactoring playlist handoff code.
+let _currentVideoPath = "";
+
 // ── Plexamp pause/resume ──────────────────────────────────────────────────────
 // Only pause Plexamp if it was actively playing when video started.
 // Only resume if RSVP Radio was the one that paused it.
