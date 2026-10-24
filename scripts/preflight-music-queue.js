@@ -38,29 +38,47 @@ async function get(base, path, extra) {
   const sections = new Map(list(sect.Directory).map(x => [attr(x,"key"), !!attr(x,"uuid")]));
   console.log("Plex library sections:", sections.size);
 
-  for (const [name, id] of Object.entries({
-    morning: cfg.PLAYLIST_LOFI,
-    daytime: cfg.PLAYLIST_LOUNGE,
-    evening: cfg.PLAYLIST_RAP,
-    night: cfg.PLAYLIST_RNB,
-  })) {
-    if (!/^\d+$/.test(String(id || ""))) {
-      console.log(name + ": playlist not configured");
+  const registry = await get(pms, "/playlists");
+  const all = [...list(registry.Playlist), ...list(registry.Metadata)];
+  const audio = all.filter(x => attr(x, "playlistType").toLowerCase() === "audio");
+  const normalize = x => String(x || "").trim().toLowerCase().replace(/\\s+/g, " ");
+  const title = x => attr(x, "title").replace(/&amp;/g, "&");
+  const byName = new Map(audio.map(x => [normalize(title(x)), x]));
+  console.log("Audio playlists accessible to RSVP:", audio.length);
+  for (const p of audio) console.log("  " + attr(p, "ratingKey") + ": " + title(p));
+
+  const pools = {
+    morning: cfg.MUSIC_POOL_LOFI,
+    daytime: cfg.MUSIC_POOL_LOUNGE,
+    evening: cfg.MUSIC_POOL_RAP,
+    night: cfg.MUSIC_POOL_RNB,
+  };
+  for (const [name, configured] of Object.entries(pools)) {
+    const names = String(configured || "").split("|").map(x => x.trim()).filter(Boolean);
+    if (!names.length) {
+      console.log(name + ": no owner-approved sources assigned");
       continue;
     }
-    try {
-      const mc = await get(pms, "/playlists/" + id + "/items", {
-        "X-Plex-Container-Start": 0,
-        "X-Plex-Container-Size": 5000,
-      });
-      const songs = list(mc.Track);
-      const reported = Number(attr(mc,"totalSize") || attr(mc,"size") || songs.length);
-      const missingSection = songs.some(x => !sections.get(attr(x,"librarySectionID")));
-      console.log(name + ": " + songs.length + "/" + reported +
-        " tracks returned; full=" + (reported === songs.length) +
-        "; library_uuid_available=" + !missingSection);
-    } catch (e) {
-      console.log(name + ": read failed (" + e.message + ")");
+    for (const desired of names) {
+      const p = byName.get(normalize(desired));
+      if (!p) {
+        console.log(name + ": source NOT FOUND (" + desired + ")");
+        continue;
+      }
+      const id = attr(p, "ratingKey");
+      try {
+        const mc = await get(pms, "/playlists/" + id + "/items", {
+          "X-Plex-Container-Start": 0, "X-Plex-Container-Size": 5000,
+        });
+        const songs = list(mc.Track);
+        const reported = Number(attr(mc, "totalSize") || attr(mc, "size") || songs.length);
+        const missingSection = songs.some(x => !sections.get(attr(x, "librarySectionID")));
+        console.log(name + ": " + title(p) + " [" + id + "] " +
+          songs.length + "/" + reported + " tracks; complete=" +
+          (reported === songs.length) + "; library_uuid_available=" + !missingSection);
+      } catch (e) {
+        console.log(name + ": " + desired + " read failed (" + e.message + ")");
+      }
     }
   }
   console.log("No changes made. No player commands sent.");
