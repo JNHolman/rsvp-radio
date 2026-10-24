@@ -7,8 +7,12 @@
  * The Plex *music library* is not the same thing as the set of RSVP playlists.
  * New recordings may be scanned into the former but not added to the latter.
  */
-const { XMLParser } = require("fast-xml-parser");
-const { decodeXmlEntities } = require("./plex-parser");
+const path = require("node:path");
+// CLI is downloaded to /tmp, while dependencies and config stay in the
+// working RSVP checkout. Production use also starts with repo as cwd.
+const root = process.cwd();
+const { XMLParser } = require(path.join(root, "node_modules/fast-xml-parser"));
+const { decodeXmlEntities } = require(path.join(root, "intelligence/plex-parser"));
 const xml = new XMLParser({
   ignoreAttributes: false, attributeNamePrefix: "@_", processEntities: false,
 });
@@ -137,3 +141,82 @@ function reviewReport({ libraryTracks, playlists, entriesByPlaylist, asOfMs = Da
 module.exports = {
   parseSections, parseAudioPlaylists, parseTrackPage, loadPages, reviewReport,
 };
+
+/** One-shot no-write CLI. Browser and Plexamp are not contacted. */
+async function runReadOnlyAudit() {
+  require(path.join(root, "node_modules/dotenv"))
+    .config({ path: path.join(root, ".env"), quiet: true });
+  const cfg = require(path.join(root, "config"));
+  const base = String(cfg.PLEX_BASE || "").replace(/\\/+$/, "");
+  if (!base || !cfg.PLEX_TOKEN) throw new Error("missing_Plex_configuration");
+  const scanDays = 30;
+  const get = async (endpoint, params = {}) => {
+    const u = new URL(base + endpoint);
+    u.searchParams.set("X-Plex-Token", cfg.PLEX_TOKEN);
+    for (const [k,v] of Object.entries(params)) u.searchParams.set(k, String(v));
+    const res = await fetch(u, { method: "GET", signal: AbortSignal.timeout(20000) });
+    if (!res.ok) throw new Error("Plex_READ_HTTP_" + res.status + ": " + endpoint);
+    return res.text();
+  };
+  console.log("RSVP MUSIC LIBRARY INTAKE — READ ONLY");
+  console.log("Comparing ALL Plex music tracks with currently listed RSVP audio playlists.");
+  console.log("No write, no admission, no new manifest, no playback commands.\n");
+  const sections = parseSections(await get("/library/sections"));
+  if (!sections || !sections.length) throw new Error("no_explicit_music_library_sections_found");
+  const playlists = parseAudioPlaylists(await get("/playlists"));
+  if (!playlists) throw new Error("music_playlist_registry_unavailable");
+
+  const libraryTracks = [];
+  for (const section of sections) {
+    console.log("Reading music library: " + section.name + " [" + section.id + "]");
+    const tracks = await loadPages(get, "/library/sections/" + section.id + "/all", { type: 10 });
+    console.log("  Tracks read: " + tracks.length);
+    libraryTracks.push(...tracks);
+  }
+  const entriesByPlaylist = new Map();
+  for (const list of playlists) {
+    // Playlists are expected to be small; use the same complete paging check.
+    const tracks = await loadPages(get, "/playlists/" + list.id + "/items", {}, {
+      pageSize: 250, requireTotal: false, maxItems: 20000,
+    });
+    entriesByPlaylist.set(list.id, tracks);
+    console.log("Playlist: " + list.name + " [" + list.id + "] — " + tracks.length + " tracks");
+  }
+  const report = reviewReport({ libraryTracks, playlists, entriesByPlaylist, days: scanDays });
+  console.log("\n===== LIBRARY VERSUS PLAYLISTS =====");
+  console.log("Full Plex music library tracks: " + report.libraryTracks);
+  console.log("Audio playlists / entries: " + report.playlists + " / " + report.playlistEntries);
+  console.log("Unique tracks in any current music playlist: " + report.uniquePlaylistTracks);
+  console.log("Tracks outside all listed music playlists: " + report.outsideCount);
+  console.log("Items listed but not found in scanned music libraries: " +
+    (report.allPlaylistItemsInLibrary ? "0" : "one or more (investigate)"));
+  console.log("Recent library additions, last " + scanDays + " days: " + report.recentCount);
+  console.log("Recent additions not represented in these playlists: " + report.recentOutsideCount);
+  console.log("Library tracks with no readable addedAt: " + report.missingAddedAt);
+  console.log("\n===== GENRE TAGS (EVIDENCE ONLY) =====");
+  console.log("Tracks with genre tags in library listing: " + report.genreTagCoverage +
+    " / " + report.libraryTracks);
+  console.log("Reggae/Dancehall-tagged tracks: " + report.reggaeTaggedCount +
+    "; outside playlists: " + report.reggaeTaggedOutside);
+  console.log("Afrobeats/Afropop-tagged tracks: " + report.afrobeatsTaggedCount +
+    "; outside playlists: " + report.afrobeatsTaggedOutside);
+  console.log("These are explicit Plex-tag matches, NOT the full owned reggae catalog.");
+  const print = (title, tracks) => {
+    console.log("\n" + title + ":");
+    if (!tracks.length) console.log("  None detected from available tags/dates");
+    for (const t of tracks) {
+      console.log("  " + t.id + " | " + (t.artist || "Unknown") + " — " +
+        (t.title || "Untitled") + " | " + (t.genres.join(", ") || "genre unknown"));
+    }
+  };
+  print("Recent additions outside RSVP music playlists (up to 15)", report.recentOutside);
+  print("Reggae/Dancehall-tagged tracks outside playlists (up to 15)", report.reggaeOutside);
+  print("Afrobeats/Afropop-tagged tracks outside playlists (up to 10)", report.afrobeatsOutside);
+  console.log("\nDiscovery is NOT approval. No files, queues, playlists, or metadata changed.");
+}
+if (require.main === module) {
+  runReadOnlyAudit().catch(err => {
+    console.error("INTAKE READ STOPPED:", err.message);
+    process.exitCode = 1;
+  });
+}
