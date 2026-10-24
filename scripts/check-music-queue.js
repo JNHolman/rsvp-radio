@@ -7,7 +7,7 @@
  * Never writes, queues, plays, skips, pauses, or exposes authentication tokens.
  */
 const path = require("node:path");
-const root = path.resolve(__dirname, "..");
+const root = process.cwd(); // Run from the checked-out /home/pi/rsvp-radio directory.
 require(path.join(root, "node_modules/dotenv")).config({ path: path.join(root, ".env"), quiet: true });
 const cfg = require(path.join(root, "config"));
 const { XMLParser } = require(path.join(root, "node_modules/fast-xml-parser"));
