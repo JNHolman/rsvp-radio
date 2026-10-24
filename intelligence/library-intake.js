@@ -59,35 +59,43 @@ function parseTrackPage(text, { requireTotal = true } = {}) {
   if (tracks.some(t => !t.id)) return null;
   const totalRaw = attr(mc, "totalSize");
   if (requireTotal && !/^\d+$/.test(totalRaw)) return null;
-  const total = /^\d+$/.test(totalRaw) ? Number(totalRaw) : tracks.length;
-  if (!Number.isSafeInteger(total) || total < tracks.length) return null;
+  const total = /^\d+$/.test(totalRaw) ? Number(totalRaw) : null;
+  if (total !== null && (!Number.isSafeInteger(total) || total < tracks.length)) return null;
   return { total, tracks };
 }
 
 /** Require complete, stable pagination. No partial totals disguised as facts. */
 async function loadPages(get, path, params = {}, { pageSize = 250, maxItems = 50000, requireTotal = true } = {}) {
   const result = [], seen = new Set();
-  let expected = null;
+  let expected; // undefined until first page; null means totalSize unavailable
   for (let start = 0; ; start += pageSize) {
     const text = await get(path, {
       ...params, "X-Plex-Container-Start": start, "X-Plex-Container-Size": pageSize,
     });
     const page = parseTrackPage(text, { requireTotal });
     if (!page) throw new Error("incomplete_or_unreadable_page: " + path + " @" + start);
-    if (expected === null) {
+    if (expected === undefined) {
       expected = page.total;
-      if (expected > maxItems) throw new Error("safety_cap_exceeded: " + expected);
+      if (expected !== null && expected > maxItems) throw new Error("safety_cap_exceeded: " + expected);
     }
     if (page.total !== expected) throw new Error("library_changed_during_scan");
-    if (page.tracks.length === 0 && start < expected) throw new Error("empty_middle_page");
+    if (expected !== null && page.tracks.length === 0 && start < expected) {
+      throw new Error("empty_middle_page");
+    }
     for (const track of page.tracks) {
       if (seen.has(track.id)) throw new Error("duplicate_track_in_pages: " + track.id);
       seen.add(track.id);
       result.push(track);
     }
-    if (result.length === expected) return result;
-    if (result.length > expected || result.length > maxItems || page.tracks.length !== Math.min(pageSize, expected - start)) {
-      throw new Error("pagination_incomplete");
+    if (result.length > maxItems) throw new Error("safety_cap_exceeded: " + result.length);
+    if (expected !== null) {
+      if (result.length === expected) return result;
+      if (result.length > expected || page.tracks.length !== Math.min(pageSize, expected - start)) {
+        throw new Error("pagination_incomplete");
+      }
+    } else if (page.tracks.length < pageSize) {
+      // A playlist may omit totalSize; only a short/empty page ends the scan.
+      return result;
     }
   }
 }
@@ -147,7 +155,7 @@ async function runReadOnlyAudit() {
   require(path.join(root, "node_modules/dotenv"))
     .config({ path: path.join(root, ".env"), quiet: true });
   const cfg = require(path.join(root, "config"));
-  const base = String(cfg.PLEX_BASE || "").replace(/\\/+$/, "");
+  const base = String(cfg.PLEX_BASE || "").replace(/\/+$/, "");
   if (!base || !cfg.PLEX_TOKEN) throw new Error("missing_Plex_configuration");
   const scanDays = 30;
   const get = async (endpoint, params = {}) => {
