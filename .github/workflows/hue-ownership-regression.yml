@@ -1,0 +1,24 @@
+name: RSVP Hue ownership regression
+on:
+  push:
+    branches:
+      - fix/hue-bridge-settled-color-20261024
+  pull_request:
+    branches:
+      - feature/hue-artwork-harmony-expanded-auto-20261019
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Verify Hue JavaScript syntax
+        run: |
+          node --check hue/ownership.js
+          node --check hue-adapter.js
+      - name: Run full regression suite
+        run: npm test
