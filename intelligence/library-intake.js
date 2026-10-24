@@ -234,6 +234,49 @@ async function runReadOnlyAudit() {
   print("Recent additions outside RSVP music playlists (up to 15)", report.recentOutside);
   print("Reggae/Dancehall-tagged tracks outside playlists (up to 15)", report.reggaeOutside);
   print("Afrobeats/Afropop-tagged tracks outside playlists (up to 10)", report.afrobeatsOutside);
+  const toInspect = [
+    ...new Map(
+      [...report.recentOutside, ...report.reggaeOutside, ...report.afrobeatsOutside]
+        .map(item => [item.id, item]),
+    ).values(),
+  ].slice(0, 25);
+  console.log("\n===== FULL PLEX RECORDS FOR UNLISTED CANDIDATES =====");
+  const detail = async id => {
+    try {
+      const mc = parse(await get("/library/metadata/" + id));
+      const t = arr(mc?.Track)[0] || arr(mc?.Metadata)[0];
+      if (!t) return { status: "record_not_returned" };
+      const tagNames = key => arr(t[key]).map(x => dec(attr(x, "tag"))).filter(Boolean);
+      return {
+        status: "ok", year: attr(t, "year") || attr(t, "parentYear") || "unknown",
+        moods: tagNames("Mood"), genres: tagNames("Genre"),
+        album: dec(attr(t, "parentTitle")) || "unknown",
+      };
+    } catch (err) {
+      return { status: "read_failed: " + err.message };
+    }
+  };
+  for (const item of toInspect) {
+    const meta = await detail(item.id);
+    console.log("  " + item.id + " | " + item.artist + " — " + item.title +
+      " | " + (meta.status === "ok"
+        ? "year=" + meta.year + " | album=" + meta.album +
+          " | genre=" + (meta.genres.join(", ") || "none") +
+          " | mood=" + (meta.moods.slice(0, 5).join(", ") || "none")
+        : meta.status));
+  }
+  // A missing listing may be stale or a library-scanning discrepancy.
+  // Read records for diagnosis only; never delete/repair in this audit.
+  if (report.playlistOnly.length) {
+    console.log("\n===== INVESTIGATE PLAYLIST-ONLY TRACK IDs =====");
+    for (const item of report.playlistOnly) {
+      const meta = await detail(item.id);
+      console.log("  " + item.id + " | " + item.playlists.join(" / ") +
+        " | full Plex record: " + (meta.status === "ok"
+          ? "exists, year=" + meta.year + ", album=" + meta.album
+          : meta.status));
+    }
+  }
   console.log("\nDiscovery is NOT approval. No files, queues, playlists, or metadata changed.");
 }
 if (require.main === module) {
