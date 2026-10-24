@@ -439,9 +439,10 @@ function _prepareScheduledTrack(blend, currentTrackKey, scheduledMode) {
   _queueHandoff.prepareNext({
     playlistRatingKey: playlistKey,
     expectedRatingKey: currentTrackKey,
+    // The live Plexamp timeline verifies the exact song. lastState can still
+    // describe the PREVIOUS song during the first poll of a track change.
     isAllowed: () => _automation.enabled && !_isManualActive() &&
-      _roomOwner === "radio" && !_videoMode.active &&
-      (lastState.media?.ratingKey === currentTrackKey || lastState.media?.ratingKey === undefined),
+      _roomOwner === "radio" && !_videoMode.active,
   }).then(result => {
     if (result.ok) {
       _lastCommandedPlaylist = playlistKey;
