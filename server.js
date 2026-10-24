@@ -383,7 +383,7 @@ async function _fireImmediatePlaylistSwitch(mode, reason) {
   // Explicit operator controls remain immediate, but the requested source
   // must still exist in the current authenticated Plex music catalog.
   if (!_isPlayingNow()) {
-    console.log(`[playlist] idle — not sending manual ${mode} switch (${reason})`);
+    console.log(`[playlist] idle — not sending ${mode} switch (${reason})`);
     return;
   }
   const selected = await _playlistCatalog.resolveMode(mode, { deterministic: true });
