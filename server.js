@@ -256,6 +256,7 @@ function _stopAutomation() {
   // track/clip ending before the next poll cannot fire stale work.
   _pendingPlaylistSwitch = null;
   _musicBlendSession = null;
+  _activeSteeringLane = null;
   _pendingVideoMode = null;
   _persistRuntimeState();
 }
@@ -366,11 +367,14 @@ const _steering = laneSteering.createSteering({
 // Automated decisions prepare a single following song on the EXISTING
 // Plexamp queue. They must never replace currently playing audio.
 // Manual mode selections remain immediate and use playMedia below.
-let _requestedSteeringLane = null;
+let _activeSteeringLane = null;
 function _queueLaneSwitch(lane, reason) {
   if (!lane?.key) return;
-  _requestedSteeringLane = { key: lane.key, name: lane.name, reason };
-  console.log(`[steering] requested next automatic lane ${lane.name} (${reason}); never interrupt active track`);
+  _activeSteeringLane = {
+    key: lane.key, mode: _steering.snapshot().activeMode || blockModeForNow(),
+    name: lane.name,
+  };
+  console.log(`[steering] selected lane ${lane.name} (${reason}); next song queued safely`);
 }
 
 function _fireImmediatePlaylistSwitch(mode, reason) {
@@ -420,6 +424,7 @@ function _prepareScheduledTrack(blend, currentTrackKey, scheduledMode) {
       boundaryMs: blend.boundaryMs, fromMode: blend.fromMode,
       toMode: blend.toMode, sourceMode: blend.fromMode,
     };
+    _activeSteeringLane = null; // a new scheduled block overrides the old lateral lane
     console.log(`[playlist] queue-safe blend started ${blend.fromMode}→${blend.toMode}`);
   } else if (!blend && _musicBlendSession) {
     console.log(`[playlist] blend completed; now scheduling ${scheduledMode} exclusively`);
@@ -432,7 +437,8 @@ function _prepareScheduledTrack(blend, currentTrackKey, scheduledMode) {
     selectedMode = selectedMode === blend.fromMode ? blend.toMode : blend.fromMode;
     playlistKey = playlistCtl.playlistKeyForMode(selectedMode, cfg);
   }
-  const steering = !blend ? _requestedSteeringLane : null;
+  const steering = !blend && _activeSteeringLane?.mode === scheduledMode
+    ? _activeSteeringLane : null;
   if (steering?.key) playlistKey = steering.key;
   if (!playlistKey) return;
 
@@ -449,9 +455,6 @@ function _prepareScheduledTrack(blend, currentTrackKey, scheduledMode) {
       if (_musicBlendSession && blend && _musicBlendSession.boundaryMs === blend.boundaryMs) {
         _musicBlendSession.sourceMode = selectedMode;
       }
-    }
-    if (steering && result.reason !== "busy" && _requestedSteeringLane === steering) {
-      _requestedSteeringLane = null;
     }
   }).catch(err => console.warn("[playlist] safe queue preparation error:", err.message));
 }
@@ -1579,6 +1582,7 @@ async function pollSessions() {
         t.playerState === "playing") {
       if (!_firstStartAligned) _firstStartAligned = true;
       if (_lastBlockMode && _lastBlockMode !== timeBlockMode) {
+        _activeSteeringLane = null;
         _steering.onBoundaryOrModeChange(timeBlockMode);
       }
       _prepareScheduledTrack(musicBlend, t.ratingKey, timeBlockMode);
@@ -2171,7 +2175,7 @@ app.post("/mode/clear", async (_req, res) => {
   } else {
     // Rejoin safely on the next poll; never replace an active song.
     _pendingPlaylistSwitch = null;
-    _requestedSteeringLane = null;
+    _activeSteeringLane = null;
   }
 
   await _syncScheduledLights().catch((err) =>
