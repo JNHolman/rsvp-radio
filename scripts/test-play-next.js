@@ -54,10 +54,11 @@ async function queue(queueId) {
   });
   if (!r.ok) throw new Error("Queue GET HTTP " + r.status);
   const tracks = [...arr(r.container.Metadata), ...arr(r.container.Track)];
-  const count = Number(attr(r.container, "playQueueTotalCount") || tracks.length);
-  if (count !== tracks.length) throw new Error("Queue truncated; refusing write");
-  if (tracks.some(t => !id(attr(t, "playQueueItemID")))) {
-    throw new Error("Queue item IDs not available");
+  // Plex returns a window around the selected track for large queues;
+  // playQueueTotalCount is NOT the number of Metadata entries returned.
+  // We only need the current item, its successor, and their stable item IDs.
+  if (!tracks.length || tracks.some(t => !id(attr(t, "playQueueItemID")))) {
+    throw new Error("No usable queue window/item IDs returned");
   }
   return tracks;
 }
@@ -75,7 +76,14 @@ async function main() {
   const original = await queue(before.context.queueId);
   const currentIndex = original.findIndex(x =>
     id(attr(x, "playQueueItemID")) === before.context.itemId);
-  if (currentIndex < 0) throw new Error("Current track not found in queue");
+  if (currentIndex < 0) throw new Error("Current track not in returned queue window");
+  // For the insertion/rollback test, require a known immediate successor.
+  // If Plex's window ends on the current track, we cannot verify placement.
+  if (currentIndex + 1 >= original.length) {
+    throw new Error("Queue window lacks next track; no write performed");
+  }
+  const originalNextId = id(attr(original[currentIndex + 1], "playQueueItemID"));
+  console.log("Queue window:", original.length, "items around the active position");
 
   const registry = await request(cfg.PLEX_BASE, "/playlists");
   if (!registry.ok) throw new Error("Playlist registry HTTP " + registry.status);
@@ -131,7 +139,16 @@ async function main() {
   if (recheck.state !== "playing" || !sameCurrent(before.context, recheck.context)) {
     throw new Error("Playback changed while confirming; no queue write");
   }
-  const originalItemIds = new Set(original.map(x => id(attr(x, "playQueueItemID"))));
+  // Confirm both the song and its immediate successor are still the same.
+  // Never disturb a phone-initiated queue edit made during our prompt.
+  const queueImmediatelyBefore = await queue(before.context.queueId);
+  const currentBeforeIndex = queueImmediatelyBefore.findIndex(x =>
+    id(attr(x, "playQueueItemID")) === before.context.itemId);
+  const nextBeforeId = id(attr(queueImmediatelyBefore[currentBeforeIndex + 1], "playQueueItemID"));
+  if (currentBeforeIndex < 0 || nextBeforeId !== originalNextId) {
+    throw new Error("Queue changed during confirmation; no write performed");
+  }
+  const originalItemIds = new Set(queueImmediatelyBefore.map(x => id(attr(x, "playQueueItemID"))));
   const uri = "library://" + uuid + "/item/library/metadata/" + choiceKey;
   // Even if PUT times out after Plex processes it, inspect the queue for
   // the newly inserted item and try to remove that exact item.
@@ -147,18 +164,20 @@ async function main() {
     }
     console.log("Play Next PUT HTTP:", putStatus);
     const after = await queue(before.context.queueId);
-    const changed = after.filter(x => !originalItemIds.has(id(attr(x, "playQueueItemID"))) &&
-      id(attr(x, "ratingKey")) === choiceKey);
-    if (changed.length === 1) insertedId = id(attr(changed[0], "playQueueItemID"));
-    else if (changed.length > 1) console.log("WARNING: multiple matching insertions; no automatic removal");
+    const idx = after.findIndex(x => id(attr(x, "playQueueItemID")) === before.context.itemId);
+    const next = idx < 0 ? null : after[idx + 1];
+    // Only a NEW item directly following the unchanged current item can
+    // be considered this test's insertion. Never remove an existing item.
+    if (next && id(attr(next, "ratingKey")) === choiceKey &&
+        !originalItemIds.has(id(attr(next, "playQueueItemID")))) {
+      insertedId = id(attr(next, "playQueueItemID"));
+    }
     const afterTimeline = await timeline();
     console.log("Playback remains playing:", afterTimeline.state === "playing");
     console.log("Current song unchanged:", sameCurrent(before.context, afterTimeline.context));
-    console.log("Inserted song found:", !!insertedId);
-    const idx = after.findIndex(x => id(attr(x, "playQueueItemID")) === before.context.itemId);
-    const next = idx < 0 ? null : after[idx + 1];
-    console.log("Now next:", next ? attr(next, "title") : "not found");
-    console.log("Current queue entries after insert:", after.length);
+    console.log("Inserted immediately after current:", !!insertedId);
+    console.log("Now next:", next ? attr(next, "title") : "not in returned window");
+    console.log("Queue window after insert:", after.length);
   } finally {
     if (insertedId) {
       // Only the exact new item. Never delete a previous queue entry.
@@ -166,9 +185,17 @@ async function main() {
         "/playQueues/" + before.context.queueId + "/items/" + insertedId,
         { method: "DELETE" });
       console.log("Test-item rollback DELETE HTTP:", del.status);
-      const final = await queue(before.context.queueId);
-      console.log("Test item removed:", !final.some(x =>
-        id(attr(x, "playQueueItemID")) === insertedId));
+      if (del.ok) {
+        const final = await queue(before.context.queueId);
+        console.log("Test item removed:", !final.some(x =>
+          id(attr(x, "playQueueItemID")) === insertedId));
+        const currentFinalIndex = final.findIndex(x =>
+          id(attr(x, "playQueueItemID")) === before.context.itemId);
+        const nextFinalId = id(attr(final[currentFinalIndex + 1], "playQueueItemID"));
+        console.log("Original next song restored:", nextFinalId === originalNextId);
+      } else {
+        console.log("WARNING: test-item removal failed; inspect Up Next in Plexamp.");
+      }
       const still = await timeline();
       console.log("Playback still playing:", still.state === "playing");
     } else {
