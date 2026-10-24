@@ -10,6 +10,8 @@ on:
       - intelligence/playlist-catalog.js
       - config.js
       - scripts/preflight-music-queue.js
+      - scripts/check-music-queue.js
+      - scripts/test-play-next.js
       - test/unit/queue-handoff.test.js
       - test/unit/playlist-catalog.test.js
       - test/unit/playlist-controller.test.js
@@ -26,7 +28,7 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Check syntax
-        run: node --check server.js && node --check intelligence/queue-handoff.js && node --check intelligence/playlist-catalog.js && node --check scripts/preflight-music-queue.js
+        run: node --check server.js && node --check intelligence/queue-handoff.js && node --check intelligence/playlist-catalog.js && node --check scripts/preflight-music-queue.js && node --check scripts/check-music-queue.js && node --check scripts/test-play-next.js
       - name: Focused queue and schedule tests
         run: node --test test/unit/playlist-catalog.test.js test/unit/queue-handoff.test.js test/unit/playlist-controller.test.js test/unit/blend-policy.test.js test/unit/plex-queue.test.js test/unit/automation-policy.test.js
       - name: Full unit and integration suite
