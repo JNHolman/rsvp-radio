@@ -99,6 +99,8 @@ test("30-day intake report counts unlisted new music but never approves it", () 
   assert.equal(report.libraryTracks,4);
   assert.equal(report.playlistEntries,1);
   assert.equal(report.outsideCount,3);
+  assert.equal(report.playlistOnlyCount,0);
+  assert.deepEqual(report.playlistOnly,[]);
   assert.equal(report.recentCount,2);
   assert.equal(report.recentOutsideCount,2);
   assert.equal(report.reggaeTaggedCount,2);
@@ -108,4 +110,25 @@ test("30-day intake report counts unlisted new music but never approves it", () 
   assert.equal(report.missingAddedAt,1);
   assert.equal(report.recentOutside[0].id,"2");
   assert.equal(Object.hasOwn(report,"approved"),false);
+});
+
+test("library intake identifies playlist-only IDs with source playlist names without deletion", () => {
+  const report = reviewReport({
+    libraryTracks: [
+      { id: "1", title: "Catalogued", artist: "Artist", addedAt: null, genres: [] },
+    ],
+    playlists: [{ id: "10", name: "90s R&B" }, { id: "11", name: "80s R&B" }],
+    entriesByPlaylist: new Map([
+      ["10", [{ id: "1", title: "Catalogued", artist: "Artist" },
+              { id: "9", title: "Unknown", artist: "Someone" }]],
+      ["11", [{ id: "9", title: "Unknown", artist: "Someone" }]],
+    ]),
+  });
+  assert.equal(report.playlistOnlyCount, 1);
+  assert.deepEqual(report.playlistOnly, [{
+    id: "9", playlists: ["90s R&B", "80s R&B"],
+    title: "Unknown", artist: "Someone",
+  }]);
+  assert.equal(report.outsideCount, 0);
+  assert.equal(report.allPlaylistItemsInLibrary, false);
 });
