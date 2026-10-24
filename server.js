@@ -35,6 +35,7 @@ const plexSync    = require("./intelligence/plex-sync");
 const session     = require("./intelligence/session");
 const playlistCtl = require("./intelligence/playlist-controller");
 const { createQueueHandoff } = require("./intelligence/queue-handoff");
+const { createPlaylistCatalog } = require("./intelligence/playlist-catalog");
 const blendPolicy = require("./intelligence/blend-policy");
 const videoBlendPolicy = require("./intelligence/video-blend-policy");
 const videoRecovery = require("./intelligence/video-recovery");
@@ -378,31 +379,33 @@ function _queueLaneSwitch(lane, reason) {
   console.log(`[steering] selected lane ${lane.name} (${reason}); next song queued safely`);
 }
 
-function _fireImmediatePlaylistSwitch(mode, reason) {
-  const playlistKey = playlistCtl.playlistKeyForMode(mode, cfg);
-  if (!playlistKey) {
-    console.log(`[playlist] would switch to ${mode} (${reason}) but playlist not configured`);
-    return;
-  }
+async function _fireImmediatePlaylistSwitch(mode, reason) {
+  // Explicit operator controls remain immediate, but the requested source
+  // must still exist in the current authenticated Plex music catalog.
   if (!_isPlayingNow()) {
     console.log(`[playlist] idle — not sending manual ${mode} switch (${reason})`);
     return;
   }
-  // This method is for explicit manual controls only. Automatic handoffs
-  // use _prepareScheduledTrack() and never call playMedia.
+  const selected = await _playlistCatalog.resolveMode(mode, { deterministic: true });
+  if (!selected.ok) {
+    console.warn(`[playlist] operator ${mode} not executed: ${selected.reason}`);
+    return;
+  }
+  if (reason === "manual override" && (!_isManualActive() || _manualMode?.mode !== mode)) return;
+  if (!_isPlayingNow() || _roomOwner !== "radio") return;
+
   _operatorSwitchGuard = { ratingKey: lastState.media?.ratingKey || "", at: Date.now() };
-  console.log(`[playlist] operator immediate switch → ${mode} (${reason})`);
-  playlistCtl.playPlaylist({
-    playlistRatingKey: playlistKey,
+  console.log(`[playlist] operator immediate switch → ${selected.name} (${reason})`);
+  const result = await playlistCtl.playPlaylist({
+    playlistRatingKey: selected.playlistKey,
     plexBase: cfg.PLEX_BASE,
     plexToken: cfg.PLEX_TOKEN,
     clientId: PLEXAMP_PI_ID,
     fetchWithTimeout,
     timeoutMs: cfg.POLL_TIMEOUT_MS,
-  }).then(result => {
-    if (result.ok) _lastCommandedPlaylist = playlistKey;
-    else console.warn(`[playlist] operator switch failed: ${result.reason}`);
   });
+  if (result.ok) _lastCommandedPlaylist = selected.playlistKey;
+  else console.warn(`[playlist] operator switch failed: ${result.reason}`);
 }
 
 // Prevent a manual playlist selection made through RSVP Admin from
@@ -432,32 +435,30 @@ function _prepareScheduledTrack(blend, currentTrackKey, scheduledMode) {
     _musicBlendSession = null;
   }
 
-  let selectedMode = blend ? blendPolicy.chooseMode(blend) : scheduledMode;
-  let playlistKey = playlistCtl.playlistKeyForMode(selectedMode, cfg);
-  if (!playlistKey && blend) {
-    selectedMode = selectedMode === blend.fromMode ? blend.toMode : blend.fromMode;
-    playlistKey = playlistCtl.playlistKeyForMode(selectedMode, cfg);
-  }
+  const selectedMode = blend ? blendPolicy.chooseMode(blend) : scheduledMode;
   const steering = !blend && _activeSteeringLane?.mode === scheduledMode
     ? _activeSteeringLane : null;
-  if (steering?.key) playlistKey = steering.key;
-  if (!playlistKey) return;
 
-  _queueHandoff.prepareNext({
-    playlistRatingKey: playlistKey,
-    expectedRatingKey: currentTrackKey,
-    // The live Plexamp timeline verifies the exact song. lastState can still
-    // describe the PREVIOUS song during the first poll of a track change.
-    isAllowed: () => _automation.enabled && !_isManualActive() &&
-      _roomOwner === "radio" && !_videoMode.active,
-  }).then(result => {
+  (async () => {
+    const selected = steering
+      ? await _playlistCatalog.resolveLane(steering.key)
+      : await _playlistCatalog.resolveMode(selectedMode);
+    if (!selected.ok) return; // No owner-approved pool? Leave queue alone.
+
+    const result = await _queueHandoff.prepareNext({
+      playlistRatingKey: selected.playlistKey,
+      expectedRatingKey: currentTrackKey,
+      isAllowed: () => _automation.enabled && !_isManualActive() &&
+        _roomOwner === "radio" && !_videoMode.active,
+    });
     if (result.ok) {
-      _lastCommandedPlaylist = playlistKey;
-      if (_musicBlendSession && blend && _musicBlendSession.boundaryMs === blend.boundaryMs) {
+      _lastCommandedPlaylist = selected.playlistKey;
+      if (_musicBlendSession && blend &&
+          _musicBlendSession.boundaryMs === blend.boundaryMs) {
         _musicBlendSession.sourceMode = selectedMode;
       }
     }
-  }).catch(err => console.warn("[playlist] safe queue preparation error:", err.message));
+  })().catch(err => console.warn("[playlist] safe queue preparation error:", err.message));
 }
 
 // ── Plexamp pause/resume ──────────────────────────────────────────────────────
@@ -482,6 +483,19 @@ const PLEXAMP_PI_ID =
   cfg.PLEX_TARGET_CLIENT_IDENTIFIER ||
   "";
 const PLEXAMP_BASE = process.env.PLEXAMP_BASE || "http://localhost:32500";
+const _playlistCatalog = createPlaylistCatalog({
+  plexBase: cfg.PLEX_BASE,
+  plexToken: cfg.PLEX_TOKEN,
+  fetchWithTimeout,
+  timeoutMs: Math.max(3000, cfg.POLL_TIMEOUT_MS),
+  pools: {
+    lofi: cfg.MUSIC_POOL_LOFI,
+    lounge: cfg.MUSIC_POOL_LOUNGE,
+    rap: cfg.MUSIC_POOL_RAP,
+    rnb: cfg.MUSIC_POOL_RNB,
+  },
+  log: (message) => console.log(message),
+});
 const _queueHandoff = createQueueHandoff({
   plexBase: cfg.PLEX_BASE,
   plexampBase: PLEXAMP_BASE,
