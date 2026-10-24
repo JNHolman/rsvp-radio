@@ -17,7 +17,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - name: Check browser JavaScript syntax
-        run: node --check public/app/background.js
-      - name: Run targeted transition regression tests
-        run: node --test test/unit/background-transitions.test.js
+          cache: "npm"
+      - name: Install dependencies
+        run: npm ci
+      - name: Verify JavaScript syntax
+        run: npm run lint
+      - name: Run full Node regression suite
+        run: npm test
