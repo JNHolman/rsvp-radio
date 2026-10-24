@@ -12,16 +12,17 @@
  */
 const fs = require("node:fs");
 const path = require("node:path");
+const os = require("node:os");
 const { parseSections, loadPages } = require("./library-intake");
 const { snapshot, validateSnapshot, compareSnapshots } = require("./intake-ledger");
 
-const DEFAULT_BASELINE = path.join(process.cwd(), "data", "intake-baseline.json");
+const DEFAULT_BASELINE = path.join(os.homedir(), ".local", "state", "rsvp-radio", "intake-baseline.json");
 const MAX_SNAPSHOT_BYTES = 12 * 1024 * 1024;
 
 function createBaseline(file, value) {
   validateSnapshot(value);
   const dir = path.dirname(file);
-  // data/ normally already exists. Never replace or chmod any existing file.
+  // Private home-state folder is outside the live repository and service files.
   fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
   const raw = JSON.stringify(value, null, 2) + "\n";
   if (Buffer.byteLength(raw) > MAX_SNAPSHOT_BYTES) throw new Error("baseline_too_large");
