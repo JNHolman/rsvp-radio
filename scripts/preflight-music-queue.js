@@ -53,6 +53,24 @@ async function get(base, path, extra) {
     evening: cfg.MUSIC_POOL_RAP,
     night: cfg.MUSIC_POOL_RNB,
   };
+  console.log("\n===== AVAILABLE MUSIC PLAYLIST INVENTORY =====");
+  for (const p of audio) {
+    const id = attr(p, "ratingKey");
+    try {
+      const mc = await get(pms, "/playlists/" + id + "/items", {
+        "X-Plex-Container-Start": 0, "X-Plex-Container-Size": 5000,
+      });
+      const songs = list(mc.Track);
+      const reported = Number(attr(mc, "totalSize") || attr(mc, "size") || songs.length);
+      const unknownSections = songs.filter(x => !sections.get(attr(x, "librarySectionID"))).length;
+      console.log("  " + title(p) + " [" + id + "]: " +
+        songs.length + "/" + reported + " songs; complete=" +
+        (reported === songs.length) + "; unknown_sections=" + unknownSections);
+    } catch (e) {
+      console.log("  " + title(p) + " [" + id + "]: READ FAILED (" + e.message + ")");
+    }
+  }
+  console.log("\n===== APPROVED TIMEBLOCK MUSIC POOLS =====");
   for (const [name, configured] of Object.entries(pools)) {
     const names = String(configured || "").split("|").map(x => x.trim()).filter(Boolean);
     if (!names.length) {
