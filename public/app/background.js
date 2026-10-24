@@ -26,62 +26,112 @@ let _horizonSettleTimer = null;
 // The incoming approved image reveals sky -> skyline -> waterfront with a
 // feathered mask; the outgoing image stays underneath for the full 10 seconds.
 // No artwork moves, and the UI and music-video handoffs remain untouched.
+let _horizonFrame = null;
+let _horizonQueuedSrc = null;
+let _horizonQueueTimer = null;
+
+function _setArtworkPhase(artwork) {
+  _stage.classList.toggle("art-phase-day", artwork === _artDay);
+  _stage.classList.toggle("art-phase-night", artwork === _artNight);
+}
+
+// Complete a reveal atomically: settle both image layers before switching the
+// water/shading source, while the water layer is still suppressed.
 function _finishHorizonReveal() {
   if (_horizonTimer !== null) {
     clearTimeout(_horizonTimer);
     _horizonTimer = null;
   }
+  if (_horizonFrame !== null) {
+    cancelAnimationFrame(_horizonFrame);
+    _horizonFrame = null;
+  }
   if (_horizonSettleTimer !== null) {
     clearTimeout(_horizonSettleTimer);
     _horizonSettleTimer = null;
   }
+  if (_horizonQueueTimer !== null) {
+    clearTimeout(_horizonQueueTimer);
+    _horizonQueueTimer = null;
+  }
 
-  // Do not let the old artwork's default 1.2s opacity transition restart
-  // as its horizon class disappears. On a NIGHT -> DAY switch, the night
-  // image is stacked above day and otherwise flashes back over it.
-  // Temporarily disable opacity transitions until both layers are settled.
   for (const art of [_artDay, _artNight]) {
     art.style.transition = "none";
     art.classList.remove("horizon-incoming", "horizon-outgoing", "horizon-reveal");
     art.classList.toggle("on", art === _activeArtwork);
   }
+  _setArtworkPhase(_activeArtwork);
   _stage.classList.remove("horizon-transition");
+
+  // Keep the old 1.2s image opacity transition disabled through the settle.
   _horizonSettleTimer = setTimeout(() => {
     _horizonSettleTimer = null;
     for (const art of [_artDay, _artNight]) art.style.removeProperty("transition");
   }, 200);
+
+  // Rapid solar/preview changes should not interrupt the current 10s reveal.
+  // Only the last requested phase is shown after the current image settles.
+  const queued = _horizonQueuedSrc;
+  _horizonQueuedSrc = null;
+  if (queued && (queued === BG_DAY ? _artDay : _artNight) !== _activeArtwork) {
+    _horizonQueueTimer = setTimeout(() => {
+      _horizonQueueTimer = null;
+      _setArtworkForSource(queued);
+    }, 200);
+  }
 }
 
-// Use the approved artwork if the assets were installed on this Pi.
-// Until then, the existing ambient videos remain visible beneath these layers.
+// Keep the outgoing artwork and its water overlay stable until the incoming
+// image is masked and the transition actually begins.
 function _setArtworkForSource(src) {
   if (!_artReady || !src) return;
   const requested = src === BG_DAY ? _artDay : _artNight;
   const incoming = requested.naturalWidth > 0 ? requested : null;
   const outgoing = _activeArtwork;
 
-  if (incoming !== outgoing) {
-    _finishHorizonReveal();
-    _activeArtwork = incoming;
-    const reduceMotion = window.matchMedia &&
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (incoming && outgoing && outgoing.naturalWidth > 0 && !reduceMotion && !_inMusicMode) {
-      outgoing.classList.add("on", "horizon-outgoing");
-      incoming.classList.add("on", "horizon-incoming", "horizon-reveal");
-      _stage.classList.add("horizon-transition");
-      _horizonTimer = setTimeout(_finishHorizonReveal, HORIZON_REVEAL_MS + 100);
-    } else {
-      _artDay.classList.toggle("on", incoming === _artDay);
-      _artNight.classList.toggle("on", incoming === _artNight);
-    }
+  if (_horizonTimer !== null || _horizonFrame !== null) {
+    _horizonQueuedSrc = incoming === outgoing ? null : src;
+    return;
+  }
+  if (incoming === outgoing) return;
+
+  if (_horizonQueueTimer !== null) {
+    clearTimeout(_horizonQueueTimer);
+    _horizonQueueTimer = null;
+  }
+  if (_horizonSettleTimer !== null) {
+    clearTimeout(_horizonSettleTimer);
+    _horizonSettleTimer = null;
   }
 
-  // A bright daytime skyline requires dark text, while the night scene works
-  // with light lettering. Follow whichever approved artwork ACTUALLY loaded;
-  // never change the media scheduler, solar calculations or Hue behavior.
-  // No phase class means fallback ambient video uses existing default colors.
-  _stage.classList.toggle("art-phase-day", incoming === _artDay);
-  _stage.classList.toggle("art-phase-night", incoming === _artNight);
+  _activeArtwork = incoming;
+  const reduceMotion = window.matchMedia &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (incoming && outgoing && outgoing.naturalWidth > 0 && !reduceMotion && !_inMusicMode) {
+    outgoing.classList.add("on", "horizon-outgoing");
+    incoming.classList.add("on", "horizon-incoming");
+    _stage.classList.add("horizon-transition");
+
+    // Paint a fully masked incoming image BEFORE starting its reveal. This
+    // prevents a one-frame unmasked flash in Chromium's compositor.
+    _horizonFrame = requestAnimationFrame(() => {
+      _horizonFrame = requestAnimationFrame(() => {
+        _horizonFrame = null;
+        incoming.classList.add("horizon-reveal");
+        _horizonTimer = setTimeout(_finishHorizonReveal, HORIZON_REVEAL_MS + 100);
+      });
+    });
+  } else {
+    for (const art of [_artDay, _artNight]) {
+      art.style.transition = "none";
+      art.classList.toggle("on", art === incoming);
+    }
+    _setArtworkPhase(incoming);
+    _horizonSettleTimer = setTimeout(() => {
+      _horizonSettleTimer = null;
+      for (const art of [_artDay, _artNight]) art.style.removeProperty("transition");
+    }, 200);
+  }
 }
 function _bootArtwork() {
   if (_artReady) return;
@@ -183,23 +233,60 @@ function _detach(video) {
   try { video.load(); } catch (_) {}
 }
 
-async function _crossfadeTo(src) {
-  const oldFront = _front;
-  const oldBack  = _back;
+let _bgTransition = null;
+let _bgPending = null;
 
+// Only one background video fade may own the two video elements at a time.
+// Keep the existing front visible if the incoming video cannot play.
+async function _performBackgroundCrossfade(src) {
+  const oldFront = _front;
+  const oldBack = _back;
   _setSrc(oldBack, src);
-  try { await oldBack.play(); } catch (_) {}
+
+  try {
+    await oldBack.play();
+    if (oldBack.readyState < 2 || _inMusicMode) {
+      throw new Error("incoming_background_not_ready");
+    }
+  } catch (err) {
+    console.warn("[bg] Retaining current background:", err.message);
+    _detach(oldBack);
+    return false;
+  }
 
   oldBack.classList.add("on");
   oldFront.classList.remove("on");
+  await new Promise((resolve) => setTimeout(resolve, BG_CROSSFADE_MS + 50));
 
-  // Detach old front after CSS transition finishes
-  setTimeout(() => {
-    _detach(oldFront);
-    _front      = oldBack;
-    _back       = oldFront;
-    _currentSrc = src;
-  }, BG_CROSSFADE_MS + 50);
+  _detach(oldFront);
+  _front = oldBack;
+  _back = oldFront;
+  _currentSrc = src;
+  return true;
+}
+
+async function _drainBackgroundQueue() {
+  try {
+    while (_bgPending) {
+      const next = _bgPending;
+      _bgPending = null;
+      if (!next.force && next.src === _currentSrc) continue;
+      if (await _performBackgroundCrossfade(next.src)) {
+        _setArtworkForSource(next.src);
+      }
+    }
+  } finally {
+    _bgTransition = null;
+  }
+}
+
+function _crossfadeTo(src, force = false) {
+  // Coalesce repeated solar/reload requests; latest desired phase wins.
+  _bgPending = { src, force };
+  if (!_bgTransition) {
+    _bgTransition = Promise.resolve().then(_drainBackgroundQueue);
+  }
+  return _bgTransition;
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────
@@ -218,9 +305,8 @@ async function swapBackgroundIfNeeded(force = false) {
   // Never swap ambient background while music video is active
   if (_inMusicMode) return;
   const want = await _desiredBackground();
-  if (!force && want === _currentSrc) return;
-  await _crossfadeTo(want);
-  _setArtworkForSource(want);
+  if (!force && want === _currentSrc && !_bgTransition) return;
+  await _crossfadeTo(want, force);
 }
 
 async function reloadCurrentVideoIfDue() {
@@ -229,7 +315,7 @@ async function reloadCurrentVideoIfDue() {
   if (Date.now() - _lastReload < BG_RELOAD_MS) return;
   _lastReload = Date.now();
   console.log("[bg] Reloading video through back buffer");
-  await _crossfadeTo(_currentSrc);
+  await _crossfadeTo(_currentSrc, true);
 }
 
 function startBackgroundTimers() {
