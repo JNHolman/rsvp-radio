@@ -34,6 +34,7 @@ const videoSkipTracker = skipTracker.createTracker(process.env.VIDEO_SKIP_DATA_P
 const plexSync    = require("./intelligence/plex-sync");
 const session     = require("./intelligence/session");
 const playlistCtl = require("./intelligence/playlist-controller");
+const { createQueueHandoff } = require("./intelligence/queue-handoff");
 const blendPolicy = require("./intelligence/blend-policy");
 const videoBlendPolicy = require("./intelligence/video-blend-policy");
 const videoRecovery = require("./intelligence/video-recovery");
@@ -362,207 +363,97 @@ const _steering = laneSteering.createSteering({
   log: (m) => console.log(m),
 });
 
-// Queue a switch to an explicit lane ratingKey (not a mode). Fires at end of the
-// current track via the same pending mechanism as boundary switches, so a steer
-// never interrupts mid-song. Skipped when idle (never wake cold Plexamp).
+// Automated decisions prepare a single following song on the EXISTING
+// Plexamp queue. They must never replace currently playing audio.
+// Manual mode selections remain immediate and use playMedia below.
+let _requestedSteeringLane = null;
 function _queueLaneSwitch(lane, reason) {
-  if (!lane || !lane.key) return;
-  if (!_isPlayingNow()) {
-    console.log(`[steering] idle — not queueing lane "${lane.name}" (${reason})`);
-    return;
-  }
-  _pendingPlaylistSwitch = {
-    mode:        _steering.snapshot().activeMode || "steer",
-    playlistKey: lane.key,
-    queuedAt:    Date.now(),
-    reason:      `steer→${lane.name} (${reason})`,
-  };
-  console.log(`[steering] queued lane switch → "${lane.name}" ${lane.key} (${reason}, fires at end of track)`);
+  if (!lane?.key) return;
+  _requestedSteeringLane = { key: lane.key, name: lane.name, reason };
+  console.log(`[steering] requested next automatic lane ${lane.name} (${reason}); never interrupt active track`);
 }
 
 function _fireImmediatePlaylistSwitch(mode, reason) {
   const playlistKey = playlistCtl.playlistKeyForMode(mode, cfg);
   if (!playlistKey) {
-    console.log(`[playlist] would switch to ${mode} (${reason}) but PLAYLIST_${mode.toUpperCase()} not configured`);
+    console.log(`[playlist] would switch to ${mode} (${reason}) but playlist not configured`);
     return;
   }
-  // Idle = no command. Plexamp/Plex is user-controlled — RSVP never wakes it
-  // up from cold. The desired mode is still recorded in /state.mode.current
-  // (and music.desiredPlaylist) so that the moment the user starts playing,
-  // the next poll's first-start logic queues a switch.
   if (!_isPlayingNow()) {
-    console.log(`[playlist] idle — not sending ${mode} switch (${reason}). Will align when playback resumes.`);
-    _pendingPlaylistSwitch = null;
+    console.log(`[playlist] idle — not sending manual ${mode} switch (${reason})`);
     return;
   }
-  console.log(`[playlist] immediate switch → ${mode} playlist ${playlistKey} (${reason})`);
+  // This method is for explicit manual controls only. Automatic handoffs
+  // use _prepareScheduledTrack() and never call playMedia.
+  _operatorSwitchGuard = { ratingKey: lastState.media?.ratingKey || "", at: Date.now() };
+  console.log(`[playlist] operator immediate switch → ${mode} (${reason})`);
   playlistCtl.playPlaylist({
     playlistRatingKey: playlistKey,
-    plexBase:          cfg.PLEX_BASE,
-    plexToken:         cfg.PLEX_TOKEN,
-    clientId:          PLEXAMP_PI_ID,
+    plexBase: cfg.PLEX_BASE,
+    plexToken: cfg.PLEX_TOKEN,
+    clientId: PLEXAMP_PI_ID,
     fetchWithTimeout,
-    timeoutMs:         cfg.POLL_TIMEOUT_MS,
-  }).then((result) => {
-    if (result.ok) {
-      _lastCommandedPlaylist = playlistKey;
-    } else {
-      console.warn(`[playlist] switch failed: ${result.reason}; retrying at next natural track boundary`);
-      // A transient Plex/Plexamp failure must not permanently strand playback
-      // on the wrong source. Preserve the no-mid-song rule by retrying only
-      // when the next track naturally changes. Do not resurrect Radio work if
-      // TV took ownership while this command was in flight.
-      if (_roomOwner === "radio" && !_pendingPlaylistSwitch) {
-        _pendingPlaylistSwitch = { mode, playlistKey, queuedAt: Date.now(), reason: `${reason} retry` };
-      }
-    }
+    timeoutMs: cfg.POLL_TIMEOUT_MS,
+  }).then(result => {
+    if (result.ok) _lastCommandedPlaylist = playlistKey;
+    else console.warn(`[playlist] operator switch failed: ${result.reason}`);
   });
-  // Success is immediate; failures re-enter the natural-boundary queue above.
-  _pendingPlaylistSwitch = null;
 }
 
-function _queuePlaylistSwitch(mode, reason) {
-  const playlistKey = playlistCtl.playlistKeyForMode(mode, cfg);
-  if (!playlistKey) {
-    console.log(`[playlist] would queue ${mode} (${reason}) but PLAYLIST_${mode.toUpperCase()} not configured`);
-    _pendingPlaylistSwitch = null;
-    return;
-  }
-  _pendingPlaylistSwitch = { mode, playlistKey, queuedAt: Date.now(), reason };
-  console.log(`[playlist] queued switch → ${mode} ${playlistKey} (${reason}, fires at end of current track)`);
+// Prevent a manual playlist selection made through RSVP Admin from
+// incorrectly counting as a listener skip in the reputation engine.
+let _operatorSwitchGuard = null;
+function _isOperatorCausedStop(ratingKey) {
+  if (!_operatorSwitchGuard || !_operatorSwitchGuard.ratingKey) return false;
+  const match = _operatorSwitchGuard.ratingKey === ratingKey &&
+    Date.now() - _operatorSwitchGuard.at <= 15000;
+  if (match) _operatorSwitchGuard = null;
+  return match;
 }
 
-function _knownBlendSourceMode(blend) {
-  const fromKey = playlistCtl.playlistKeyForMode(blend.fromMode, cfg);
-  const toKey   = playlistCtl.playlistKeyForMode(blend.toMode, cfg);
-  if (_lastCommandedPlaylist && _lastCommandedPlaylist === fromKey) return blend.fromMode;
-  if (_lastCommandedPlaylist && _lastCommandedPlaylist === toKey) return blend.toMode;
-  // On a restart we may not know what Plexamp's queue came from. Before the
-  // boundary, old is the safest assumption; after it, new is the safest.
-  return blend.offsetMin < 0 ? blend.fromMode : blend.toMode;
-}
+function _prepareScheduledTrack(blend, currentTrackKey, scheduledMode) {
+  if (!_automation.enabled || _isManualActive() || _roomOwner !== "radio") return;
+  if (!currentTrackKey) return;
 
-function _syncWeightedMusicBlend(blend, currentTrackKey) {
-  // Blend just ended: guarantee the system lands on the incoming block, but still
-  // wait for the current song to finish. Any stale weighted decision is replaced.
-  if (!blend) {
-    if (_musicBlendSession) {
-      const finished = _musicBlendSession;
-      if (_pendingPlaylistSwitch?.blendBoundaryMs === finished.boundaryMs) {
-        _pendingPlaylistSwitch = null;
-      }
-      if (finished.sourceMode !== finished.toMode) {
-        _queuePlaylistSwitch(finished.toMode, `${timeblocks.MUSIC_BLEND_WINDOW_MIN}-minute blend complete`);
-      }
-      console.log(`[playlist] blend complete ${finished.fromMode}→${finished.toMode}; canonical mode=${finished.toMode}`);
-      _musicBlendSession = null;
-    }
-    return;
-  }
-
-  if (!_musicBlendSession || _musicBlendSession.boundaryMs !== blend.boundaryMs) {
+  if (blend && (!_musicBlendSession || _musicBlendSession.boundaryMs !== blend.boundaryMs)) {
     _musicBlendSession = {
-      boundaryMs: blend.boundaryMs,
-      fromMode: blend.fromMode,
-      toMode: blend.toMode,
-      sourceMode: _knownBlendSourceMode(blend),
-      lastDecisionKey: "",
+      boundaryMs: blend.boundaryMs, fromMode: blend.fromMode,
+      toMode: blend.toMode, sourceMode: blend.fromMode,
     };
-    console.log(`[playlist] weighted blend started ${blend.fromMode}→${blend.toMode} (${timeblocks.MUSIC_BLEND_WINDOW_MIN} min centered on boundary)`);
+    console.log(`[playlist] queue-safe blend started ${blend.fromMode}→${blend.toMode}`);
+  } else if (!blend && _musicBlendSession) {
+    console.log(`[playlist] blend completed; now scheduling ${scheduledMode} exclusively`);
+    _musicBlendSession = null;
   }
 
-  // One decision per track per stage. If a five-minute stage changes while the
-  // same song is still playing, re-evaluate once so the next song reflects the
-  // newest 80/20, 60/40, 40/60, or 20/80 weighting.
-  const decisionKey = `${blend.boundaryMs}:${blend.stageIndex}:${currentTrackKey || "unknown"}`;
-  if (_musicBlendSession.lastDecisionKey === decisionKey) return;
-  _musicBlendSession.lastDecisionKey = decisionKey;
-
-  let selectedMode = blendPolicy.chooseMode(blend);
-  let selectedKey  = playlistCtl.playlistKeyForMode(selectedMode, cfg);
-
-  // A partially configured install should degrade to whichever side exists, not
-  // silently kill the handoff. If neither side is configured, stay observer-only.
-  if (!selectedKey) {
-    const fallbackMode = selectedMode === blend.fromMode ? blend.toMode : blend.fromMode;
-    const fallbackKey  = playlistCtl.playlistKeyForMode(fallbackMode, cfg);
-    if (!fallbackKey) {
-      console.log(`[playlist] blend observer-only: neither ${blend.fromMode} nor ${blend.toMode} playlist is configured`);
-      return;
-    }
-    selectedMode = fallbackMode;
-    selectedKey  = fallbackKey;
+  let selectedMode = blend ? blendPolicy.chooseMode(blend) : scheduledMode;
+  let playlistKey = playlistCtl.playlistKeyForMode(selectedMode, cfg);
+  if (!playlistKey && blend) {
+    selectedMode = selectedMode === blend.fromMode ? blend.toMode : blend.fromMode;
+    playlistKey = playlistCtl.playlistKeyForMode(selectedMode, cfg);
   }
+  const steering = !blend ? _requestedSteeringLane : null;
+  if (steering?.key) playlistKey = steering.key;
+  if (!playlistKey) return;
 
-  if (selectedMode === _musicBlendSession.sourceMode) {
-    if (_pendingPlaylistSwitch?.blendBoundaryMs === blend.boundaryMs) _pendingPlaylistSwitch = null;
-    console.log(`[playlist] blend ${blend.oldPct}/${blend.newPct} holds ${selectedMode}`);
-    return;
-  }
-
-  _pendingPlaylistSwitch = {
-    mode: selectedMode,
-    playlistKey: selectedKey,
-    queuedAt: Date.now(),
-    reason: `weighted blend ${blend.fromMode}→${blend.toMode} ${blend.oldPct}/${blend.newPct}`,
-    blendBoundaryMs: blend.boundaryMs,
-  };
-  console.log(`[playlist] blend ${blend.oldPct}/${blend.newPct} queued next source → ${selectedMode}`);
-}
-
-function _flushPendingPlaylistSwitch(reason) {
-  if (!_pendingPlaylistSwitch) return;
-  const pending = _pendingPlaylistSwitch;
-  const { mode, playlistKey } = pending;
-
-  // Optimistically advance the blend source before the async Plex command. The
-  // same poll immediately makes the NEXT weighted decision; without this, it
-  // can queue a duplicate switch based on stale source state. Roll back on a
-  // failed command if no later decision has moved the source again.
-  let previousBlendSource = null;
-  if (pending.blendBoundaryMs && _musicBlendSession?.boundaryMs === pending.blendBoundaryMs) {
-    previousBlendSource = _musicBlendSession.sourceMode;
-    _musicBlendSession.sourceMode = mode;
-  }
-
-  console.log(`[playlist] flushing queued ${mode} switch (trigger: ${reason})`);
-  playlistCtl.playPlaylist({
+  _queueHandoff.prepareNext({
     playlistRatingKey: playlistKey,
-    plexBase:          cfg.PLEX_BASE,
-    plexToken:         cfg.PLEX_TOKEN,
-    clientId:          PLEXAMP_PI_ID,
-    fetchWithTimeout,
-    timeoutMs:         cfg.POLL_TIMEOUT_MS,
-  }).then((result) => {
+    expectedRatingKey: currentTrackKey,
+    isAllowed: () => _automation.enabled && !_isManualActive() &&
+      _roomOwner === "radio" && !_videoMode.active &&
+      (lastState.media?.ratingKey === currentTrackKey || lastState.media?.ratingKey === undefined),
+  }).then(result => {
     if (result.ok) {
       _lastCommandedPlaylist = playlistKey;
-    } else {
-      if (previousBlendSource !== null &&
-          _musicBlendSession?.boundaryMs === pending.blendBoundaryMs &&
-          _musicBlendSession.sourceMode === mode) {
-        _musicBlendSession.sourceMode = previousBlendSource;
-      }
-      console.warn(`[playlist] flush failed: ${result.reason}`);
-      // For an ordinary boundary/lane switch, retain the request for the next
-      // natural track boundary. Weighted-blend decisions are recalculated from
-      // the current clock instead of replaying a stale percentage choice.
-      if (_roomOwner === "radio" && !_pendingPlaylistSwitch) {
-        if (pending.blendBoundaryMs) {
-          const liveBlend = timeblocks.getMusicBlendState(new Date());
-          if (liveBlend && liveBlend.boundaryMs === pending.blendBoundaryMs && _musicBlendSession) {
-            _musicBlendSession.lastDecisionKey = "";
-          }
-        } else {
-          _pendingPlaylistSwitch = { ...pending, queuedAt: Date.now(), reason: `${pending.reason} retry` };
-        }
+      if (_musicBlendSession && blend && _musicBlendSession.boundaryMs === blend.boundaryMs) {
+        _musicBlendSession.sourceMode = selectedMode;
       }
     }
-  });
-  _pendingPlaylistSwitch = null;
+    if (steering && result.reason !== "busy" && _requestedSteeringLane === steering) {
+      _requestedSteeringLane = null;
+    }
+  }).catch(err => console.warn("[playlist] safe queue preparation error:", err.message));
 }
-
-// Current video file path — kept server-side only, never sent to browser via /state
-let _currentVideoPath = "";
 
 // ── Plexamp pause/resume ──────────────────────────────────────────────────────
 // Only pause Plexamp if it was actively playing when video started.
@@ -586,6 +477,15 @@ const PLEXAMP_PI_ID =
   cfg.PLEX_TARGET_CLIENT_IDENTIFIER ||
   "";
 const PLEXAMP_BASE = process.env.PLEXAMP_BASE || "http://localhost:32500";
+const _queueHandoff = createQueueHandoff({
+  plexBase: cfg.PLEX_BASE,
+  plexampBase: PLEXAMP_BASE,
+  plexToken: cfg.PLEX_TOKEN,
+  clientId: PLEXAMP_PI_ID,
+  fetchWithTimeout,
+  timeoutMs: Math.max(3000, cfg.POLL_TIMEOUT_MS),
+  log: (message) => console.log(message),
+});
 // Playback COMMANDS (pause/resume/stop) go DIRECT to Plexamp here, not via
 // PLEX_BASE (:32400). The PMS->Plexamp relay stops registering the client after
 // an SD reflash, silently dropping every resume-after-video. Verified on-device:
@@ -1388,6 +1288,7 @@ function _maybeRecordStopSkip() {
   if (dur <= 0 || view <= 0) return;
 
   const pct = view / dur;
+  if (_isOperatorCausedStop(_prevPollTrack.ratingKey)) return;
   skipTracker.recordSkip(_prevPollTrack, pct);
   plexSync.syncRating(_prevPollTrack.ratingKey, cfg.PLEX_BASE, cfg.PLEX_TOKEN);
 }
@@ -1503,6 +1404,9 @@ async function pollSessions() {
             _currentVideoPath = "";
             if (_wasVideoMode) { _wasVideoMode = false; _bumpVideoHandoffToken(); }
             lastState = _plexampFallbackState({ bass, energy, meta, tl });
+            if (_roomOwner === "radio" && _automation.enabled && !_isManualActive()) {
+              _prepareScheduledTrack(musicBlend, tl.ratingKey, timeBlockMode);
+            }
             return;
           }
         }
@@ -1572,6 +1476,7 @@ async function pollSessions() {
       let _wasSkip = false;
       let _wasCleanPlay = false;
       if (!_prevPollTrack.scrobbled && !_prevPollTrack.isVideo &&
+          !_isOperatorCausedStop(_prevPollTrack.ratingKey) &&
           lastState.media.durationMs > 0 && lastState.media.viewOffsetMs > 0) {
         const pct = lastState.media.viewOffsetMs / lastState.media.durationMs;
         // Same thresholds the skip-tracker uses: <40% = skip, >=70% = clean play.
@@ -1601,9 +1506,7 @@ async function pollSessions() {
           console.log(`[playlist] clearing pending music switch while video owns playback (${_pendingPlaylistSwitch.reason || "pending"})`);
           _pendingPlaylistSwitch = null;
         }
-      } else {
-        _flushPendingPlaylistSwitch("track-change");
-      }
+      } // Automated next-song choices were already prepared during playback.
 
       // ── Lateral steering (the brain) ───────────────────────────────────────
       // Only steer audio (never video), only when following the schedule or a
@@ -1669,50 +1572,18 @@ async function pollSessions() {
       } catch (_) {}
     }
 
-    // ── Boundary + weighted music handoff ───────────────────────────────────
-    // Only applies when we're following the schedule. Music blends for 20
-    // minutes centered on the boundary: 80/20, 60/40, 40/60, 20/80. The
-    // currently playing track is never cut; the weighted choice becomes the
-    // source for the next natural track change.
-    if (resolvedSource === "timeblock" && _automation.enabled && !t.isVideo) {
-      // First-start alignment: outside a blend, align to the schedule at the
-      // next natural track change. Inside a blend, the weighted policy owns the
-      // next source decision instead of forcing either side.
-      if (!_firstStartAligned) {
-        _firstStartAligned = true;
-        if (!musicBlend &&
-            playlistCtl.playlistKeyForMode(timeBlockMode, cfg) &&
-            _lastCommandedPlaylist !== playlistCtl.playlistKeyForMode(timeBlockMode, cfg)) {
-          console.log(`[playlist] first-start alignment (playing) → ${timeBlockMode}`);
-          _queuePlaylistSwitch(timeBlockMode, "first-start (playing)");
-        }
-      }
-
-      // A schedule boundary still resets lateral steering to the incoming mode,
-      // but during the post-boundary half of a blend it must NOT force 100% new
-      // music yet. The weighted handoff owns that until +10 minutes.
+    // Queue one following song while THIS track is playing. The current
+    // song and playback session are never replaced at a schedule boundary.
+    if (resolvedSource === "timeblock" && _automation.enabled && !t.isVideo &&
+        t.playerState === "playing") {
+      if (!_firstStartAligned) _firstStartAligned = true;
       if (_lastBlockMode && _lastBlockMode !== timeBlockMode) {
-        if (!musicBlend) {
-          _queuePlaylistSwitch(timeBlockMode, `boundary cross from ${_lastBlockMode}`);
-        }
         _steering.onBoundaryOrModeChange(timeBlockMode);
       }
-
-      _syncWeightedMusicBlend(musicBlend, t.ratingKey);
-
-      // Only update _lastBlockMode when music automation is actually in control.
-      // Video intentionally leaves it stale so audio resume can reconcile any
-      // boundary crossed while RSVP TV owned playback.
+      _prepareScheduledTrack(musicBlend, t.ratingKey, timeBlockMode);
       _lastBlockMode = timeBlockMode;
     } else if (resolvedSource !== "timeblock" || !_automation.enabled) {
-      if (_musicBlendSession) {
-        // Manual control or stopped automation cancels an in-flight automatic
-        // blend immediately; explicit user intent wins.
-        if (_pendingPlaylistSwitch?.blendBoundaryMs === _musicBlendSession.boundaryMs) {
-          _pendingPlaylistSwitch = null;
-        }
-        _musicBlendSession = null;
-      }
+      _musicBlendSession = null;
     }
 
     _currentVideoPath = t.isVideo ? (t.localFilePath || "") : "";
@@ -2297,13 +2168,9 @@ app.post("/mode/clear", async (_req, res) => {
       ? null
       : scheduledMode;
   } else {
-    if (blend) {
-      // Explicitly clearing manual mode during a handoff rejoins the weighted
-      // blend instead of forcing 100% of either side.
-      _syncWeightedMusicBlend(blend, lastState.media?.ratingKey || "manual-clear");
-    } else {
-      _queuePlaylistSwitch(scheduledMode, "manual override cleared");
-    }
+    // Rejoin safely on the next poll; never replace an active song.
+    _pendingPlaylistSwitch = null;
+    _requestedSteeringLane = null;
   }
 
   await _syncScheduledLights().catch((err) =>
