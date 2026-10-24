@@ -1,15 +1,18 @@
 "use strict";
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { createQueueHandoff, parsePlayingTimeline, parsePlaylistPage, parseLibrarySections } =
+const { createQueueHandoff, parsePlayingTimeline, parsePlaylistIndex, parseLibrarySections } =
   require("../../intelligence/queue-handoff");
 
 const timeline = (state = "playing", key = "51", item = "202", queue = "102") =>
   '<MediaContainer><Timeline type="music" state="' + state + '" ratingKey="' + key +
   '" playQueueID="' + queue + '" playQueueItemID="' + item + '"/></MediaContainer>';
-const playlist = (key, total = 3) =>
-  '<MediaContainer totalSize="' + total + '" size="1"><Track type="track" ratingKey="' + key +
-  '" librarySectionID="5"/></MediaContainer>';
+const playlist = () =>
+  '<MediaContainer totalSize="3" size="3">' +
+  '<Track type="track" ratingKey="70" librarySectionID="5"/>' +
+  '<Track type="track" ratingKey="71" librarySectionID="5"/>' +
+  '<Track type="track" ratingKey="72" librarySectionID="5"/>' +
+  '</MediaContainer>';
 const sections = '<MediaContainer><Directory key="5" uuid="01234567-aaaa-bbbb-cccc-0123456789ab"/></MediaContainer>';
 
 function mock({ stopped = false, playbackChanges = false, putFails = false } = {}) {
@@ -28,8 +31,8 @@ function mock({ stopped = false, playbackChanges = false, putFails = false } = {
       ) };
     }
     if (u.pathname === "/playlists/186/items") {
-      const offset = Number(u.searchParams.get("X-Plex-Container-Start"));
-      return { ok: true, text: async () => playlist(offset === 0 ? "70" : "71") };
+      assert.equal(u.searchParams.get("X-Plex-Container-Size"), "5000");
+      return { ok: true, text: async () => playlist() };
     }
     if (u.pathname === "/library/sections") return { ok: true, text: async () => sections };
     if (u.pathname === "/playQueues/102") {
@@ -58,8 +61,13 @@ test("parses only an actually playing Plexamp music timeline with a valid queue"
   assert.equal(parsePlayingTimeline(timeline("playing", "51", "202", "../../escape")), null);
 });
 test("playlist and library candidates are validated", () => {
-  assert.deepEqual(parsePlaylistPage(playlist("71", 20)), { ratingKey: "71", sectionId: "5", total: 20 });
-  assert.equal(parsePlaylistPage('<MediaContainer size="0"/>'), null);
+  assert.deepEqual(parsePlaylistIndex(playlist()), [
+    { ratingKey: "70", sectionId: "5" },
+    { ratingKey: "71", sectionId: "5" },
+    { ratingKey: "72", sectionId: "5" },
+  ]);
+  assert.equal(parsePlaylistIndex('<MediaContainer totalSize="3" size="1"><Track ratingKey="70" librarySectionID="5"/></MediaContainer>'), null);
+  assert.equal(parsePlaylistIndex('<MediaContainer size="0"/>'), null);
   assert.equal(parseLibrarySections(sections).get("5"), "01234567-aaaa-bbbb-cccc-0123456789ab");
 });
 
