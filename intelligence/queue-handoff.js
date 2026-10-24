@@ -25,16 +25,17 @@ function parsePlayingTimeline(xml) {
   return { queueId, ratingKey, itemId: validId(attr(music, "playQueueItemID")) };
 }
 
-function parsePlaylistPage(xml, offset = 0) {
+function parsePlaylistIndex(xml) {
   const mc = parseXML(xml);
-  const items = asArray(mc?.Track);
-  const total = Number(attr(mc, "totalSize") || attr(mc, "size") || items.length);
-  if (!Number.isSafeInteger(total) || total < 1 || !items.length) return null;
-  // Some Plex versions ignore container pagination. In that case use offset.
-  const chosen = items.length > 1 ? items[Math.min(offset, items.length - 1)] : items[0];
-  const ratingKey = validId(attr(chosen, "ratingKey"));
-  const sectionId = validId(attr(chosen, "librarySectionID"));
-  return ratingKey && sectionId ? { ratingKey, sectionId, total } : null;
+  const tracks = asArray(mc?.Track);
+  const total = Number(attr(mc, "totalSize") || attr(mc, "size") || tracks.length);
+  if (!Number.isSafeInteger(total) || total < 1 || !tracks.length ||
+      tracks.length < total) return null; // Never silently sample a partial page.
+  const entries = tracks.map(item => ({
+    ratingKey: validId(attr(item, "ratingKey")),
+    sectionId: validId(attr(item, "librarySectionID")),
+  })).filter(item => item.ratingKey && item.sectionId);
+  return entries.length ? entries : null;
 }
 
 function parseLibrarySections(xml) {
@@ -60,7 +61,7 @@ function createQueueHandoff({
   let lastSongKey = "";
   let sectionMap = null;
   const recentPicks = [];
-  const totals = new Map();
+  const playlists = new Map();
 
   async function request(url, options) {
     const r = await fetchWithTimeout(url, timeoutMs, options);
@@ -82,30 +83,24 @@ function createQueueHandoff({
     return parsePlayingTimeline(await request(u.toString()));
   }
   async function chooseTrack(playlistKey, currentRatingKey) {
-    // Discover the playlist size without retrieving the full playlist.
-    let total = totals.get(playlistKey);
-    let first = null;
-    if (!total) {
-      first = parsePlaylistPage(await request(plexUrl("/playlists/" + playlistKey + "/items", {
-        "X-Plex-Container-Start": 0, "X-Plex-Container-Size": 1,
-      })));
-      if (!first) throw new Error("playlist_empty_or_unreadable");
-      total = first.total;
-      totals.set(playlistKey, total);
+    let cached = playlists.get(playlistKey);
+    if (!cached || Date.now() >= cached.until) {
+      const xml = await request(plexUrl("/playlists/" + playlistKey + "/items", {
+        "X-Plex-Container-Start": 0, "X-Plex-Container-Size": 5000,
+      }));
+      const entries = parsePlaylistIndex(xml);
+      if (!entries) throw new Error("playlist_empty_or_incomplete");
+      cached = { entries, until: Date.now() + 30 * 60 * 1000 };
+      playlists.set(playlistKey, cached);
     }
-    for (let attempt = 0; attempt < 4; attempt++) {
-      const roll = Number(random());
-      const offset = Math.floor((Number.isFinite(roll) ? Math.min(0.999999999, Math.max(0, roll)) : 0.5) * total);
-      const pick = (first && offset === 0) ? first : parsePlaylistPage(await request(
-        plexUrl("/playlists/" + playlistKey + "/items", {
-          "X-Plex-Container-Start": offset, "X-Plex-Container-Size": 1,
-        }), offset,
-      ));
-      if (!pick) continue;
-      if (pick.ratingKey === currentRatingKey || recentPicks.includes(pick.ratingKey)) continue;
-      return pick;
-    }
-    throw new Error("no_nonrepeating_candidate");
+    const candidates = cached.entries.filter(track => track.ratingKey !== currentRatingKey &&
+      !recentPicks.includes(track.ratingKey));
+    const available = candidates.length ? candidates :
+      cached.entries.filter(track => track.ratingKey !== currentRatingKey);
+    if (!available.length) throw new Error("no_alternate_playlist_song");
+    const roll = Number(random());
+    const index = Math.floor((Number.isFinite(roll) ? Math.min(0.999999999, Math.max(0, roll)) : 0.5) * available.length);
+    return available[index];
   }
   async function getSectionUuid(sectionId) {
     if (!sectionMap || !sectionMap.has(sectionId)) {
@@ -165,4 +160,4 @@ function createQueueHandoff({
   return { prepareNext, snapshot: () => ({ busy, lastPreparedKey: completedKey, lastSongKey }) };
 }
 
-module.exports = { createQueueHandoff, parsePlayingTimeline, parsePlaylistPage, parseLibrarySections };
+module.exports = { createQueueHandoff, parsePlayingTimeline, parsePlaylistIndex, parseLibrarySections };
