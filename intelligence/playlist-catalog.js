@@ -9,6 +9,7 @@
  * when their exact approved names appear in the registry.
  */
 const { XMLParser } = require("fast-xml-parser");
+const { decodeXmlEntities } = require("./plex-parser");
 const parser = new XMLParser({
   ignoreAttributes: false, attributeNamePrefix: "@_", processEntities: false,
 });
@@ -27,7 +28,7 @@ function parseMusicCatalog(xml) {
   const seen = new Set();
   for (const item of [...arr(mc.Playlist), ...arr(mc.Metadata)]) {
     const id = numericId(attr(item, "ratingKey"));
-    const name = clean(attr(item, "title"));
+    const name = clean(decodeXmlEntities(attr(item, "title")));
     const media = clean(attr(item, "playlistType")).toLowerCase();
     if (!id || !name || media !== "audio" || seen.has(id)) continue;
     seen.add(id);
