@@ -261,10 +261,10 @@ test("Radio-to-TV handoff waits for Plexamp pause to settle before arming Radio 
       "residual playing reports from RSVP's own pause must not immediately kill TV");
 
     explicitRadioRestart = true;
-    await delay(350);
-    st = await (await fetch(`${server.baseUrl}/state`)).json();
-    assert.notEqual(st.media.type, "video",
+    st = await waitForState(server.baseUrl,
+      current => current.media.type !== "video",
       "a new Plexamp playing transition after takeover is armed must reclaim the room for Radio");
+    assert.notEqual(st.media.type, "video");
   } finally {
     await server.stop();
     await new Promise((r) => srv.close(r));
