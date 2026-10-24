@@ -102,7 +102,7 @@ async function loadPages(get, path, params = {}, { pageSize = 250, maxItems = 50
 
 function reviewReport({ libraryTracks, playlists, entriesByPlaylist, asOfMs = Date.now(), days = 30 }) {
   if (!Number.isFinite(asOfMs) || days < 1) throw new Error("invalid_audit_window");
-  const knownTracks = new Map(), inPlaylists = new Set();
+  const knownTracks = new Map(), inPlaylists = new Set(), listedAt = new Map();
   for (const t of libraryTracks) {
     if (knownTracks.has(t.id)) throw new Error("duplicate_library_rating_key");
     knownTracks.set(t.id, t);
@@ -112,8 +112,16 @@ function reviewReport({ libraryTracks, playlists, entriesByPlaylist, asOfMs = Da
     const tracks = entriesByPlaylist.get(p.id);
     if (!tracks) throw new Error("missing_playlist_entries: " + p.name);
     playlistEntries += tracks.length;
-    for (const item of tracks) inPlaylists.add(item.id);
+    for (const item of tracks) {
+      inPlaylists.add(item.id);
+      if (!listedAt.has(item.id)) listedAt.set(item.id, []);
+      listedAt.get(item.id).push({ playlist: p.name, ...item });
+    }
   }
+  const playlistOnly = [...listedAt.entries()]
+    .filter(([id]) => !knownTracks.has(id))
+    .map(([id, entries]) => ({ id, playlists: [...new Set(entries.map(x => x.playlist))],
+      title: entries[0].title || "", artist: entries[0].artist || "" }));
   const latest = asOfMs - days * DAY_MS;
   const recent = libraryTracks.filter(t =>
     t.addedAt !== null && t.addedAt * 1000 >= latest && t.addedAt * 1000 <= asOfMs + DAY_MS);
@@ -129,6 +137,8 @@ function reviewReport({ libraryTracks, playlists, entriesByPlaylist, asOfMs = Da
     playlistEntries,
     uniquePlaylistTracks: inPlaylists.size,
     outsideCount: outside.length,
+    playlistOnlyCount: playlistOnly.length,
+    playlistOnly,
     recentCount: recent.length,
     recentOutsideCount: recentOutside.length,
     genreTagCoverage: tagged.length,
@@ -142,7 +152,7 @@ function reviewReport({ libraryTracks, playlists, entriesByPlaylist, asOfMs = Da
     afrobeatsOutside: sortNewest(afrobeats.filter(t => !inPlaylists.has(t.id))).slice(0, 10),
     // A track outside the nine RSVP playlists may be unapproved, on purpose.
     // Never convert this report into an approval or admission decision.
-    allPlaylistItemsInLibrary: [...inPlaylists].filter(k => !knownTracks.has(k)).length === 0,
+    allPlaylistItemsInLibrary: playlistOnly.length === 0,
   };
 }
 
@@ -196,19 +206,23 @@ async function runReadOnlyAudit() {
   console.log("Audio playlists / entries: " + report.playlists + " / " + report.playlistEntries);
   console.log("Unique tracks in any current music playlist: " + report.uniquePlaylistTracks);
   console.log("Tracks outside all listed music playlists: " + report.outsideCount);
-  console.log("Items listed but not found in scanned music libraries: " +
-    (report.allPlaylistItemsInLibrary ? "0" : "one or more (investigate)"));
-  console.log("Recent library additions, last " + scanDays + " days: " + report.recentCount);
-  console.log("Recent additions not represented in these playlists: " + report.recentOutsideCount);
+  console.log("Playlist IDs absent from scanned music library: " + report.playlistOnlyCount);
+  for (const item of report.playlistOnly) {
+    console.log("  " + item.id + " | " + (item.artist || "Unknown") + " — " +
+      (item.title || "Untitled") + " | playlist: " + item.playlists.join(" / "));
+  }
+  console.log("Plex addedAt dates within " + scanDays + " days: " + report.recentCount);
+  console.log("NOTE: addedAt means Plex ingestion time; a mass import can make older songs appear new.");
+  console.log("Recent Plex-ingested tracks outside playlists: " + report.recentOutsideCount);
   console.log("Library tracks with no readable addedAt: " + report.missingAddedAt);
   console.log("\n===== GENRE TAGS (EVIDENCE ONLY) =====");
   console.log("Tracks with genre tags in library listing: " + report.genreTagCoverage +
     " / " + report.libraryTracks);
   console.log("Reggae/Dancehall-tagged tracks: " + report.reggaeTaggedCount +
     "; outside playlists: " + report.reggaeTaggedOutside);
-  console.log("Afrobeats/Afropop-tagged tracks: " + report.afrobeatsTaggedCount +
+  console.log("Afrobeats/Afropop keyword tag matches (may include hybrid tags): " + report.afrobeatsTaggedCount +
     "; outside playlists: " + report.afrobeatsTaggedOutside);
-  console.log("These are explicit Plex-tag matches, NOT the full owned reggae catalog.");
+  console.log("These are Plex-tag keyword matches, NOT proof of the recording's true genre or approval.");
   const print = (title, tracks) => {
     console.log("\n" + title + ":");
     if (!tracks.length) console.log("  None detected from available tags/dates");
