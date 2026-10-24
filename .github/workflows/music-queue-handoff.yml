@@ -31,5 +31,5 @@ jobs:
         run: node --check server.js && node --check intelligence/queue-handoff.js && node --check intelligence/playlist-catalog.js && node --check scripts/preflight-music-queue.js && node --check scripts/check-music-queue.js && node --check scripts/test-play-next.js
       - name: Focused queue and schedule tests
         run: node --test test/unit/playlist-catalog.test.js test/unit/queue-handoff.test.js test/unit/playlist-controller.test.js test/unit/blend-policy.test.js test/unit/plex-queue.test.js test/unit/automation-policy.test.js
-      - name: Full unit and integration suite
-        run: npm test
+      - name: Full unit and integration suite (bounded)
+        run: timeout --signal=TERM --kill-after=10s 180s npm test
