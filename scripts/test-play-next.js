@@ -133,17 +133,21 @@ async function main() {
   }
   const originalItemIds = new Set(original.map(x => id(attr(x, "playQueueItemID"))));
   const uri = "library://" + uuid + "/item/library/metadata/" + choiceKey;
-  const put = await request(cfg.PLEX_BASE, "/playQueues/" + before.context.queueId,
-    { method: "PUT", params: { uri, next: 1 } });
-  console.log("Play Next PUT HTTP:", put.status);
-
-  // Even if PUT returns an ambiguous error, identify any inserted item by
-  // queue-ID difference so a successful-but-timed-out PUT can be rolled back.
+  // Even if PUT times out after Plex processes it, inspect the queue for
+  // the newly inserted item and try to remove that exact item.
   let insertedId = "";
-  let changed = [];
   try {
+    let putStatus = "request failed";
+    try {
+      const put = await request(cfg.PLEX_BASE, "/playQueues/" + before.context.queueId,
+        { method: "PUT", params: { uri, next: 1 } });
+      putStatus = put.status;
+    } catch (error) {
+      console.log("Play Next request error:", error.message);
+    }
+    console.log("Play Next PUT HTTP:", putStatus);
     const after = await queue(before.context.queueId);
-    changed = after.filter(x => !originalItemIds.has(id(attr(x, "playQueueItemID"))) &&
+    const changed = after.filter(x => !originalItemIds.has(id(attr(x, "playQueueItemID"))) &&
       id(attr(x, "ratingKey")) === choiceKey);
     if (changed.length === 1) insertedId = id(attr(changed[0], "playQueueItemID"));
     else if (changed.length > 1) console.log("WARNING: multiple matching insertions; no automatic removal");
