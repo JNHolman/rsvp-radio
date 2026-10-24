@@ -1,0 +1,23 @@
+name: RSVP TV transition checks
+
+on:
+  pull_request:
+    paths:
+      - "public/app/background.js"
+      - "public/tv-refined.css"
+      - "test/unit/background-transitions.test.js"
+      - ".github/workflows/tv-transitions.yml"
+  workflow_dispatch:
+
+jobs:
+  transition-regressions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Check browser JavaScript syntax
+        run: node --check public/app/background.js
+      - name: Run targeted transition regression tests
+        run: node --test test/unit/background-transitions.test.js

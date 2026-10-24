@@ -15,6 +15,10 @@
   mask-size:100% 220%;
   -webkit-mask-repeat:no-repeat;
   mask-repeat:no-repeat;
+  -webkit-mask-position:0 100%;
+  mask-position:0 100%;
+}
+.artBg.horizon-incoming.horizon-reveal {
   animation:rsvp-horizon-reveal 10s linear both;
 }
 @keyframes rsvp-horizon-reveal {
