@@ -11,6 +11,7 @@ on:
       - intelligence/music-profile.js
       - intelligence/library-intake.js
       - intelligence/intake-ledger.js
+      - intelligence/intake-baseline.js
       - config.js
       - scripts/preflight-music-queue.js
       - scripts/check-music-queue.js
@@ -24,6 +25,7 @@ on:
       - test/unit/music-profile.test.js
       - test/unit/library-intake.test.js
       - test/unit/intake-ledger.test.js
+      - test/unit/intake-baseline.test.js
       - test/unit/playlist-controller.test.js
       - shared/timeblocks.js
       - .github/workflows/music-queue-handoff.yml
@@ -38,8 +40,8 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Check syntax
-        run: node --check server.js && node --check intelligence/queue-handoff.js && node --check intelligence/playlist-catalog.js && node --check intelligence/music-profile.js && node --check intelligence/library-intake.js && node --check intelligence/intake-ledger.js && node --check scripts/preflight-music-queue.js && node --check scripts/check-music-queue.js && node --check scripts/test-play-next.js && node --check scripts/audit-track-programming.js && node --check scripts/check-full-track-metadata.js
+        run: node --check server.js && node --check intelligence/queue-handoff.js && node --check intelligence/playlist-catalog.js && node --check intelligence/music-profile.js && node --check intelligence/library-intake.js && node --check intelligence/intake-ledger.js && node --check intelligence/intake-baseline.js && node --check scripts/preflight-music-queue.js && node --check scripts/check-music-queue.js && node --check scripts/test-play-next.js && node --check scripts/audit-track-programming.js && node --check scripts/check-full-track-metadata.js
       - name: Focused queue and schedule tests
-        run: node --test test/unit/intake-ledger.test.js test/unit/library-intake.test.js test/unit/music-profile.test.js test/unit/check-full-track-metadata.test.js test/unit/audit-track-programming.test.js test/unit/playlist-catalog.test.js test/unit/queue-handoff.test.js test/unit/playlist-controller.test.js test/unit/blend-policy.test.js test/unit/plex-queue.test.js test/unit/automation-policy.test.js
+        run: node --test test/unit/intake-baseline.test.js test/unit/intake-ledger.test.js test/unit/library-intake.test.js test/unit/music-profile.test.js test/unit/check-full-track-metadata.test.js test/unit/audit-track-programming.test.js test/unit/playlist-catalog.test.js test/unit/queue-handoff.test.js test/unit/playlist-controller.test.js test/unit/blend-policy.test.js test/unit/plex-queue.test.js test/unit/automation-policy.test.js
       - name: Full unit and integration suite (bounded)
         run: timeout --signal=TERM --kill-after=10s 180s npm test
