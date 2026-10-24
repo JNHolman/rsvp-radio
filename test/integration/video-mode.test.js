@@ -9,6 +9,24 @@ const http   = require("node:http");
 const { startServer, makePublicDir } = require("../helpers/server-test-helper");
 function delay(ms) { return new Promise((resolve) => setTimeout(resolve, ms)); }
 
+// Status is updated on the asynchronous Plex poll, not in the control route.
+// Do not assume that one fixed 400ms sleep includes a completed poll on CI.
+async function waitForState(baseUrl, predicate, message, timeoutMs = 4000) {
+  const deadline = Date.now() + timeoutMs;
+  let state = null;
+  while (Date.now() < deadline) {
+    state = await (await fetch(baseUrl + "/state")).json();
+    if (predicate(state)) return state;
+    await delay(80);
+  }
+  assert.fail(message + "; last state: " + JSON.stringify({
+    mediaType: state?.media?.type,
+    mediaUrl: state?.media?.mediaUrl,
+    owner: state?.owner,
+    mode: state?.mode,
+  }));
+}
+
 function makeStub() {
   const state = { plexampPlaying: false };
   const srv = http.createServer((req, res) => {
@@ -94,8 +112,9 @@ test("video mode: list playlists, play, auto-advance, and Plexamp override", asy
 
     // 4. Plexamp starts playing → video mode exits (music wins, sticky)
     state.plexampPlaying = true;
-    await delay(500);
-    st = await (await fetch(`${server.baseUrl}/state`)).json();
+    st = await waitForState(server.baseUrl,
+      current => current.media.type !== "video",
+      "Plexamp override must exit video mode");
     assert.notEqual(st.media.type, "video", "Plexamp override exits video mode");
   } finally {
     await server.stop();
@@ -159,7 +178,9 @@ test("manual admin video may play outside the current block and holds until the 
     assert.equal(body.mode, manualMode);
     assert.ok(body.manualUntil > before, "manual video selection gets a future boundary expiry");
 
-    const st = await (await fetch(`${server.baseUrl}/state`)).json();
+    const st = await waitForState(server.baseUrl,
+      current => current.media.type === "video" && current.mode.current === manualMode,
+      "manual video should become visible after asynchronous state poll");
     assert.equal(st.media.type, "video");
     assert.equal(st.mode.current, manualMode);
     assert.equal(st.mode.source, "manual");
