@@ -1,0 +1,27 @@
+name: Safe Music Queue Handoff
+on:
+  push:
+    branches:
+      - fix/music-queue-safe-handoffs-20261024
+  pull_request:
+    paths:
+      - server.js
+      - intelligence/queue-handoff.js
+      - test/unit/queue-handoff.test.js
+      - test/unit/playlist-controller.test.js
+      - shared/timeblocks.js
+      - .github/workflows/music-queue-handoff.yml
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Check syntax
+        run: node --check server.js && node --check intelligence/queue-handoff.js
+      - name: Focused queue and schedule tests
+        run: node --test test/unit/queue-handoff.test.js test/unit/playlist-controller.test.js test/unit/blend-policy.test.js test/unit/plex-queue.test.js test/unit/automation-policy.test.js
