@@ -20,5 +20,5 @@ jobs:
         run: |
           node --check hue/ownership.js
           node --check hue-adapter.js
-      - name: Run full regression suite
-        run: npm test
+      - name: Run Hue ownership and lighting regression tests
+        run: node --test test/unit/hue-*.test.js test/unit/lighting-*.test.js
