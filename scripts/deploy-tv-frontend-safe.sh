@@ -60,7 +60,7 @@ for file in "${FILES[@]}"; do
   }
   curl -fsSL --retry 2 "$REMOTE/$BASE/$file" -o "$TMP/base/$file"
   curl -fsSL --retry 2 "$REMOTE/$FIX/$file" -o "$TMP/fix/$file"
-  curl -fsSL --max-time 8 "http://127.0.0.1:3000/$file" -o "$TMP/served/$file"
+  curl -fsSL --max-time 8 "http://127.0.0.1:3000/${file#public/}" -o "$TMP/served/$file"
   if ! cmp -s "$localfile" "$TMP/base/$file"; then
     echo "STOP: local $file differs from the GitHub base; no files changed." >&2
     exit 3
@@ -95,7 +95,7 @@ for file in "${FILES[@]}"; do
   fi
 done
 for file in "${FILES[@]}"; do
-  if ! curl -fsSL --max-time 8 "http://127.0.0.1:3000/$file" -o "$TMP/served/$file" ||
+  if ! curl -fsSL --max-time 8 "http://127.0.0.1:3000/${file#public/}" -o "$TMP/served/$file" ||
      ! cmp -s "$TMP/served/$file" "$TMP/fix/$file"; then
     restore
     exit 4
