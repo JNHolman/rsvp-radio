@@ -25,7 +25,7 @@ const {
   readCa,
 } = require("./hue/hue-client");
 const { createReactiveLighting } = require("./hue/reactive-lighting");
-const { detectExternalHueEdit, updateAutomatedWrite } = require("./hue/ownership");
+const { createSettledHueObserver } = require("./hue/ownership");
 
 const cfg = loadConfig();
 const reactive = createReactiveLighting({ minIntervalMs: cfg.reactiveMinIntervalMs, range: cfg.reactiveRange });
@@ -145,8 +145,9 @@ async function applyScene(mode, durMs) {
 
 let lastAutomatedWrite = null;
 let appColorTakeover = false;
+const hueObserver = createSettledHueObserver();
 function recordAutomatedWrite(command) {
-  lastAutomatedWrite = updateAutomatedWrite(lastAutomatedWrite, command);
+  lastAutomatedWrite = hueObserver.recordWrite(command);
 }
 
 async function readPhysicalPower() {
@@ -160,7 +161,12 @@ async function readPhysicalPower() {
   const isOn = typeof on === "boolean" ? on : actionOn;
   // Hue app edits change the bridge target independently of RSVP writes.
   // Honor that takeover until an explicit RSVP scene/Auto selection.
-  if (isOn && detectExternalHueEdit(r.body?.action, lastAutomatedWrite)) {
+  const ownership = isOn ? hueObserver.inspect(r.body?.action) : { external: false };
+  if (ownership.settled && Number.isFinite(ownership.requestedXyDelta) &&
+      ownership.requestedXyDelta > 0.045) {
+    console.warn(`[hue] bridge settled XY differs from requested target (delta=${ownership.requestedXyDelta.toFixed(4)}); continuing Auto`);
+  }
+  if (isOn && ownership.external) {
     if (!appColorTakeover) {
       // Diagnostic only: record which reported target differed, never log the
       // Hue API key/bridge credentials or send another command to the bulb.
@@ -170,7 +176,7 @@ async function readPhysicalPower() {
           action.xy[1] - lastAutomatedWrite.xy[1]).toFixed(4) : "unknown";
       const briDelta = Number.isFinite(action.bri) && Number.isFinite(lastAutomatedWrite?.bri)
         ? action.bri - lastAutomatedWrite.bri : "unknown";
-      console.warn(`[hue] external takeover after fade: mode=${action.colormode || "unknown"} xyDelta=${xyDelta} briDelta=${briDelta}`);
+      console.warn(`[hue] confirmed external change: reason=${ownership.reason} mode=${action.colormode || "unknown"} requestedXyDelta=${xyDelta} briDelta=${briDelta}`);
     }
     appColorTakeover = true;
   }
@@ -252,6 +258,7 @@ async function handler(req, res) {
     if (url.pathname === "/release") {
       appColorTakeover = false;
       lastAutomatedWrite = null;
+      hueObserver.clear();
       return json(res, 200, { ok: true, action: "release" });
     }
 

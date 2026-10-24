@@ -1,7 +1,7 @@
 "use strict";
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { detectExternalHueEdit, updateAutomatedWrite, FADE_SETTLE_MS } = require("../../hue/ownership");
+const { detectExternalHueEdit, updateAutomatedWrite, createSettledHueObserver, FADE_SETTLE_MS } = require("../../hue/ownership");
 
 const expected = { xy: [0.21, 0.17], bri: 76, writtenAt: 10000 };
 const hue = { xy: [0.21, 0.17], bri: 76, colormode: "xy" };
@@ -80,6 +80,61 @@ test("Hue adapter still honors physical power-off before any takeover detection"
   const path = require("node:path");
   const adapter = fs.readFileSync(path.join(__dirname, "../../hue-adapter.js"), "utf8");
   assert.match(adapter, /typeof on === "boolean" \? on : actionOn/);
-  assert.match(adapter, /if \(isOn && detectExternalHueEdit/);
+  assert.match(adapter, /if \(isOn && ownership.external/);
   assert.match(adapter, /recordAutomatedWrite\(payload\)/);
+});
+
+test("October 23 regression: one 0.173 XY mismatch after a 180-second fade does not freeze Auto", () => {
+  const tracker = createSettledHueObserver();
+  const start = Date.parse("2026-10-24T00:13:00Z"); // Oct 23, 20:13 EDT
+  tracker.recordWrite({ xy: [0.3655, 0.1522], bri: 76, transitiontime: 1800 }, start);
+  const bridge = { xy: [0.1925, 0.1522], bri: 76, colormode: "xy" };
+  assert.equal(tracker.inspect(bridge, start + 210000).external, false);
+  const accepted = tracker.inspect(bridge, start + 240000);
+  assert.equal(accepted.external, false);
+  assert.equal(accepted.settled, true);
+  assert.ok(Math.abs(accepted.requestedXyDelta - 0.173) < 0.0001);
+  assert.equal(tracker.inspect(bridge, start + 270000).external, false);
+});
+
+test("actual Hue app color change after bridge settles still yields after confirmation", () => {
+  const tracker = createSettledHueObserver(), start = 10000;
+  tracker.recordWrite({ xy: [0.21, 0.17], bri: 76, transitiontime: 1800 }, start);
+  const original = { xy: [0.20, 0.18], bri: 76, colormode: "xy" };
+  tracker.inspect(original, start + 210000);
+  tracker.inspect(original, start + 240000);
+  const app = { ...original, xy: [0.45, 0.31] };
+  assert.equal(tracker.inspect(app, start + 270000).external, false);
+  assert.equal(tracker.inspect(app, start + 300000).reason, "confirmed_color_change");
+});
+
+test("late intermediate Hue readback does not cause takeover and next fade resets baseline", () => {
+  const tracker = createSettledHueObserver(), start = 10000;
+  const command = { xy: [0.21, 0.17], bri: 76, transitiontime: 1800 };
+  tracker.recordWrite(command, start);
+  const baseline = { xy: [0.21, 0.17], bri: 76, colormode: "xy" };
+  tracker.inspect(baseline, start + 210000);
+  tracker.inspect(baseline, start + 240000);
+  assert.equal(tracker.inspect({ ...baseline, xy: [0.44, 0.30] }, start + 270000).external, false);
+  assert.equal(tracker.inspect(baseline, start + 300000).external, false);
+  tracker.recordWrite({ ...command, xy: [0.35, 0.20] }, start + 330000);
+  assert.equal(tracker.inspect(baseline, start + 360000).external, false);
+});
+
+test("brightness and color temperature overrides still work", () => {
+  for (const change of [
+    { xy: [0.21, 0.17], bri: 130, colormode: "xy" },
+    { xy: [0.21, 0.17], bri: 76, colormode: "ct" },
+  ]) {
+    const tracker = createSettledHueObserver(), start = 10000;
+    tracker.recordWrite({ xy: [0.21, 0.17], bri: 76, transitiontime: 1800 }, start);
+    assert.equal(tracker.inspect(change, start + 210000).external, true);
+  }
+});
+
+test("explicit Auto release clears bridge calibration", () => {
+  const fs = require("node:fs"), path = require("node:path");
+  const adapter = fs.readFileSync(path.join(__dirname, "../../hue-adapter.js"), "utf8");
+  assert.match(adapter, /hueObserver\.clear\(\)/);
+  assert.match(adapter, /hueObserver\.recordWrite\(command\)/);
 });
