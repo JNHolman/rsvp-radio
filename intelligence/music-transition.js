@@ -82,6 +82,11 @@ function createMusicTransition({ random = Math.random } = {}) {
     return true;
   }
 
+  function cancelPending() {
+    // A temporary automation stop must not erase the current musical source.
+    planned = null;
+  }
+
   function reset(mode = "") {
     block = validMode(mode);
     source = block;
@@ -97,7 +102,7 @@ function createMusicTransition({ random = Math.random } = {}) {
     };
   }
 
-  return { observeBlock, chooseForTrack, isPending, confirmPrepared, reset, snapshot };
+  return { observeBlock, chooseForTrack, isPending, confirmPrepared, cancelPending, reset, snapshot };
 }
 
 module.exports = { createMusicTransition };
