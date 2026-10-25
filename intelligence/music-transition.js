@@ -29,8 +29,11 @@ function createMusicTransition({ random = Math.random } = {}) {
     transition = previous && previous !== incoming
       ? { fromMode: previous, toMode: incoming, prepared: 0 }
       : null;
+    // A boundary must never re-arm the same playing track. Its next song
+    // may already have been inserted just before the clock changed.
+    // Pending (unconfirmed) work is invalidated and may be retried, but a
+    // confirmed handoff remains protected until a different track is seen.
     planned = null;
-    confirmedTrack = "";
     return true;
   }
 
