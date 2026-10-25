@@ -78,3 +78,16 @@ test("same track cannot be prepared twice and empty mode never creates a decisio
   engine.confirmPrepared("1", "rnb");
   assert.equal(engine.chooseForTrack("1").reason, "already_prepared");
 });
+
+test("pausing automation cancels a pending pick without losing the prior source", () => {
+  const engine = createMusicTransition({ random: () => 0 });
+  engine.observeBlock("lounge");
+  engine.chooseForTrack("1");
+  engine.confirmPrepared("1", "lounge");
+  engine.chooseForTrack("2");
+  engine.cancelPending();
+  assert.equal(engine.isPending("2", "lounge"), false);
+  engine.observeBlock("rap");
+  assert.equal(engine.snapshot().transition.fromMode, "lounge");
+  assert.equal(engine.chooseForTrack("3").mode, "lounge");
+});
