@@ -36,7 +36,7 @@ const session     = require("./intelligence/session");
 const playlistCtl = require("./intelligence/playlist-controller");
 const { createQueueHandoff } = require("./intelligence/queue-handoff");
 const { createPlaylistCatalog } = require("./intelligence/playlist-catalog");
-const blendPolicy = require("./intelligence/blend-policy");
+const { createMusicTransition } = require("./intelligence/music-transition");
 const videoBlendPolicy = require("./intelligence/video-blend-policy");
 const videoRecovery = require("./intelligence/video-recovery");
 const videoEvent = require("./intelligence/video-event");
@@ -256,7 +256,7 @@ function _stopAutomation() {
   // Stop means stop NOW: clear decisions that were queued by automation so a
   // track/clip ending before the next poll cannot fire stale work.
   _pendingPlaylistSwitch = null;
-  _musicBlendSession = null;
+  _musicTransition.reset();
   _activeSteeringLane = null;
   _pendingVideoMode = null;
   _persistRuntimeState();
@@ -295,7 +295,7 @@ function _setManualMode(mode) {
   _manualMode = { mode, expiresAt };
   // Explicit operator intent wins immediately over any queued automatic work.
   _pendingPlaylistSwitch = null;
-  _musicBlendSession = null;
+  _musicTransition.reset(mode);
   _activeSteeringLane = null;
   _pendingVideoMode = null;
   _persistRuntimeState();
@@ -329,8 +329,7 @@ function _clearManualLights() {
 // Boundary crosses queue a switch that fires at end of current track (option B).
 // Manual mode changes fire IMMEDIATELY (user explicit intent).
 let _pendingPlaylistSwitch = null; // { mode, playlistKey, queuedAt, reason, blendBoundaryMs? }
-let _lastBlockMode = null;          // tracked across polls to detect boundary cross
-let _musicBlendSession = null;      // active weighted handoff state for one boundary
+const _musicTransition = createMusicTransition(); // music-only, track-driven source progression
 let _lastCommandedPlaylist = "";    // last successfully commanded playlist ratingKey
 let _firstStartAligned     = false; // whether first-start playlist alignment has been issued
 let _suppressedVideoRatingKey = ""; // video ratingKey suppressed after browser playback failure
@@ -419,46 +418,40 @@ function _isOperatorCausedStop(ratingKey) {
   return match;
 }
 
-function _prepareScheduledTrack(blend, currentTrackKey, scheduledMode) {
+function _prepareScheduledTrack(currentTrackKey, scheduledMode) {
   if (!_automation.enabled || _isManualActive() || _roomOwner !== "radio") return;
   if (!currentTrackKey) return;
 
-  if (blend && (!_musicBlendSession || _musicBlendSession.boundaryMs !== blend.boundaryMs)) {
-    _musicBlendSession = {
-      boundaryMs: blend.boundaryMs, fromMode: blend.fromMode,
-      toMode: blend.toMode, sourceMode: blend.fromMode,
-    };
-    _activeSteeringLane = null; // a new scheduled block overrides the old lateral lane
-    console.log(`[playlist] queue-safe blend started ${blend.fromMode}→${blend.toMode}`);
-  } else if (!blend && _musicBlendSession) {
-    console.log(`[playlist] blend completed; now scheduling ${scheduledMode} exclusively`);
-    _musicBlendSession = null;
+  // Clock changes only bias future picks; no premature change or fixed
+  // 20-minute deadline for the music source to switch.
+  const changed = _musicTransition.observeBlock(scheduledMode);
+  if (changed && _musicTransition.snapshot().transition) {
+    const { fromMode, toMode } = _musicTransition.snapshot().transition;
+    console.log(`[playlist] gradual music preference ${fromMode}→${toMode}; current song continues`);
   }
+  const decision = _musicTransition.chooseForTrack(currentTrackKey);
+  if (!decision.mode) return;
 
-  const selectedMode = blend ? blendPolicy.chooseMode(blend) : scheduledMode;
-  const steering = !blend && _activeSteeringLane?.mode === scheduledMode
-    ? _activeSteeringLane : null;
-
+  // Skip-selected lanes remain available within their own source, without
+  // pinning the entire timeblock transition to the old block.
+  const steering = _activeSteeringLane?.mode === decision.mode ? _activeSteeringLane : null;
   (async () => {
     const selected = steering
       ? await _playlistCatalog.resolveLane(steering.key)
-      : await _playlistCatalog.resolveMode(selectedMode);
-    if (!selected.ok) return; // No owner-approved pool? Leave queue alone.
+      : await _playlistCatalog.resolveMode(decision.mode);
+    if (!selected.ok) return;
 
     const result = await _queueHandoff.prepareNext({
       playlistRatingKey: selected.playlistKey,
       expectedRatingKey: currentTrackKey,
       isAllowed: () => _automation.enabled && !_isManualActive() &&
-        _roomOwner === "radio" && !_videoMode.active,
+        _roomOwner === "radio" && !_videoMode.active &&
+        _musicTransition.isPending(currentTrackKey, decision.mode),
     });
-    if (result.ok) {
+    if (result.ok && _musicTransition.confirmPrepared(currentTrackKey, decision.mode)) {
       _lastCommandedPlaylist = selected.playlistKey;
-      if (_musicBlendSession && blend &&
-          _musicBlendSession.boundaryMs === blend.boundaryMs) {
-        _musicBlendSession.sourceMode = selectedMode;
-      }
     }
-  })().catch(err => console.warn("[playlist] safe queue preparation error:", err.message));
+  })().catch(err => console.warn("[playlist] gradual queue preparation failed:", err.message));
 }
 
 // Current video file path — kept server-side only, never exposed in /state.
@@ -895,7 +888,7 @@ async function enterVideoMode(playlistKey, {
   // TV owns playback now. Any queued/active Radio blend decision was calculated
   // for a medium that is no longer playing and must never fire later as stale work.
   _pendingPlaylistSwitch = null;
-  _musicBlendSession = null;
+  _musicTransition.reset();
 
   const savedIndex = preservePosition ? _videoPlaylistResumeIndex.get(String(playlistKey)) : undefined;
   const startIndex = Number.isInteger(savedIndex) && savedIndex >= 0 && savedIndex < clips.length ? savedIndex : 0;
@@ -1428,7 +1421,7 @@ async function pollSessions() {
             if (_wasVideoMode) { _wasVideoMode = false; _bumpVideoHandoffToken(); }
             lastState = _plexampFallbackState({ bass, energy, meta, tl });
             if (_roomOwner === "radio" && _automation.enabled && !_isManualActive()) {
-              _prepareScheduledTrack(musicBlend, tl.ratingKey, timeBlockMode);
+              _prepareScheduledTrack(tl.ratingKey, timeBlockMode);
             }
             return;
           }
@@ -1535,8 +1528,9 @@ async function pollSessions() {
       // Only steer audio (never video), only when following the schedule or a
       // manual mode. Skips walk laterally within the current mode; the boundary
       // reset (below) owns vertical moves.
-      if (!t.isVideo && _automation.enabled && !musicBlend) {
-        const steerMode = _isManualActive() ? _manualMode.mode : timeBlockMode;
+      if (!t.isVideo && _automation.enabled) {
+        const steerMode = _isManualActive() ? _manualMode.mode
+          : (_musicTransition.snapshot().source || timeBlockMode);
         if (_wasCleanPlay) {
           _steering.onCleanPlay();
         } else if (_wasSkip) {
@@ -1600,14 +1594,7 @@ async function pollSessions() {
     if (resolvedSource === "timeblock" && _automation.enabled && !t.isVideo &&
         t.playerState === "playing") {
       if (!_firstStartAligned) _firstStartAligned = true;
-      if (_lastBlockMode && _lastBlockMode !== timeBlockMode) {
-        _activeSteeringLane = null;
-        _steering.onBoundaryOrModeChange(timeBlockMode);
-      }
-      _prepareScheduledTrack(musicBlend, t.ratingKey, timeBlockMode);
-      _lastBlockMode = timeBlockMode;
-    } else if (resolvedSource !== "timeblock" || !_automation.enabled) {
-      _musicBlendSession = null;
+      _prepareScheduledTrack(t.ratingKey, timeBlockMode);
     }
 
     _currentVideoPath = t.isVideo ? (t.localFilePath || "") : "";
