@@ -185,7 +185,7 @@ function _parseFilenameMetadata(filePath) {
 // mode.source values:
 //   "manual" | "timeblock" | "video-session"
 // First-song seed labels the session mode; it never selects Hue colors.
-// Manual mode yields when the next scheduled 20-minute handoff begins.
+// Radio manual mode yields at the next actual block boundary; TV keeps its video handoff policy.
 
 function _emptyMedia() {
   return {
@@ -242,9 +242,8 @@ function _computeIntelligence(ratingKey, lastPlayPercent = null) {
 let lastState = _initialState();
 
 // ── Manual mode override (server-owned) ──────────────────────────────────────
-// Set via POST /mode/:mode. Auto-expires when the next scheduled music blend
-// begins. A manual selection made during an active blend survives that blend and
-// expires at the following one. Cleared explicitly via POST /mode/clear.
+// Set via POST /mode/:mode. Radio yields at the next scheduled boundary,
+// while TV retains its existing centered clip-blend expiration. Cleared via /mode/clear.
 let _manualMode = (_persistedRuntime.manualMode && _persistedRuntime.manualMode.expiresAt > Date.now())
   ? { ..._persistedRuntime.manualMode }
   : null; // { mode: "rap", expiresAt: 1234567890 } or null
@@ -266,16 +265,19 @@ function _startAutomation() {
   _persistRuntimeState();
 }
 function _maybeResumeAutomationForBlend(blendState = timeblocks.getMusicBlendState(new Date())) {
+  // Video retains its established centered blend. Radio automation cannot
+  // reclaim a manual stop ten minutes BEFORE the music block changes.
+  if (_roomOwner === "radio" && (!blendState || blendState.offsetMin < 0)) return false;
   if (!automationPolicy.shouldReclaimForBlend({
     manualStop: _automation.manualStop,
     stoppedAt: _automation.stoppedAt,
     blendState,
-    blendHalfMin: timeblocks.MUSIC_BLEND_HALF_MIN,
+    blendHalfMin: _roomOwner === "radio" ? 0 : timeblocks.MUSIC_BLEND_HALF_MIN,
   })) return false;
 
   _startAutomation();
   _videoSkipPressure = { count:0, lastRatingKey:"", lastAt:0 };
-  console.log(`[automation] future scheduled ${timeblocks.MUSIC_BLEND_WINDOW_MIN}-minute blend reclaimed automation control`);
+  console.log("[automation] scheduled boundary reclaimed automation control");
   return true;
 }
 
@@ -291,7 +293,12 @@ function _isManualActive() {
 }
 
 function _setManualMode(mode) {
-  const expiresAt = timeblocks.getNextMusicBlendStartMs(new Date());
+  // Music manual control lasts through the actual next boundary (not 10m
+  // before it). Video keeps its existing clip-blend/manual-override contract.
+  const now = new Date();
+  const expiresAt = _roomOwner === "radio"
+    ? timeblocks.getNextBoundaryMs(now)
+    : timeblocks.getNextMusicBlendStartMs(now);
   _manualMode = { mode, expiresAt };
   // Explicit operator intent wins immediately over any queued automatic work.
   _pendingPlaylistSwitch = null;
@@ -2155,8 +2162,8 @@ app.post("/admin/automation/start", async (_req, res) => {
 // ── Manual mode override ────────────────────────────────────────────────────
 // POST /mode/clear  → clears the override. Returns to timeblock-driven mode and
 //                     queues a playlist switch (waits for end of current track).
-// POST /mode/:mode  → sets manual override. Auto-expires when the next scheduled
-//                     20-minute handoff begins. Triggers an IMMEDIATE playlist switch if a
+// POST /mode/:mode  → sets manual override. Radio expires at the next clock
+//                     boundary; TV uses its existing blend timing. Triggers an IMMEDIATE playlist switch if a
 //                     playlist is configured for that mode (user explicit intent).
 //
 // Order matters: /mode/clear must register BEFORE /mode/:mode so the literal
