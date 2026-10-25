@@ -91,3 +91,44 @@ test("pausing automation cancels a pending pick without losing the prior source"
   assert.equal(engine.snapshot().transition.fromMode, "lounge");
   assert.equal(engine.chooseForTrack("3").mode, "lounge");
 });
+
+test("a boundary does not queue a second next-song for a track already prepared", () => {
+  const engine = createMusicTransition({ random: () => 0 });
+  engine.observeBlock("lounge");
+  assert.equal(engine.chooseForTrack("current").mode, "lounge");
+  assert.equal(engine.confirmPrepared("current", "lounge"), true);
+  engine.observeBlock("rap"); // e.g. 5 PM, same song is still playing
+  assert.deepEqual(engine.chooseForTrack("current"), {
+    mode: "", reason: "already_prepared",
+  });
+  assert.equal(engine.snapshot().transition.prepared, 0);
+  assert.equal(engine.chooseForTrack("following").mode, "lounge");
+  assert.equal(engine.confirmPrepared("following", "lounge"), true);
+  assert.equal(engine.snapshot().transition.prepared, 1);
+});
+
+test("a boundary invalidates an in-flight pick but can plan once afterward", () => {
+  const engine = createMusicTransition({ random: () => 0.2 });
+  engine.observeBlock("lofi");
+  engine.chooseForTrack("old");
+  engine.confirmPrepared("old", "lofi");
+  engine.chooseForTrack("current");
+  assert.equal(engine.isPending("current", "lofi"), true);
+  engine.observeBlock("lounge");
+  assert.equal(engine.isPending("current", "lofi"), false);
+  const revised = engine.chooseForTrack("current");
+  assert.equal(revised.mode, "lofi");
+  assert.equal(engine.confirmPrepared("current", revised.mode), true);
+  assert.equal(engine.confirmPrepared("current", revised.mode), false);
+});
+
+test("multiple blocks do not re-arm one continuously playing track", () => {
+  const engine = createMusicTransition();
+  engine.observeBlock("lofi");
+  engine.chooseForTrack("song");
+  engine.confirmPrepared("song", "lofi");
+  for (const block of ["lounge", "rap", "rnb", "lofi"]) {
+    engine.observeBlock(block);
+    assert.equal(engine.chooseForTrack("song").reason, "already_prepared");
+  }
+});
