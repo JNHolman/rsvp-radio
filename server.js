@@ -1442,8 +1442,8 @@ async function pollSessions() {
       // Clear any pending playlist switch — we don't autoplay from idle.
       // If the user stopped playback, intent is "stop". When they start
       // again later, the timeblock-cross detection re-evaluates and queues
-      // a switch then if needed (since _lastBlockMode is preserved through
-      // idle). See _lastBlockMode handling in the playing branch below.
+      // a switch then if needed (since no automated decisions fire while stopped.
+      // When listening resumes, music preferences are recalculated safely.
       if (_pendingPlaylistSwitch) {
         console.log(`[playlist] dropping pending ${_pendingPlaylistSwitch.mode} switch — playback stopped (no autoplay)`);
         _pendingPlaylistSwitch = null;
@@ -1659,14 +1659,15 @@ async function pollSessions() {
         desiredPlaylist,
         lastCommandedPlaylist: _lastCommandedPlaylist,
         commandAligned: !desiredPlaylist || desiredPlaylist === _lastCommandedPlaylist,
-        blend: (!isVideo && resolvedSource === "timeblock" && _automation.enabled && musicBlend) ? {
-          fromMode: musicBlend.fromMode,
-          toMode: musicBlend.toMode,
-          oldPct: musicBlend.oldPct,
-          newPct: musicBlend.newPct,
-          stageIndex: musicBlend.stageIndex,
-          boundaryMs: musicBlend.boundaryMs,
-          sourceMode: _musicBlendSession?.sourceMode || "",
+        blend: (!isVideo && resolvedSource === "timeblock" && _automation.enabled &&
+          _musicTransition.snapshot().transition) ? {
+          fromMode: _musicTransition.snapshot().transition.fromMode,
+          toMode: _musicTransition.snapshot().transition.toMode,
+          oldPct: 100 - _musicTransition.snapshot().transition.incomingPct,
+          newPct: _musicTransition.snapshot().transition.incomingPct,
+          sourceMode: _musicTransition.snapshot().source,
+          preparedTracks: _musicTransition.snapshot().transition.prepared,
+          strategy: "track_progression",
         } : null,
       },
       steering:     _steering.snapshot(),
