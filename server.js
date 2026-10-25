@@ -255,7 +255,7 @@ function _stopAutomation() {
   // Stop means stop NOW: clear decisions that were queued by automation so a
   // track/clip ending before the next poll cannot fire stale work.
   _pendingPlaylistSwitch = null;
-  _musicTransition.reset();
+  _musicTransition.cancelPending();
   _activeSteeringLane = null;
   _pendingVideoMode = null;
   _persistRuntimeState();
