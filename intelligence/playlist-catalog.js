@@ -78,7 +78,7 @@ function createPlaylistCatalog({
     finally { inFlight = null; }
   }
 
-  async function resolveMode(mode, { deterministic = false, bridgeFrom = "", bridgeTo = "", preferPlaylistKey = "" } = {}) {
+  async function resolveMode(mode, { deterministic = false, bridgeFrom = "", bridgeTo = "", preferPlaylistKey = "", bridgeStrength = 1 } = {}) {
     if (!MODES.includes(mode)) return { ok: false, reason: "invalid_mode" };
     const names = configured[mode];
     if (!names.length) return { ok: false, reason: "unassigned_mode_pool" };
@@ -99,16 +99,22 @@ function createPlaylistCatalog({
     const bridgeRequested = MODES.includes(bridgeFrom) && MODES.includes(bridgeTo) &&
       bridgeFrom !== bridgeTo && (mode === bridgeFrom || mode === bridgeTo);
     let choices = eligible;
-    if (bridgeRequested) {
+    const weight = Math.max(0, Math.min(1, Number(bridgeStrength) || 0));
+    let usingBridge = false;
+    if (bridgeRequested && weight > 0) {
       const other = mode === bridgeFrom ? bridgeTo : bridgeFrom;
       const shared = new Set(configured[other].map(normalize));
       const overlap = eligible.filter(item => shared.has(normalize(item.name)));
-      if (overlap.length) choices = overlap;
+      // Shared-source preference fades as the new block gradually takes over.
+      if (overlap.length && (deterministic || Number(random()) < weight)) {
+        choices = overlap;
+        usingBridge = true;
+      }
     }
 
-    // Hold the previously auto-selected source when it is approved in the
-    // common pool. Avoid a random playlist-to-playlist change at the boundary.
-    const preferred = !deterministic && bridgeRequested
+    // Keep the previous automatically selected source when it belongs to the
+    // shared pool, rather than randomly jumping between approved eras.
+    const preferred = !deterministic && usingBridge
       ? choices.find(item => item.id === String(preferPlaylistKey || "")) : null;
     const roll = Number(random());
     const position = deterministic ? 0 :
