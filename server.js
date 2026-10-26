@@ -439,13 +439,22 @@ function _prepareScheduledTrack(currentTrackKey, scheduledMode) {
   const decision = _musicTransition.chooseForTrack(currentTrackKey);
   if (!decision.mode) return;
 
-  // Skip-selected lanes remain available within their own source, without
-  // pinning the entire timeblock transition to the old block.
-  const steering = _activeSteeringLane?.mode === decision.mode ? _activeSteeringLane : null;
+  // Source-level musical bridge: initially favor playlists approved in both
+  // adjacent blocks. The overlap's influence fades as actual queued-song
+  // opportunities progress, rather than switching playlists by the clock.
+  const transition = _musicTransition.snapshot().transition;
+  const bridgeStrength = transition ? Math.max(0, 1 - transition.incomingPct / 100) : 0;
+  const steering = !transition && _activeSteeringLane?.mode === decision.mode
+    ? _activeSteeringLane : null;
   (async () => {
     const selected = steering
       ? await _playlistCatalog.resolveLane(steering.key)
-      : await _playlistCatalog.resolveMode(decision.mode);
+      : await _playlistCatalog.resolveMode(decision.mode, transition ? {
+        bridgeFrom: transition.fromMode,
+        bridgeTo: transition.toMode,
+        bridgeStrength,
+        preferPlaylistKey: _lastCommandedPlaylist,
+      } : {});
     if (!selected.ok) return;
 
     const result = await _queueHandoff.prepareNext({
