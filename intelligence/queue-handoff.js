@@ -8,6 +8,8 @@
  * the current queue untouched rather than switching playback as fallback.
  */
 const { XMLParser } = require("fast-xml-parser");
+const { createMusicProfileReader } = require("./music-profile");
+const { chooseCompatible } = require("./track-continuity");
 const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: "@_", processEntities: false });
 const asArray = (x) => x == null ? [] : Array.isArray(x) ? x : [x];
 const attr = (obj, name) => String(obj?.["@_" + name] ?? "");
@@ -52,6 +54,7 @@ function parseLibrarySections(xml) {
 function createQueueHandoff({
   plexBase, plexampBase, plexToken, clientId, fetchWithTimeout,
   timeoutMs = 3000, random = Math.random, log = () => {},
+  requireTrackContinuity = true, maxCandidateProfiles = 32,
 }) {
   const server = base(plexBase);
   const player = base(plexampBase);
@@ -59,6 +62,7 @@ function createQueueHandoff({
   let completedKey = "";
   let attemptedKey = "";
   let lastSongKey = "";
+  let rejectedContext = "";
   let sectionMap = null;
   const recentPicks = [];
   const playlists = new Map();
@@ -82,7 +86,17 @@ function createQueueHandoff({
     u.searchParams.set("X-Plex-Target-Client-Identifier", clientId);
     return parsePlayingTimeline(await request(u.toString()));
   }
-  async function chooseTrack(playlistKey, currentRatingKey) {
+  const profileReader = createMusicProfileReader({
+    plexBase: server, plexToken, timeoutMs, maxEntries: 2048,
+    fetchWithTimeout,
+  });
+  const randomIndex = length => {
+    const value = Number(random());
+    const fraction = Number.isFinite(value)
+      ? Math.max(0, Math.min(0.999999999, value)) : 0.5;
+    return Math.floor(fraction * length);
+  };
+  async function getPlaylistEntries(playlistKey) {
     let cached = playlists.get(playlistKey);
     if (!cached || Date.now() >= cached.until) {
       const xml = await request(plexUrl("/playlists/" + playlistKey + "/items", {
@@ -93,14 +107,68 @@ function createQueueHandoff({
       cached = { entries, until: Date.now() + 30 * 60 * 1000 };
       playlists.set(playlistKey, cached);
     }
-    const candidates = cached.entries.filter(track => track.ratingKey !== currentRatingKey &&
-      !recentPicks.includes(track.ratingKey));
-    const available = candidates.length ? candidates :
-      cached.entries.filter(track => track.ratingKey !== currentRatingKey);
-    if (!available.length) throw new Error("no_alternate_playlist_song");
-    const roll = Number(random());
-    const index = Math.floor((Number.isFinite(roll) ? Math.min(0.999999999, Math.max(0, roll)) : 0.5) * available.length);
-    return available[index];
+    return cached.entries;
+  }
+
+  async function chooseTrack(playlistKeys, currentRatingKey) {
+    // Legacy queue behavior remains testable independently, but the actual
+    // Radio scheduler uses strict track-level selection.
+    if (!requireTrackContinuity) {
+      const key = playlistKeys[0];
+      const entries = await getPlaylistEntries(key);
+      const candidates = entries.filter(track => track.ratingKey !== currentRatingKey &&
+        !recentPicks.includes(track.ratingKey));
+      const available = candidates.length ? candidates :
+        entries.filter(track => track.ratingKey !== currentRatingKey);
+      if (!available.length) return null;
+      return { ...available[randomIndex(available.length)], playlistKey: key };
+    }
+
+    const current = await profileReader.get(currentRatingKey);
+    if (!current.ok || !current.profile) return null;
+
+    // Search across ALL owner-approved playlists of the selected mode.
+    // Round-robin candidate sampling prevents a large playlist from
+    // crowding out smaller/adjacent-era sources, while keeping network I/O
+    // bounded. The playlist is ONLY a search index, never compatibility proof.
+    const sourceEntries = await Promise.all(playlistKeys.map(async playlistKey => ({
+      playlistKey, entries: (await getPlaylistEntries(playlistKey))
+        .filter(x => x.ratingKey !== currentRatingKey && !recentPicks.includes(x.ratingKey)),
+    })));
+    const sampled = [], seen = new Set();
+    let pending = true;
+    while (sampled.length < maxCandidateProfiles && pending) {
+      pending = false;
+      for (const source of sourceEntries) {
+        if (!source.entries.length) continue;
+        pending = true;
+        const item = source.entries.splice(randomIndex(source.entries.length), 1)[0];
+        if (!item || seen.has(item.ratingKey)) continue;
+        seen.add(item.ratingKey);
+        sampled.push({ ...item, playlistKey: source.playlistKey });
+        if (sampled.length >= maxCandidateProfiles) break;
+      }
+    }
+    if (!sampled.length) return null;
+
+    const candidates = [];
+    // Metadata requests are GET-only and bounded to four concurrent calls.
+    for (let i = 0; i < sampled.length; i += 4) {
+      const part = sampled.slice(i, i + 4);
+      const results = await Promise.all(part.map(item => profileReader.get(item.ratingKey)));
+      results.forEach((result, j) => {
+        if (result.ok && result.profile) {
+          candidates.push({ ...result.profile, source: part[j] });
+        }
+      });
+    }
+    const selected = chooseCompatible(current.profile, candidates, { recent: recentPicks });
+    if (!selected.ok) {
+      log("[playlist] no defensible song-level match: " +
+        JSON.stringify(selected.rejected || {}));
+      return null;
+    }
+    return selected.profile.source;
   }
   async function getSectionUuid(sectionId) {
     if (!sectionMap || !sectionMap.has(sectionId)) {
@@ -109,10 +177,11 @@ function createQueueHandoff({
     return sectionMap.get(sectionId) || "";
   }
 
-  async function prepareNext({ playlistRatingKey, expectedRatingKey, isAllowed = () => true } = {}) {
-    const playlistKey = validId(playlistRatingKey);
+  async function prepareNext({ playlistRatingKey, playlistRatingKeys, expectedRatingKey, isAllowed = () => true } = {}) {
+    const rawKeys = Array.isArray(playlistRatingKeys) ? playlistRatingKeys : [playlistRatingKey];
+    const keys = rawKeys.map(validId);
     const expected = validId(expectedRatingKey);
-    if (!playlistKey || !expected || !server || !player || !plexToken || !clientId) {
+    if (!keys.length || keys.some(x => !x) || !expected || !server || !player || !plexToken || !clientId) {
       return { ok: false, reason: "missing_queue_context" };
     }
     if (busy) return { ok: false, reason: "busy" };
@@ -124,7 +193,13 @@ function createQueueHandoff({
       // Unique queue item is preferred to ratingKey: songs can repeat.
       const key = [context.queueId, context.itemId || context.ratingKey].join(":");
       if (key === completedKey || key === attemptedKey) return { ok: false, reason: "already_prepared_or_attempted" };
-      const pick = await chooseTrack(playlistKey, expected);
+      const screeningKey = key + ":" + keys.join(",");
+      if (screeningKey === rejectedContext) return { ok: false, reason: "no_compatible_song" };
+      const pick = await chooseTrack(keys, expected);
+      if (!pick) {
+        rejectedContext = screeningKey; // one search per playing item/source set
+        return { ok: false, reason: "no_compatible_song" };
+      }
       const uuid = await getSectionUuid(pick.sectionId);
       if (!uuid) return { ok: false, reason: "library_uuid_unavailable" };
 
@@ -147,9 +222,9 @@ function createQueueHandoff({
       recentPicks.push(pick.ratingKey);
       if (recentPicks.length > 12) recentPicks.shift();
       lastSongKey = pick.ratingKey;
-      log("[playlist] queued one next song from playlist " + playlistKey +
+      log("[playlist] queued one compatible next song from playlist " + pick.playlistKey +
           " (track=" + pick.ratingKey + ", queue=" + context.queueId + ")");
-      return { ok: true, playlistKey, ratingKey: pick.ratingKey, queueId: context.queueId };
+      return { ok: true, playlistKey: pick.playlistKey, ratingKey: pick.ratingKey, queueId: context.queueId };
     } catch (e) {
       log("[playlist] queue handoff failed safely: " + e.message);
       return { ok: false, reason: e.message || "unknown_failure" };
