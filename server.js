@@ -439,33 +439,32 @@ function _prepareScheduledTrack(currentTrackKey, scheduledMode) {
   const decision = _musicTransition.chooseForTrack(currentTrackKey);
   if (!decision.mode) return;
 
-  // Source-level musical bridge: initially favor playlists approved in both
-  // adjacent blocks. The overlap's influence fades as actual queued-song
-  // opportunities progress, rather than switching playlists by the clock.
-  const transition = _musicTransition.snapshot().transition;
-  const bridgeStrength = transition ? Math.max(0, 1 - transition.incomingPct / 100) : 0;
-  const steering = !transition && _activeSteeringLane?.mode === decision.mode
+  // A source playlist is never treated as a musical identity. Skip steering
+  // can still restrict the source pool; every actual candidate song must
+  // independently pass genre/era and explicit mood-tag compatibility.
+  const steering = _activeSteeringLane?.mode === decision.mode
     ? _activeSteeringLane : null;
   (async () => {
+    // Do not randomly select an era/genre playlist. Search actual songs
+    // across ALL owner-approved sources for this block and apply strict
+    // per-song metadata compatibility before touching Plexamp's queue.
     const selected = steering
       ? await _playlistCatalog.resolveLane(steering.key)
-      : await _playlistCatalog.resolveMode(decision.mode, transition ? {
-        bridgeFrom: transition.fromMode,
-        bridgeTo: transition.toMode,
-        bridgeStrength,
-        preferPlaylistKey: _lastCommandedPlaylist,
-      } : {});
+      : await _playlistCatalog.resolveModeAll(decision.mode);
     if (!selected.ok) return;
 
+    const sourceKeys = steering
+      ? [selected.playlistKey]
+      : selected.playlists.map(p => p.id);
     const result = await _queueHandoff.prepareNext({
-      playlistRatingKey: selected.playlistKey,
+      playlistRatingKeys: sourceKeys,
       expectedRatingKey: currentTrackKey,
       isAllowed: () => _automation.enabled && !_isManualActive() &&
         _roomOwner === "radio" && !_videoMode.active &&
         _musicTransition.isPending(currentTrackKey, decision.mode),
     });
     if (result.ok && _musicTransition.confirmPrepared(currentTrackKey, decision.mode)) {
-      _lastCommandedPlaylist = selected.playlistKey;
+      _lastCommandedPlaylist = result.playlistKey;
     }
   })().catch(err => console.warn("[playlist] gradual queue preparation failed:", err.message));
 }
