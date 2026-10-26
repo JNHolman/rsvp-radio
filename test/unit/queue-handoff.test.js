@@ -48,6 +48,9 @@ function mock({ stopped = false, playbackChanges = false, putFails = false } = {
     clientId: "pi-client",
     fetchWithTimeout,
     random: () => 0.5,
+    // Tests the legacy single-source transport in isolation; automatic
+    // Radio uses strict per-song compatibility by default.
+    requireTrackContinuity: false,
   });
   return { engine, calls };
 }
