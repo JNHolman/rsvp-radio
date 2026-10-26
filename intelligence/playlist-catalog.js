@@ -123,6 +123,22 @@ function createPlaylistCatalog({
     return { ok: true, playlistKey: selected.id, name: selected.name, mode };
   }
 
+  // Return ALL live approved source playlists for song-level selection.
+  // The queue engine, not a random playlist roll, determines the compatible
+  // next track using full Plex per-song metadata.
+  async function resolveModeAll(mode) {
+    if (!MODES.includes(mode)) return { ok: false, reason: "invalid_mode" };
+    const names = configured[mode];
+    if (!names.length) return { ok: false, reason: "unassigned_mode_pool" };
+    let live;
+    try { live = await getMusicPlaylists(); }
+    catch (_) { return { ok: false, reason: "registry_unavailable" }; }
+    const liveNames = new Map(live.map(p => [normalize(p.name), p]));
+    const eligible = names.map(name => liveNames.get(normalize(name))).filter(Boolean);
+    if (!eligible.length) return { ok: false, reason: "no_approved_playlists_available" };
+    return { ok: true, mode, playlists: eligible };
+  }
+
   // Legacy skip-driven lanes may declare numeric playlist IDs. Only resolve
   // them when their current identity is verified in the LIVE music registry.
   async function resolveLane(id) {
@@ -138,7 +154,7 @@ function createPlaylistCatalog({
   }
 
   return {
-    resolveMode, resolveLane, getMusicPlaylists,
+    resolveMode, resolveModeAll, resolveLane, getMusicPlaylists,
     configuration: () => Object.fromEntries(MODES.map(mode => [mode, [...configured[mode]]])),
   };
 }
