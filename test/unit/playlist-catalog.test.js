@@ -89,3 +89,74 @@ test("pool parsing deduplicates names without truncating spaces", () => {
   assert.deepEqual(parsePoolNames("70s Funk Soul| 80s R&B | 70s  Funk Soul"), ["70s Funk Soul", "80s R&B"]);
   assert.deepEqual(parsePoolNames(""), []);
 });
+
+test("overlapping approved Plex playlist bridges two clock blocks without inventing sources", async () => {
+  const { catalog } = make({
+    pools: {
+      lounge: "70s Funk Soul|80s Hip Hip|80s R&B",
+      rap: "80s Hip Hip|90s Reggae/Afrobeats",
+    },
+    random: () => 0.8,
+  });
+  // A fresh boundary only draws from the overlap, not a random 70s or R&B pool.
+  const fromOld = await catalog.resolveMode("lounge", {
+    bridgeFrom: "lounge", bridgeTo: "rap", bridgeStrength: 1,
+  });
+  const fromNew = await catalog.resolveMode("rap", {
+    bridgeFrom: "lounge", bridgeTo: "rap", bridgeStrength: 1,
+  });
+  assert.equal(fromOld.playlistKey, "6975");
+  assert.equal(fromNew.playlistKey, "6975");
+});
+
+test("a shared previously commanded playlist keeps continuity; an unrelated one is ignored", async () => {
+  const { catalog } = make({
+    pools: {
+      lounge: "70s Funk Soul|80s Hip Hip|80s R&B",
+      rap: "80s Hip Hip|90s Reggae/Afrobeats",
+    },
+    random: () => 0.1,
+  });
+  const keep = await catalog.resolveMode("rap", {
+    bridgeFrom: "lounge", bridgeTo: "rap",
+    bridgeStrength: 1, preferPlaylistKey: "6975",
+  });
+  assert.equal(keep.playlistKey, "6975");
+  const unapproved = await catalog.resolveMode("rap", {
+    bridgeFrom: "lounge", bridgeTo: "rap",
+    bridgeStrength: 1, preferPlaylistKey: "5397",
+  });
+  assert.equal(unapproved.playlistKey, "6975"); // Only the shared pool remains.
+});
+
+test("bridge preference decays as existing music transition progresses", async () => {
+  const { catalog } = make({
+    pools: {
+      lounge: "70s Funk Soul|80s Hip Hip|80s R&B",
+      rap: "80s Hip Hip|90s Reggae/Afrobeats",
+    },
+    random: () => 0.9,
+  });
+  const early = await catalog.resolveMode("lounge", {
+    bridgeFrom: "lounge", bridgeTo: "rap", bridgeStrength: 1,
+  });
+  assert.equal(early.playlistKey, "6975");
+  const late = await catalog.resolveMode("lounge", {
+    bridgeFrom: "lounge", bridgeTo: "rap", bridgeStrength: 0.1,
+  });
+  assert.equal(late.playlistKey, "7015"); // Wider daytime pool becomes available.
+});
+
+test("when adjacent blocks have no common source, retain the existing approved pool", async () => {
+  const { catalog } = make({
+    pools: { lofi: "70s Funk Soul", rap: "90s Reggae/Afrobeats" },
+  });
+  const result = await catalog.resolveMode("rap", {
+    bridgeFrom: "lofi", bridgeTo: "rap", bridgeStrength: 1,
+  });
+  assert.equal(result.ok, true);
+  assert.equal(result.playlistKey, "7790");
+  assert.equal((await catalog.resolveMode("rap", {
+    bridgeFrom: "invalid-mode", bridgeTo: "rap", bridgeStrength: 1,
+  })).playlistKey, "7790");
+});
