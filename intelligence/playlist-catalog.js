@@ -78,7 +78,7 @@ function createPlaylistCatalog({
     finally { inFlight = null; }
   }
 
-  async function resolveMode(mode, { deterministic = false } = {}) {
+  async function resolveMode(mode, { deterministic = false, bridgeFrom = "", bridgeTo = "", preferPlaylistKey = "" } = {}) {
     if (!MODES.includes(mode)) return { ok: false, reason: "invalid_mode" };
     const names = configured[mode];
     if (!names.length) return { ok: false, reason: "unassigned_mode_pool" };
@@ -91,10 +91,29 @@ function createPlaylistCatalog({
     const liveNames = new Map(live.map(p => [normalize(p.name), p]));
     const eligible = names.map(name => liveNames.get(normalize(name))).filter(Boolean);
     if (!eligible.length) return { ok: false, reason: "no_approved_playlists_available" };
+
+    // During the early song-driven handoff, prefer sources that belong to BOTH
+    // adjacent blocks. This narrows the jump from a random entire-era pool.
+    // If there is no shared approved source, leave existing selection intact.
+    // Only exact approved live playlist names are eligible; never infer a genre.
+    const bridgeRequested = MODES.includes(bridgeFrom) && MODES.includes(bridgeTo) &&
+      bridgeFrom !== bridgeTo && (mode === bridgeFrom || mode === bridgeTo);
+    let choices = eligible;
+    if (bridgeRequested) {
+      const other = mode === bridgeFrom ? bridgeTo : bridgeFrom;
+      const shared = new Set(configured[other].map(normalize));
+      const overlap = eligible.filter(item => shared.has(normalize(item.name)));
+      if (overlap.length) choices = overlap;
+    }
+
+    // Hold the previously auto-selected source when it is approved in the
+    // common pool. Avoid a random playlist-to-playlist change at the boundary.
+    const preferred = !deterministic && bridgeRequested
+      ? choices.find(item => item.id === String(preferPlaylistKey || "")) : null;
     const roll = Number(random());
     const position = deterministic ? 0 :
-      Math.floor((Number.isFinite(roll) ? Math.min(0.999999999, Math.max(0, roll)) : 0.5) * eligible.length);
-    const selected = eligible[position];
+      Math.floor((Number.isFinite(roll) ? Math.min(0.999999999, Math.max(0, roll)) : 0.5) * choices.length);
+    const selected = preferred || choices[position];
     return { ok: true, playlistKey: selected.id, name: selected.name, mode };
   }
 
