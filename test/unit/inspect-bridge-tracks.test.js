@@ -16,7 +16,7 @@ test("real proposed pools have overlap at all four actual clock boundaries", () 
   assert.equal(sharedSources(pools, "lofi", "lounge").length, 6);
   assert.equal(sharedSources(pools, "lounge", "rap").length, 5);
   assert.deepEqual(sharedSources(pools, "rap", "rnb"), ["2000s R&B"]);
-  assert.throws(() => parsePools("MUSIC_POOL_LOFI=missing"), /pool_missing_or_duplicate_/);
+  assert.throws(() => parsePools("MUSIC_POOL_LOFI=missing"), /invalid_pool_lofi/);
 });
 
 test("parses Plex metadata faithfully without guessing BPM, energy or groove", () => {
