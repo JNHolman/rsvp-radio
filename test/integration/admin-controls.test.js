@@ -210,11 +210,15 @@ test("automatic Hue color matches solar TV phase without changing programming", 
     assert.ok(ambient, "background-matched ambient intent reaches Hue");
     const phase = (await (await fetch(`${server.baseUrl}/api/solar-state`)).json()).phase;
     const payload = JSON.parse(ambient.body);
-    const { ambientTarget } = require("../../intelligence/ambient-light");
-    const expected = ambientTarget(phase, Date.now());
+    // Current design: artwork-matched Hue changes at irregular 20–120-minute
+    // holds, independent of music. Compare against the same cadence used by
+    // production, not the superseded continuously interpolated ambientTarget.
+    const { lightingTarget } = require("../../intelligence/lighting-cadence");
+    const expected = lightingTarget("auto", phase, Date.now());
     assert.ok(Array.isArray(payload.xy) && payload.xy.length === 2);
     assert.ok(Math.hypot(payload.xy[0] - expected.xy[0], payload.xy[1] - expected.xy[1]) < 0.01);
-    assert.ok(Math.abs(payload.bri - expected.bri) <= 1);
+    assert.equal(payload.bri, expected.bri);
+    assert.equal(payload.durMs, expected.durMs);
 
     // A human-selected Hue scene must not be overridden by an automatic sync.
     const override = await fetch(`${server.baseUrl}/admin/lights/mode/rnb`, { method: "POST" });
@@ -244,7 +248,7 @@ test("/admin/lights/* returns 502 when lights service is down", async () => {
   }
 });
 
-test("/features updates analyzer health and relays reactive signal without Chromium", async () => {
+test("/features updates analyzer health without touching independent Hue lighting", async () => {
   const lights = await startLightsStub();
   const server = await startServer({
     PUBLIC_DIR: makePublicDir({ withAssets: true }),
@@ -258,10 +262,10 @@ test("/features updates analyzer health and relays reactive signal without Chrom
     });
     assert.equal(featureRes.status, 200);
 
-    for (let i = 0; i < 20 && !lights.calls.some((c) => c.path === "/signal"); i++) {
-      await new Promise((r) => setTimeout(r, 25));
-    }
-    assert.ok(lights.calls.some((c) => c.path === "/signal"), "server relayed analyzer features to Hue adapter");
+    // Music analysis is telemetry only. Sending /signal would violate the
+    // independent slow-moving Hue ambient/club scene behavior.
+    assert.equal(lights.calls.filter((c) => c.path === "/signal").length, 0,
+      "analyzer must not send reactive Hue updates");
 
     const health = await (await fetch(`${server.baseUrl}/health`)).json();
     assert.equal(health.analyzer.fresh, true);

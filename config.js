@@ -58,6 +58,16 @@ const cfg = {
   PLAYLIST_RAP:  process.env.PLAYLIST_RAP  || "",
   PLAYLIST_RNB:  process.env.PLAYLIST_RNB  || "",
 
+  // Owner-approved music SOURCE playlists for each scheduled block.
+  // Exact Plex playlist titles separated by |. No inferred mapping based on
+  // genre/era/name, and no fallback to legacy PLAYLIST_* IDs for automation.
+  // Example only: MUSIC_POOL_LOUNGE="80s R&B|90s R&B".
+  // Leave empty until explicitly curated; missing playlists fail closed.
+  MUSIC_POOL_LOFI:   process.env.MUSIC_POOL_LOFI   || "",
+  MUSIC_POOL_LOUNGE: process.env.MUSIC_POOL_LOUNGE || "",
+  MUSIC_POOL_RAP:    process.env.MUSIC_POOL_RAP    || "",
+  MUSIC_POOL_RNB:    process.env.MUSIC_POOL_RNB    || "",
+
   // ── Skip-driven lateral steering (the brain) ───────────────────────────────
   // Within a time block, N consecutive skips walk you to a vibe-adjacent lane.
   // The time boundary still owns the big vertical shift (resets to anchor).

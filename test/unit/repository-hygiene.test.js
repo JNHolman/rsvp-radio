@@ -26,8 +26,12 @@ test("every static stylesheet and browser script referenced by the UI exists", (
 test("only the current solar/club lighting controller is loaded by production", () => {
   const server = read("server.js");
   assert.doesNotMatch(server, /lightTransition|planLightSync|_lastScheduledLightsMode|_lastLightBlendKey|_applyLightsScene/);
-  assert.match(server, /clubLights\.sceneTarget/);
-  assert.match(server, /ambientLight\.ambientTarget/);
+  // Current lighting uses irregular settled holds, not the legacy
+  // continuously interpolated club/ambient target controllers.
+  assert.match(server, /lightingCadence\.lightingTarget/);
+  assert.match(server, /clubLights\.hasScene/);
+  assert.match(server, /_ambientLast\?\.key === desired\.key/);
+  assert.doesNotMatch(server, /clubLights\.sceneTarget\(|ambientLight\.ambientTarget\(/);
   const html = read("public/index.html");
   assert.match(html, /\/tv-refined\.css/);
   assert.doesNotMatch(html, /\/tv-overlay\.css/);

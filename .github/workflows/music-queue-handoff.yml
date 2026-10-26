@@ -1,0 +1,54 @@
+name: Safe Music Queue Handoff
+on:
+  push:
+    branches:
+      - fix/music-queue-safe-handoffs-20261024
+  pull_request:
+    paths:
+      - server.js
+      - intelligence/queue-handoff.js
+      - intelligence/playlist-catalog.js
+      - intelligence/music-profile.js
+      - intelligence/library-intake.js
+      - intelligence/intake-ledger.js
+      - intelligence/intake-baseline.js
+      - config.js
+      - scripts/preflight-music-queue.js
+      - scripts/check-music-queue.js
+      - scripts/test-play-next.js
+      - scripts/audit-track-programming.js
+      - scripts/check-full-track-metadata.js
+      - test/unit/audit-track-programming.test.js
+      - test/unit/check-full-track-metadata.test.js
+      - test/unit/queue-handoff.test.js
+      - test/unit/playlist-catalog.test.js
+      - test/unit/music-profile.test.js
+      - test/unit/library-intake.test.js
+      - test/unit/intake-ledger.test.js
+      - test/unit/intake-baseline.test.js
+      - test/unit/playlist-controller.test.js
+      - test/unit/music-transition.test.js
+      - test/unit/rehearse-music-boundaries.test.js
+      - scripts/rehearse-music-boundaries.js
+      - scripts/inspect-bridge-tracks.js
+      - test/unit/inspect-bridge-tracks.test.js
+      - config/music-pools-20261025.proposed.env
+      - intelligence/music-transition.js
+      - shared/timeblocks.js
+      - .github/workflows/music-queue-handoff.yml
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Check syntax
+        run: node --check server.js && node --check intelligence/music-transition.js && node --check scripts/rehearse-music-boundaries.js && node --check scripts/inspect-bridge-tracks.js && node --check intelligence/queue-handoff.js && node --check intelligence/playlist-catalog.js && node --check intelligence/music-profile.js && node --check intelligence/library-intake.js && node --check intelligence/intake-ledger.js && node --check intelligence/intake-baseline.js && node --check scripts/preflight-music-queue.js && node --check scripts/check-music-queue.js && node --check scripts/test-play-next.js && node --check scripts/audit-track-programming.js && node --check scripts/check-full-track-metadata.js
+      - name: Focused queue and schedule tests
+        run: node --test test/unit/intake-baseline.test.js test/unit/intake-ledger.test.js test/unit/library-intake.test.js test/unit/music-profile.test.js test/unit/check-full-track-metadata.test.js test/unit/audit-track-programming.test.js test/unit/playlist-catalog.test.js test/unit/queue-handoff.test.js test/unit/playlist-controller.test.js test/unit/music-transition.test.js test/unit/rehearse-music-boundaries.test.js test/unit/inspect-bridge-tracks.test.js test/unit/blend-policy.test.js test/unit/plex-queue.test.js test/unit/automation-policy.test.js
+      - name: Full unit and integration suite (bounded)
+        run: timeout --signal=TERM --kill-after=10s 180s npm test

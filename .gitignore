@@ -12,3 +12,5 @@ data/*.tmp-*
 
 __pycache__/
 *.pyc
+# Local-only private intake baseline; never commit Plex library titles/IDs.
+data/intake-baseline.json
