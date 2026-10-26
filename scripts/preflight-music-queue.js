@@ -25,7 +25,7 @@ async function get(base, path, extra) {
   return parse.parse(await r.text())?.MediaContainer || {};
 }
 (async () => {
-  console.log("RSVP music queue compatibility — READ ONLY");
+  console.log("RSVP music queue compatibility — READ ONLY (supports exported draft MUSIC_POOL_* variables)");
   const tl = await get(plex, "/player/timeline/poll", {
     wait: 0, commandID: Date.now(), "X-Plex-Target-Client-Identifier": client || "",
   });
@@ -47,11 +47,14 @@ async function get(base, path, extra) {
   console.log("Audio playlists accessible to RSVP:", audio.length);
   for (const p of audio) console.log("  " + attr(p, "ratingKey") + ": " + title(p));
 
+  // A standalone draft preflight runs against the CURRENT production checkout,
+  // whose config.js may predate MUSIC_POOL_* support. Inspect exported proposed
+  // environment values directly without modifying config.js or production .env.
   const pools = {
-    morning: cfg.MUSIC_POOL_LOFI,
-    daytime: cfg.MUSIC_POOL_LOUNGE,
-    evening: cfg.MUSIC_POOL_RAP,
-    night: cfg.MUSIC_POOL_RNB,
+    morning: process.env.MUSIC_POOL_LOFI ?? cfg.MUSIC_POOL_LOFI,
+    daytime: process.env.MUSIC_POOL_LOUNGE ?? cfg.MUSIC_POOL_LOUNGE,
+    evening: process.env.MUSIC_POOL_RAP ?? cfg.MUSIC_POOL_RAP,
+    night: process.env.MUSIC_POOL_RNB ?? cfg.MUSIC_POOL_RNB,
   };
   console.log("\n===== AVAILABLE MUSIC PLAYLIST INVENTORY =====");
   for (const p of audio) {
@@ -70,11 +73,11 @@ async function get(base, path, extra) {
       console.log("  " + title(p) + " [" + id + "]: READ FAILED (" + e.message + ")");
     }
   }
-  console.log("\n===== APPROVED TIMEBLOCK MUSIC POOLS =====");
+  console.log("\n===== PROPOSED / CONFIGURED TIMEBLOCK MUSIC POOLS =====");
   for (const [name, configured] of Object.entries(pools)) {
     const names = String(configured || "").split("|").map(x => x.trim()).filter(Boolean);
     if (!names.length) {
-      console.log(name + ": no owner-approved sources assigned");
+      console.log(name + ": no music pool provided");
       continue;
     }
     for (const desired of names) {
